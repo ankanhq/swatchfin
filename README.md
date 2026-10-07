@@ -17,17 +17,17 @@
 
 ## Features
 
-Swatchfin is in active development. Features marked `in progress` are not available yet.
+Swatchfin is in active development.
 
-- **Name or URL in, brand guide out.** Give it `duolingo` or `https://www.duolingo.com` and it finds the official site itself. `in progress`
-- **Logo**: found in the page header, inline SVG, Open Graph image or favicon, with a download link. `in progress`
-- **Colour palette with roles**: primary, secondary, accent, background, text, link and more, taken from the computed styles of real page elements rather than guessed from a screenshot. `in progress`
-- **Contrast checks**: a WCAG contrast matrix for the palette, with AA/AAA badges. `in progress`
-- **Typography**: heading, body and UI fonts, weights and sizes, with live specimens. `in progress`
-- **Tone of voice**: traits, four tone spectrums and do/don't lists. Every claim is backed by an exact quote from the site. `in progress`
-- **Key messaging**: tagline, mission, value propositions and audience, each linked to the page it came from. `in progress`
-- **No invented data**: every quote is checked against the fetched text. If something can't be extracted, the guide says so with a warning instead of making it up. `in progress`
-- **Exports for other tools**: JSON, CSS custom properties, Tailwind config, W3C Design Tokens and a ready-to-paste "write in this brand's voice" prompt. Print-ready page for PDF. `in progress`
+- **Name or URL in, brand guide out.** Give it `duolingo` or `https://www.duolingo.com` and it finds the official site itself.
+- **Logo**: found in the page header, inline SVG, Open Graph image or favicon, with a download link.
+- **Colour palette with roles**: primary, secondary, accent, background, text, link and more, taken from the computed styles of real page elements rather than guessed from a screenshot.
+- **Contrast checks**: a WCAG contrast matrix for the palette, with AA/AAA badges.
+- **Typography**: heading, body and UI fonts, weights and sizes, with live specimens.
+- **Tone of voice**: traits, four tone spectrums and do/don't lists. Every claim is backed by an exact quote from the site.
+- **Key messaging**: tagline, mission, value propositions and audience, each linked to the page it came from.
+- **No invented data**: every quote is checked against the fetched text. If something can't be extracted, the guide says so with a warning instead of making it up.
+- **Exports for other tools**: JSON, CSS custom properties, Tailwind config, W3C Design Tokens and a ready-to-paste "write in this brand's voice" prompt. Print-ready page for PDF.
 
 ## How TinyFish is used
 
