@@ -28,3 +28,6 @@ Thumbs.db
 
 # Claude Code personal settings
 .claude/settings.local.json
+
+# Personal build notes (kept locally, not published)
+BUILD_PROMPTS.md
