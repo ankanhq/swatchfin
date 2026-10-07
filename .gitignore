@@ -1,0 +1,30 @@
+# Secrets: never commit real keys. Only the empty template is tracked.
+.env
+.env.*
+!.env.example
+
+# Generated brand guides (runtime data)
+backend/data/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Node (only used to pull Lucide icons, never shipped)
+node_modules/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Claude Code personal settings
+.claude/settings.local.json
