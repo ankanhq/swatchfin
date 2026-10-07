@@ -58,7 +58,7 @@ The backend serves the frontend as static files, so the whole app deploys as one
 
 ## Getting started
 
-**Requirements:** Python 3.11+, a [TinyFish](https://agent.tinyfish.ai) API key and an [Anthropic](https://console.anthropic.com) API key.
+**Requirements:** Python 3.11+, a TinyFish API key (free at [agent.tinyfish.ai](https://agent.tinyfish.ai)) and an [Anthropic API key](https://console.anthropic.com). Copy `.env.example` to `.env` and add your keys. Never commit `.env`.
 
 ```bash
 git clone https://github.com/ankanhq/swatchfin.git
