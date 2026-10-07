@@ -11,23 +11,23 @@
   Type a company name or paste a website URL. Swatchfin reads the live site and returns a structured, verified brand guide: logo, colour palette, typography, tone of voice and key messaging.
 </p>
 
-> **Status: early development (Phase 0 of 11).** The features below are what Swatchfin is being built to do. See the [roadmap](#roadmap) for progress.
->
-> Built for the TinyFish Student Bounty Drop 001, "Brand Guide Generator".
+<p align="center"><sub>Built for the TinyFish Student Bounty Drop 001, "Brand Guide Generator".</sub></p>
 
 ---
 
 ## Features
 
-- **Name or URL in, brand guide out.** Give it `duolingo` or `https://www.duolingo.com` and it finds the official site itself.
-- **Logo**: found in the page header, inline SVG, Open Graph image or favicon, with a download link.
-- **Colour palette with roles**: primary, secondary, accent, background, text, link and more, taken from the computed styles of real page elements rather than guessed from a screenshot.
-- **Contrast checks**: a WCAG contrast matrix for the palette, with AA/AAA badges.
-- **Typography**: heading, body and UI fonts, weights and sizes, with live specimens.
-- **Tone of voice**: traits, four tone spectrums and do/don't lists. Every claim is backed by an exact quote from the site.
-- **Key messaging**: tagline, mission, value propositions and audience, each linked to the page it came from.
-- **No invented data**: every quote is checked against the fetched text. If something can't be extracted, the guide says so with a warning instead of making it up.
-- **Exports for other tools**: JSON, CSS custom properties, Tailwind config, W3C Design Tokens and a ready-to-paste "write in this brand's voice" prompt. Print-ready page for PDF.
+Swatchfin is in active development. Features marked `in progress` are not available yet.
+
+- **Name or URL in, brand guide out.** Give it `duolingo` or `https://www.duolingo.com` and it finds the official site itself. `in progress`
+- **Logo**: found in the page header, inline SVG, Open Graph image or favicon, with a download link. `in progress`
+- **Colour palette with roles**: primary, secondary, accent, background, text, link and more, taken from the computed styles of real page elements rather than guessed from a screenshot. `in progress`
+- **Contrast checks**: a WCAG contrast matrix for the palette, with AA/AAA badges. `in progress`
+- **Typography**: heading, body and UI fonts, weights and sizes, with live specimens. `in progress`
+- **Tone of voice**: traits, four tone spectrums and do/don't lists. Every claim is backed by an exact quote from the site. `in progress`
+- **Key messaging**: tagline, mission, value propositions and audience, each linked to the page it came from. `in progress`
+- **No invented data**: every quote is checked against the fetched text. If something can't be extracted, the guide says so with a warning instead of making it up. `in progress`
+- **Exports for other tools**: JSON, CSS custom properties, Tailwind config, W3C Design Tokens and a ready-to-paste "write in this brand's voice" prompt. Print-ready page for PDF. `in progress`
 
 ## How TinyFish is used
 
@@ -43,8 +43,6 @@ Swatchfin uses three TinyFish APIs, and each one has a distinct job in the pipel
 name or URL → Search (resolve) → Fetch (homepage + sub-pages) → Browser (computed styles)
             → voice analysis → quote verification → BrandGuide JSON + page + exports
 ```
-
-A full write-up will live in [`docs/how-tinyfish-is-used.md`](docs/) and on the app's About page.
 
 ## Tech stack
 
@@ -68,32 +66,10 @@ cd swatchfin
 cp .env.example .env   # then add your keys to .env (it is git-ignored)
 ```
 
-Install and run instructions will be added in Phase 4, when the backend lands.
-
-## Project structure
-
-```
-swatchfin/
-├── frontend/   static site: pages, CSS design system, JS modules, brand assets
-├── backend/    FastAPI app: TinyFish clients, extraction pipeline, exporters, tests
-└── docs/       how TinyFish is used, screenshots
-```
-
-## Roadmap
-
-- [x] **Phase 0:** Repo setup
-- [ ] **Phase 1:** Design system, header/footer, theme toggle, landing page
-- [ ] **Phase 2:** Brand guide result page (rendered from a fictional mock brand)
-- [ ] **Phase 3:** Progress view, error and empty states, About page, 404, print stylesheet, accessibility pass
-- [ ] **Phase 4:** FastAPI backend, schemas, job system; frontend connected to the real API
-- [ ] **Phase 5:** TinyFish Search + Fetch: resolve, homepage parsing, logo, page discovery
-- [ ] **Phase 6:** TinyFish Browser: computed colours and fonts
-- [ ] **Phase 7:** Tone of voice and messaging, with quote verification and contrast checks
-- [ ] **Phase 8:** Exports: JSON, CSS, Tailwind, Design Tokens, voice prompt
-- [ ] **Phase 9:** Testing on 10+ real websites
-- [ ] **Phase 10:** Deploy, screenshots, demo on 3+ brands
-- [ ] **Phase 11:** Bounty submission
+Install and run instructions are coming soon.
 
 ## License
 
 [MIT](LICENSE) © 2026 Ankan Chowdhury
+
+The Swatchfin name and logo are not covered by the MIT licence.
