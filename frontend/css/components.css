@@ -1,0 +1,410 @@
+/* ==========================================================================
+   Swatchfin components
+   1. Bootstrap overrides (all of them live here)
+   2. Theme helpers
+   3. Layout container
+   4. Icons
+   5. Buttons
+   6. Site header and navigation
+   7. Site footer
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Bootstrap overrides
+   Point Bootstrap's own variables at our tokens, so its grid, utilities and
+   any components we use follow the Swatchfin theme (light and dark).
+   Loaded after bootstrap.min.css, so this :root wins.
+   -------------------------------------------------------------------------- */
+:root {
+  --bs-font-sans-serif: var(--sf-font-sans);
+  --bs-font-monospace: var(--sf-font-mono);
+  --bs-body-font-family: var(--sf-font-sans);
+  --bs-body-font-size: var(--sf-text-base);
+  --bs-body-line-height: var(--sf-leading-normal);
+  --bs-body-color: var(--sf-color-text);
+  --bs-body-bg: var(--sf-color-bg);
+  --bs-emphasis-color: var(--sf-color-text);
+  --bs-secondary-color: var(--sf-color-text-muted);
+  --bs-secondary-bg: var(--sf-color-surface-subtle);
+  --bs-tertiary-color: var(--sf-color-text-muted);
+  --bs-tertiary-bg: var(--sf-color-surface-subtle);
+  --bs-heading-color: var(--sf-color-text);
+  --bs-link-color: var(--sf-color-link);
+  --bs-link-hover-color: var(--sf-color-link-hover);
+  --bs-border-color: var(--sf-color-border);
+  --bs-border-radius: var(--sf-radius-md);
+  --bs-border-radius-sm: var(--sf-radius-sm);
+  --bs-border-radius-lg: var(--sf-radius-lg);
+  --bs-border-radius-xl: var(--sf-radius-xl);
+  --bs-border-radius-pill: var(--sf-radius-pill);
+  --bs-focus-ring-color: var(--sf-color-focus);
+}
+
+/* --------------------------------------------------------------------------
+   2. Theme helpers
+   .sf-only-light / .sf-only-dark show an element in one theme only
+   (used for the logo and the theme toggle icons). The rules mirror the
+   theme logic in tokens.css: an explicit choice wins, otherwise the system.
+   -------------------------------------------------------------------------- */
+:root[data-theme="light"] .sf-only-dark,
+:root[data-theme="dark"] .sf-only-light {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .sf-only-light {
+    display: none;
+  }
+}
+
+@media not (prefers-color-scheme: dark) {
+  :root:not([data-theme="dark"]) .sf-only-dark {
+    display: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   3. Layout container
+   Fluid up to 1200px of content, with 16px (mobile) to 32px side padding.
+   Bootstrap .row / .col-* work inside it.
+   -------------------------------------------------------------------------- */
+.sf-container {
+  width: 100%;
+  max-width: calc(var(--sf-container-max) + 2 * var(--sf-gutter));
+  margin-inline: auto;
+  padding-inline: var(--sf-gutter);
+}
+
+/* --------------------------------------------------------------------------
+   4. Icons (Lucide sprite)
+   <svg class="sf-icon" aria-hidden="true" focusable="false">
+     <use href="assets/icons/icons.svg#search"></use>
+   </svg>
+   One stroke width everywhere. Sizes: 16, 20 (default) and 24px only.
+   -------------------------------------------------------------------------- */
+.sf-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  vertical-align: -0.3em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sf-icon--16 {
+  width: 1rem;
+  height: 1rem;
+  vertical-align: -0.175em;
+}
+
+.sf-icon--24 {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+/* --------------------------------------------------------------------------
+   5. Buttons
+   .sf-btn + one variant: --primary (coral, ink text), --secondary (outlined),
+   --ghost (no background). Sizes: --sm, default, --lg. --icon makes it square.
+   Works on <button> and <a>.
+   -------------------------------------------------------------------------- */
+.sf-btn {
+  --sf-btn-height: 2.5rem;
+  --sf-btn-padding-x: var(--sf-space-4);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sf-space-2);
+  min-height: var(--sf-btn-height);
+  padding: 0 var(--sf-btn-padding-x);
+  font-family: var(--sf-font-sans);
+  font-size: var(--sf-text-sm);
+  font-weight: var(--sf-weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  color: var(--sf-color-text);
+  background-color: transparent;
+  border: var(--sf-border-width) solid transparent;
+  border-radius: var(--sf-radius-md);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    color var(--sf-duration-fast) var(--sf-ease-out),
+    background-color var(--sf-duration-fast) var(--sf-ease-out),
+    border-color var(--sf-duration-fast) var(--sf-ease-out);
+}
+
+.sf-btn:hover {
+  color: var(--sf-color-text);
+}
+
+.sf-btn:disabled,
+.sf-btn[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sf-btn--primary,
+.sf-btn--primary:hover {
+  color: var(--sf-color-on-accent);
+}
+
+.sf-btn--primary {
+  background-color: var(--sf-color-accent);
+}
+
+.sf-btn--primary:hover {
+  background-color: var(--sf-color-accent-hover);
+}
+
+.sf-btn--secondary {
+  background-color: var(--sf-color-surface);
+  border-color: var(--sf-color-border-strong);
+  box-shadow: var(--sf-shadow-sm);
+}
+
+.sf-btn--secondary:hover {
+  background-color: var(--sf-color-surface-subtle);
+  border-color: var(--sf-color-border-input);
+}
+
+.sf-btn--ghost {
+  color: var(--sf-color-text-muted);
+}
+
+.sf-btn--ghost:hover {
+  background-color: var(--sf-color-surface-subtle);
+}
+
+.sf-btn--sm {
+  --sf-btn-height: 2rem;
+  --sf-btn-padding-x: var(--sf-space-3);
+}
+
+.sf-btn--lg {
+  --sf-btn-height: 3rem;
+  --sf-btn-padding-x: var(--sf-space-5);
+  font-size: var(--sf-text-base);
+}
+
+.sf-btn--icon {
+  width: var(--sf-btn-height);
+  padding: 0;
+}
+
+/* --------------------------------------------------------------------------
+   6. Site header and navigation
+   Sticky, slightly see-through bar. On phones (< 576px) the in-page links
+   ("How it works", "Features") hide; About, GitHub and the toggle stay.
+   -------------------------------------------------------------------------- */
+.sf-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--sf-z-sticky);
+  background-color: var(--sf-color-bg-translucent);
+  border-bottom: var(--sf-border-width) solid var(--sf-color-border);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  backdrop-filter: saturate(180%) blur(12px);
+}
+
+.sf-header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sf-space-4);
+  height: var(--sf-header-height);
+}
+
+.sf-header__brand {
+  display: inline-flex;
+  flex-shrink: 0;
+  border-radius: var(--sf-radius-sm);
+}
+
+/* The lockup is 212 x 64; shown at 32px tall. */
+.sf-logo {
+  display: block;
+  width: auto;
+  height: 2rem;
+}
+
+.sf-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--sf-space-2);
+}
+
+.sf-nav__list {
+  display: flex;
+  align-items: center;
+  gap: var(--sf-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sf-nav__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sf-space-1);
+  min-height: 2.25rem;
+  padding: 0 var(--sf-space-3);
+  font-size: var(--sf-text-sm);
+  font-weight: var(--sf-weight-medium);
+  color: var(--sf-color-text-muted);
+  text-decoration: none;
+  border-radius: var(--sf-radius-sm);
+  transition:
+    color var(--sf-duration-fast) var(--sf-ease-out),
+    background-color var(--sf-duration-fast) var(--sf-ease-out);
+}
+
+.sf-nav__link:hover,
+.sf-nav__link[aria-current="page"] {
+  color: var(--sf-color-text);
+}
+
+.sf-nav__link:hover {
+  background-color: var(--sf-color-surface-subtle);
+}
+
+@media (max-width: 575.98px) {
+  .sf-nav__item--secondary {
+    display: none;
+  }
+
+  .sf-nav__link {
+    padding: 0 var(--sf-space-2);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   7. Site footer
+   -------------------------------------------------------------------------- */
+.sf-footer {
+  padding: var(--sf-space-16) 0 var(--sf-space-8);
+  font-size: var(--sf-text-sm);
+  color: var(--sf-color-text-muted);
+  background-color: var(--sf-color-surface-subtle);
+  border-top: var(--sf-border-width) solid var(--sf-color-border);
+}
+
+.sf-footer__top {
+  display: grid;
+  gap: var(--sf-space-10);
+}
+
+@media (min-width: 768px) {
+  .sf-footer__top {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+.sf-footer__brand {
+  max-width: 22rem;
+}
+
+.sf-footer__logo {
+  display: inline-flex;
+  margin-bottom: var(--sf-space-3);
+  border-radius: var(--sf-radius-sm);
+}
+
+.sf-footer__tagline {
+  margin-bottom: var(--sf-space-5);
+}
+
+/* "Powered by TinyFish" pill */
+.sf-footer__powered {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sf-space-2);
+  padding: var(--sf-space-1) var(--sf-space-3);
+  font-size: var(--sf-text-xs);
+  font-weight: var(--sf-weight-medium);
+  color: var(--sf-color-text);
+  text-decoration: none;
+  background-color: var(--sf-color-surface);
+  border: var(--sf-border-width) solid var(--sf-color-border);
+  border-radius: var(--sf-radius-pill);
+  transition: border-color var(--sf-duration-fast) var(--sf-ease-out);
+}
+
+.sf-footer__powered:hover {
+  color: var(--sf-color-text);
+  border-color: var(--sf-color-border-input);
+}
+
+/* Small coral dot before "Powered by TinyFish" */
+.sf-footer__powered::before {
+  content: "";
+  width: 0.375rem;
+  height: 0.375rem;
+  background-color: var(--sf-color-accent);
+  border-radius: 50%;
+}
+
+.sf-footer__nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(8rem, auto));
+  gap: var(--sf-space-8) var(--sf-space-16);
+}
+
+.sf-footer__heading {
+  margin-bottom: var(--sf-space-3);
+  font-family: var(--sf-font-sans);
+  font-size: var(--sf-text-xs);
+  font-weight: var(--sf-weight-semibold);
+  letter-spacing: var(--sf-tracking-caps);
+  text-transform: uppercase;
+  color: var(--sf-color-text);
+}
+
+.sf-footer__list {
+  display: grid;
+  gap: var(--sf-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sf-footer__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sf-space-1);
+  color: var(--sf-color-text-muted);
+  text-decoration: none;
+}
+
+.sf-footer__link:hover {
+  color: var(--sf-color-text);
+  text-decoration: underline;
+}
+
+.sf-footer__bottom {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--sf-space-2) var(--sf-space-6);
+  margin-top: var(--sf-space-12);
+  padding-top: var(--sf-space-6);
+  border-top: var(--sf-border-width) solid var(--sf-color-border);
+}
+
+.sf-footer__bottom p {
+  margin: 0;
+}
+
+.sf-footer__bottom a {
+  color: inherit;
+}
+
+.sf-footer__bottom a:hover {
+  color: var(--sf-color-text);
+}

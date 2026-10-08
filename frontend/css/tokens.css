@@ -1,0 +1,239 @@
+/* ==========================================================================
+   Swatchfin design tokens
+   Every colour, size and timing in the UI comes from this file.
+   Layer 1: primitives (raw brand values). Layer 2: semantic roles that
+   components use (--sf-color-text, --sf-color-surface ...). Dark mode only
+   swaps the semantic layer.
+   Contrast of the semantic pairs is checked by `npm run contrast`.
+   ========================================================================== */
+
+:root {
+  /* ---- Brand primitives (from the logo) ---- */
+  --sf-ink: #0b0f19;
+  --sf-paper: #fafaf7;
+  --sf-white: #ffffff;
+
+  /* Greys are mixes of paper and ink, so they sit naturally with both. */
+  --sf-grey-50: #f2f2ef;
+  --sf-grey-100: #eaebe9;
+  --sf-grey-200: #e0e0df;
+  --sf-grey-300: #c5c6c6;
+  --sf-grey-400: #9fa1a3;
+  --sf-grey-500: #7e8084;
+  --sf-grey-600: #5c5f64;
+  --sf-grey-700: #42454c;
+  --sf-grey-800: #2c3038;
+  --sf-grey-900: #1e222b;
+  --sf-grey-950: #161a23;
+
+  /* Coral: 500 is the brand colour. It is too light for text on paper
+     (2.98:1), so small text and links use 700 (light) or 400 (dark). */
+  --sf-coral-50: #fff4f0;
+  --sf-coral-100: #ffe5db;
+  --sf-coral-300: #ffa585;
+  --sf-coral-400: #ff8052;
+  --sf-coral-500: #ff5a1f;
+  --sf-coral-600: #ec4d13;
+  --sf-coral-700: #c03c0c;
+  --sf-coral-800: #9c330d;
+
+  /* Amber: highlights and decoration only, never text on paper (1.75:1). */
+  --sf-amber-100: #ffeecc;
+  --sf-amber-500: #ffb020;
+
+  /* ---- Typography ---- */
+  --sf-font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --sf-font-display: "Inter Tight", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --sf-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Type scale: major third (x1.25) from 16px. The two largest steps grow
+     with the viewport between 360px and 1440px. */
+  --sf-text-xs: 0.75rem;     /* 12px */
+  --sf-text-sm: 0.875rem;    /* 14px */
+  --sf-text-base: 1rem;      /* 16px */
+  --sf-text-md: 1.125rem;    /* 18px */
+  --sf-text-lg: 1.25rem;     /* 20px */
+  --sf-text-xl: 1.5625rem;   /* 25px */
+  --sf-text-2xl: 1.953rem;   /* 31px */
+  --sf-text-3xl: clamp(1.953rem, 1.65rem + 1.1vw, 2.441rem);  /* 31 → 39px */
+  --sf-text-4xl: clamp(2.25rem, 1.6rem + 2.9vw, 3.815rem);    /* 36 → 61px */
+
+  --sf-weight-regular: 400;
+  --sf-weight-medium: 500;
+  --sf-weight-semibold: 600;
+
+  --sf-leading-tight: 1.1;
+  --sf-leading-snug: 1.3;
+  --sf-leading-normal: 1.6;
+
+  --sf-tracking-display: -0.03em;
+  --sf-tracking-heading: -0.015em;
+  --sf-tracking-caps: 0.06em;
+
+  /* ---- Spacing: 4px base. The name is the multiple of 4px. ---- */
+  --sf-space-1: 0.25rem;   /* 4px */
+  --sf-space-2: 0.5rem;    /* 8px */
+  --sf-space-3: 0.75rem;   /* 12px */
+  --sf-space-4: 1rem;      /* 16px */
+  --sf-space-5: 1.25rem;   /* 20px */
+  --sf-space-6: 1.5rem;    /* 24px */
+  --sf-space-8: 2rem;      /* 32px */
+  --sf-space-10: 2.5rem;   /* 40px */
+  --sf-space-12: 3rem;     /* 48px */
+  --sf-space-16: 4rem;     /* 64px */
+  --sf-space-20: 5rem;     /* 80px */
+  --sf-space-24: 6rem;     /* 96px */
+  --sf-space-32: 8rem;     /* 128px */
+
+  /* ---- Layout ---- */
+  --sf-container-max: 75rem;                 /* 1200px of content */
+  --sf-gutter: clamp(1rem, 0.6rem + 1.8vw, 2rem); /* 16px → 32px side padding */
+  --sf-header-height: 4rem;                  /* 64px */
+  --sf-section-space: clamp(4rem, 2.8rem + 5vw, 7.5rem); /* 64 → 120px between sections */
+
+  /* ---- Radii ---- */
+  --sf-radius-xs: 4px;
+  --sf-radius-sm: 6px;
+  --sf-radius-md: 8px;
+  --sf-radius-lg: 12px;
+  --sf-radius-xl: 16px;
+  --sf-radius-pill: 999px;
+
+  /* ---- Borders ---- */
+  --sf-border-width: 1px;
+  --sf-focus-width: 2px;
+  --sf-focus-offset: 2px;
+
+  /* ---- Layers (z-index) ---- */
+  --sf-z-raised: 10;
+  --sf-z-sticky: 100;
+  --sf-z-dropdown: 200;
+  --sf-z-overlay: 300;
+  --sf-z-modal: 400;
+  --sf-z-toast: 500;
+  --sf-z-skip-link: 600;
+
+  /* ---- Motion ---- */
+  --sf-duration-fast: 120ms;
+  --sf-duration-base: 200ms;
+  --sf-duration-slow: 320ms;
+  --sf-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --sf-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ---- Semantic colours: light theme (default) ---- */
+  color-scheme: light;
+  --sf-color-bg: var(--sf-paper);
+  --sf-color-bg-translucent: rgb(250 250 247 / 0.85);
+  --sf-color-surface: var(--sf-white);
+  --sf-color-surface-subtle: var(--sf-grey-50);
+  --sf-color-text: var(--sf-ink);
+  --sf-color-text-muted: var(--sf-grey-600);
+  --sf-color-text-inverse: var(--sf-paper);
+  --sf-color-border: var(--sf-grey-200);
+  --sf-color-border-strong: var(--sf-grey-300);
+  --sf-color-border-input: var(--sf-grey-500);
+  --sf-color-accent: var(--sf-coral-500);
+  --sf-color-accent-hover: var(--sf-coral-600);
+  --sf-color-on-accent: var(--sf-ink);
+  --sf-color-accent-text: var(--sf-coral-700);
+  --sf-color-accent-subtle: var(--sf-coral-50);
+  --sf-color-link: var(--sf-coral-700);
+  --sf-color-link-hover: var(--sf-coral-800);
+  --sf-color-highlight: var(--sf-amber-500);
+  --sf-color-selection: var(--sf-amber-100);
+  --sf-color-focus: var(--sf-coral-700);
+  --sf-color-success: #117446;
+  --sf-color-success-subtle: #e4f6ed;
+  --sf-color-warning: #964f08;
+  --sf-color-warning-subtle: #fff1d1;
+  --sf-color-danger: #bd1f34;
+  --sf-color-danger-subtle: #ffebed;
+
+  --sf-shadow-sm: 0 1px 2px rgb(11 15 25 / 0.06);
+  --sf-shadow-md: 0 1px 2px rgb(11 15 25 / 0.04), 0 4px 12px rgb(11 15 25 / 0.06);
+  --sf-shadow-lg: 0 2px 4px rgb(11 15 25 / 0.04), 0 12px 32px rgb(11 15 25 / 0.1);
+}
+
+/* ---- Semantic colours: dark theme ----
+   Used when the visitor picks dark with the toggle (data-theme="dark"),
+   or when their system is dark and they have not picked light.
+   The two blocks below must stay identical; `npm run contrast` checks this. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --sf-color-bg: var(--sf-ink);
+  --sf-color-bg-translucent: rgb(11 15 25 / 0.8);
+  --sf-color-surface: var(--sf-grey-950);
+  --sf-color-surface-subtle: var(--sf-grey-900);
+  --sf-color-text: var(--sf-paper);
+  --sf-color-text-muted: var(--sf-grey-400);
+  --sf-color-text-inverse: var(--sf-ink);
+  --sf-color-border: var(--sf-grey-800);
+  --sf-color-border-strong: var(--sf-grey-700);
+  --sf-color-border-input: var(--sf-grey-500);
+  --sf-color-accent: var(--sf-coral-500);
+  --sf-color-accent-hover: var(--sf-coral-400);
+  --sf-color-on-accent: var(--sf-ink);
+  --sf-color-accent-text: var(--sf-coral-400);
+  --sf-color-accent-subtle: #2d1a1a;
+  --sf-color-link: var(--sf-coral-400);
+  --sf-color-link-hover: var(--sf-coral-300);
+  --sf-color-highlight: var(--sf-amber-500);
+  --sf-color-selection: #60471b;
+  --sf-color-focus: var(--sf-coral-400);
+  --sf-color-success: #59cf94;
+  --sf-color-success-subtle: #162a2a;
+  --sf-color-warning: #ffbe3d;
+  --sf-color-warning-subtle: #2d281e;
+  --sf-color-danger: #fb7486;
+  --sf-color-danger-subtle: #2d1d28;
+
+  --sf-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+  --sf-shadow-md: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.25);
+  --sf-shadow-lg: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 32px rgb(0 0 0 / 0.4);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --sf-color-bg: var(--sf-ink);
+    --sf-color-bg-translucent: rgb(11 15 25 / 0.8);
+    --sf-color-surface: var(--sf-grey-950);
+    --sf-color-surface-subtle: var(--sf-grey-900);
+    --sf-color-text: var(--sf-paper);
+    --sf-color-text-muted: var(--sf-grey-400);
+    --sf-color-text-inverse: var(--sf-ink);
+    --sf-color-border: var(--sf-grey-800);
+    --sf-color-border-strong: var(--sf-grey-700);
+    --sf-color-border-input: var(--sf-grey-500);
+    --sf-color-accent: var(--sf-coral-500);
+    --sf-color-accent-hover: var(--sf-coral-400);
+    --sf-color-on-accent: var(--sf-ink);
+    --sf-color-accent-text: var(--sf-coral-400);
+    --sf-color-accent-subtle: #2d1a1a;
+    --sf-color-link: var(--sf-coral-400);
+    --sf-color-link-hover: var(--sf-coral-300);
+    --sf-color-highlight: var(--sf-amber-500);
+    --sf-color-selection: #60471b;
+    --sf-color-focus: var(--sf-coral-400);
+    --sf-color-success: #59cf94;
+    --sf-color-success-subtle: #162a2a;
+    --sf-color-warning: #ffbe3d;
+    --sf-color-warning-subtle: #2d281e;
+    --sf-color-danger: #fb7486;
+    --sf-color-danger-subtle: #2d1d28;
+
+    --sf-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+    --sf-shadow-md: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.25);
+    --sf-shadow-lg: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 32px rgb(0 0 0 / 0.4);
+  }
+}
+
+/* Visitors who ask for less motion get instant transitions everywhere,
+   because every transition in the UI uses these duration tokens. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --sf-duration-fast: 0ms;
+    --sf-duration-base: 0ms;
+    --sf-duration-slow: 0ms;
+  }
+}
