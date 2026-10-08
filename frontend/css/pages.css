@@ -1,0 +1,34 @@
+/* ==========================================================================
+   Swatchfin page styles
+   Layout that belongs to one page only. Shared pieces live in components.css.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Landing page (index.html)
+   -------------------------------------------------------------------------- */
+
+/* ---- Hero ---- */
+.sf-hero {
+  padding-block: var(--sf-space-20) var(--sf-section-space);
+}
+
+.sf-hero__eyebrow {
+  margin-bottom: var(--sf-space-5);
+  font-size: var(--sf-text-sm);
+  font-weight: var(--sf-weight-medium);
+  color: var(--sf-color-text-muted);
+}
+
+.sf-hero__title {
+  max-width: 15ch;
+  margin-bottom: var(--sf-space-6);
+  font-size: var(--sf-text-4xl);
+  line-height: 1.05;
+  letter-spacing: var(--sf-tracking-display);
+}
+
+.sf-hero__lead {
+  max-width: 36rem;
+  font-size: var(--sf-text-md);
+  color: var(--sf-color-text-muted);
+}
