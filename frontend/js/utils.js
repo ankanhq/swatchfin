@@ -6,8 +6,13 @@
 /** Longest query we accept: a company name or one URL. */
 export const MAX_QUERY_LENGTH = 200;
 
-/** Path to the Lucide icon sprite, relative to the pages in /frontend. */
-const ICON_SPRITE = 'assets/icons/icons.svg';
+/**
+ * Full address of the Lucide icon sprite. It is worked out from where this
+ * file lives (js/utils.js -> assets/icons/icons.svg), not from the page's
+ * address, so icons also load on the 404 page, which the server can show
+ * at any address, such as /some/old/link.
+ */
+const ICON_SPRITE = new URL('../assets/icons/icons.svg', import.meta.url).href;
 
 // "https://..." or "http://..." (any scheme followed by //).
 const HAS_SCHEME = /^[a-z][a-z0-9+.-]*:\/\//i;
