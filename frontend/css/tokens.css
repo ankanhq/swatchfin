@@ -149,6 +149,14 @@
   --sf-color-danger: #bd1f34;
   --sf-color-danger-subtle: #ffebed;
 
+  /* Inverted band (the call-to-action strip): ink in light mode, a lifted
+     dark surface in dark mode. Text, muted text and focus are the same in
+     both themes, so only --sf-color-band changes below. */
+  --sf-color-band: var(--sf-ink);
+  --sf-color-on-band: var(--sf-paper);
+  --sf-color-on-band-muted: var(--sf-grey-400);
+  --sf-color-band-focus: var(--sf-coral-400);
+
   --sf-shadow-sm: 0 1px 2px rgb(11 15 25 / 0.06);
   --sf-shadow-md: 0 1px 2px rgb(11 15 25 / 0.04), 0 4px 12px rgb(11 15 25 / 0.06);
   --sf-shadow-lg: 0 2px 4px rgb(11 15 25 / 0.04), 0 12px 32px rgb(11 15 25 / 0.1);
@@ -186,6 +194,7 @@
   --sf-color-warning-subtle: #2d281e;
   --sf-color-danger: #fb7486;
   --sf-color-danger-subtle: #2d1d28;
+  --sf-color-band: var(--sf-grey-950);
 
   --sf-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
   --sf-shadow-md: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.25);
@@ -221,6 +230,7 @@
     --sf-color-warning-subtle: #2d281e;
     --sf-color-danger: #fb7486;
     --sf-color-danger-subtle: #2d1d28;
+  --sf-color-band: var(--sf-grey-950);
 
     --sf-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
     --sf-shadow-md: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.25);

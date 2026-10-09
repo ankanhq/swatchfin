@@ -9,7 +9,13 @@
 
 /* ---- Hero ---- */
 .sf-hero {
-  padding-block: var(--sf-space-20) var(--sf-section-space);
+  padding-block: var(--sf-space-12) var(--sf-section-space);
+}
+
+@media (min-width: 992px) {
+  .sf-hero {
+    padding-top: var(--sf-space-20);
+  }
 }
 
 .sf-hero__eyebrow {
@@ -29,6 +35,376 @@
 
 .sf-hero__lead {
   max-width: 36rem;
+  margin-bottom: var(--sf-space-10);
   font-size: var(--sf-text-md);
   color: var(--sf-color-text-muted);
+}
+
+/* ---- Example guide card (fictional brand, hero right side) ----
+   The --nw-* values belong to the made-up Northwind Roasters brand,
+   not to Swatchfin. They only exist inside this card. */
+.sf-example {
+  margin: 0;
+}
+
+.sf-example__card {
+  --nw-espresso: #2b1d16;
+  --nw-kiln: #b5532a;
+  --nw-oat: #f3ece2;
+  --nw-sage: #5f7a63;
+  --nw-slate: #6b6259;
+  --nw-font-heading: "Fraunces", Georgia, "Times New Roman", serif;
+
+  padding: var(--sf-space-4);
+  background-color: var(--sf-color-surface);
+  border: var(--sf-border-width) solid var(--sf-color-border);
+  border-radius: var(--sf-radius-xl);
+  box-shadow: var(--sf-shadow-lg);
+}
+
+@media (min-width: 576px) {
+  .sf-example__card {
+    padding: var(--sf-space-6);
+  }
+}
+
+.sf-example__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sf-space-3);
+  margin-bottom: var(--sf-space-5);
+}
+
+.sf-example__topbar-note {
+  font-size: var(--sf-text-xs);
+  color: var(--sf-color-text-muted);
+}
+
+.sf-example__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sf-space-3);
+  margin-bottom: var(--sf-space-5);
+  padding-bottom: var(--sf-space-5);
+  border-bottom: var(--sf-border-width) solid var(--sf-color-border);
+}
+
+/* Logo placeholder: a monogram tile in the example brand's colours. */
+.sf-example__logo {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  font-family: var(--nw-font-heading);
+  font-size: var(--sf-text-xl);
+  font-weight: var(--sf-weight-semibold);
+  line-height: 1;
+  color: var(--nw-oat);
+  background-color: var(--nw-espresso);
+  border-radius: var(--sf-radius-md);
+  /* Hairline edge so the dark tile stays visible on a dark card. */
+  box-shadow: inset 0 0 0 var(--sf-border-width) var(--sf-color-border);
+}
+
+.sf-example__name {
+  margin: 0;
+  font-family: var(--sf-font-display);
+  font-size: var(--sf-text-md);
+  font-weight: var(--sf-weight-semibold);
+  line-height: var(--sf-leading-snug);
+}
+
+.sf-example__domain {
+  margin: 0;
+  font-family: var(--sf-font-mono);
+  font-variant-ligatures: none;
+  font-size: var(--sf-text-xs);
+  color: var(--sf-color-text-muted);
+}
+
+.sf-example__group + .sf-example__group {
+  margin-top: var(--sf-space-5);
+}
+
+.sf-example__label {
+  margin-bottom: var(--sf-space-3);
+  font-size: var(--sf-text-xs);
+  font-weight: var(--sf-weight-semibold);
+  letter-spacing: var(--sf-tracking-caps);
+  text-transform: uppercase;
+  color: var(--sf-color-text-muted);
+}
+
+/* Five swatches in a row, each with its role and hex code. */
+.sf-example__swatches {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--sf-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sf-example__color {
+  display: block;
+  aspect-ratio: 1;
+  border-radius: var(--sf-radius-sm);
+  box-shadow: inset 0 0 0 var(--sf-border-width) var(--sf-color-border);
+}
+
+.sf-example__color--espresso { background-color: var(--nw-espresso); }
+.sf-example__color--kiln { background-color: var(--nw-kiln); }
+.sf-example__color--oat { background-color: var(--nw-oat); }
+.sf-example__color--sage { background-color: var(--nw-sage); }
+.sf-example__color--slate { background-color: var(--nw-slate); }
+
+.sf-example__role {
+  display: block;
+  margin-top: var(--sf-space-2);
+  font-size: var(--sf-text-xs);
+  font-weight: var(--sf-weight-medium);
+  line-height: var(--sf-leading-snug);
+}
+
+.sf-example__hex {
+  display: block;
+  font-family: var(--sf-font-mono);
+  font-variant-ligatures: none;
+  font-size: var(--sf-text-xs);
+  line-height: var(--sf-leading-snug);
+  color: var(--sf-color-text-muted);
+}
+
+/* Two font specimens side by side when each gets at least 160px,
+   otherwise stacked (narrow phones). */
+.sf-example__fonts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--sf-space-2);
+}
+
+.sf-example__font {
+  display: flex;
+  align-items: center;
+  gap: var(--sf-space-3);
+  padding: var(--sf-space-3);
+  background-color: var(--sf-color-surface-subtle);
+  border-radius: var(--sf-radius-md);
+}
+
+.sf-example__aa {
+  flex-shrink: 0;
+  font-size: var(--sf-text-2xl);
+  line-height: 1;
+}
+
+.sf-example__aa--heading {
+  font-family: var(--nw-font-heading);
+  font-weight: var(--sf-weight-semibold);
+}
+
+.sf-example__aa--body {
+  font-family: var(--sf-font-sans);
+  font-weight: var(--sf-weight-regular);
+}
+
+.sf-example__font-name {
+  margin: 0;
+  font-size: var(--sf-text-sm);
+  font-weight: var(--sf-weight-semibold);
+  line-height: var(--sf-leading-snug);
+}
+
+.sf-example__font-meta {
+  margin: 0;
+  font-size: var(--sf-text-xs);
+  color: var(--sf-color-text-muted);
+}
+
+/* Voice traits: name, then a one-line description. */
+.sf-example__traits {
+  display: grid;
+  gap: var(--sf-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--sf-text-sm);
+}
+
+.sf-example__trait-name {
+  margin-right: var(--sf-space-2);
+  font-weight: var(--sf-weight-semibold);
+}
+
+.sf-example__trait-text {
+  color: var(--sf-color-text-muted);
+}
+
+.sf-example__caption {
+  margin-top: var(--sf-space-4);
+  font-size: var(--sf-text-xs);
+  color: var(--sf-color-text-muted);
+}
+
+/* ---- How it works: four steps joined by a line ----
+   Phones: a vertical timeline. 992px and up: four columns in a row. */
+.sf-steps {
+  --sf-step-marker: 2.5rem;
+
+  display: grid;
+  gap: var(--sf-space-10);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sf-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--sf-space-4);
+}
+
+.sf-step__marker {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--sf-step-marker);
+  height: var(--sf-step-marker);
+  color: var(--sf-color-text);
+  background-color: var(--sf-color-surface);
+  border: var(--sf-border-width) solid var(--sf-color-border-strong);
+  border-radius: var(--sf-radius-md);
+}
+
+.sf-step__api {
+  margin-bottom: var(--sf-space-1);
+  font-size: var(--sf-text-xs);
+  font-weight: var(--sf-weight-semibold);
+  letter-spacing: var(--sf-tracking-caps);
+  text-transform: uppercase;
+  color: var(--sf-color-accent-text);
+}
+
+/* Step 4 is Swatchfin's own work, not a TinyFish API. */
+.sf-step__api--own {
+  color: var(--sf-color-text-muted);
+}
+
+.sf-step__title {
+  margin-bottom: var(--sf-space-2);
+  font-size: var(--sf-text-md);
+}
+
+.sf-step__text {
+  margin: 0;
+  font-size: var(--sf-text-sm);
+  color: var(--sf-color-text-muted);
+}
+
+/* The connecting line, drawn from each marker to the next one. */
+.sf-step:not(:last-child)::after {
+  position: absolute;
+  top: calc(var(--sf-step-marker) + var(--sf-space-2));
+  bottom: calc(var(--sf-space-2) - var(--sf-space-10));
+  left: calc(var(--sf-step-marker) / 2 - 0.5px);
+  width: 1px;
+  content: "";
+  background-color: var(--sf-color-border-strong);
+}
+
+@media (min-width: 992px) {
+  .sf-steps {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--sf-space-8);
+  }
+
+  .sf-step {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--sf-space-5);
+  }
+
+  .sf-step:not(:last-child)::after {
+    top: calc(var(--sf-step-marker) / 2 - 0.5px);
+    right: calc(var(--sf-space-3) - var(--sf-space-8));
+    bottom: auto;
+    left: calc(var(--sf-step-marker) + var(--sf-space-3));
+    width: auto;
+    height: 1px;
+  }
+}
+
+/* ---- Exports: file name under each format ---- */
+.sf-export__format {
+  display: block;
+  margin-bottom: var(--sf-space-2);
+  font-family: var(--sf-font-mono);
+  font-size: var(--sf-text-xs);
+  color: var(--sf-color-text-muted);
+}
+
+/* ---- Final call to action: an inverted band ----
+   The band re-points the text, muted text and focus tokens, so everything
+   inside (headings, links, focus rings) adapts without extra rules. */
+.sf-cta {
+  --sf-color-text: var(--sf-color-on-band);
+  --sf-color-text-muted: var(--sf-color-on-band-muted);
+  --sf-color-focus: var(--sf-color-band-focus);
+
+  padding-block: var(--sf-space-16);
+  color: var(--sf-color-text);
+  background-color: var(--sf-color-band);
+  border-block: var(--sf-border-width) solid var(--sf-color-border);
+}
+
+.sf-cta__inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sf-space-8);
+}
+
+@media (min-width: 768px) {
+  .sf-cta__inner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.sf-cta__title {
+  max-width: 22ch;
+  margin-bottom: var(--sf-space-3);
+}
+
+.sf-cta__text {
+  max-width: 34rem;
+  margin: 0;
+  color: var(--sf-color-text-muted);
+}
+
+.sf-cta__actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sf-space-4) var(--sf-space-6);
+}
+
+.sf-cta__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sf-space-1);
+  font-size: var(--sf-text-sm);
+  font-weight: var(--sf-weight-medium);
+  color: var(--sf-color-text);
+  text-decoration: none;
+}
+
+.sf-cta__link:hover {
+  color: var(--sf-color-text);
+  text-decoration: underline;
 }
