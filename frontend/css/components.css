@@ -462,6 +462,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--sf-space-1);
+  min-height: 1.5rem; /* WCAG 2.2 target size: at least 24px tall */
   color: var(--sf-color-text-muted);
   text-decoration: none;
 }

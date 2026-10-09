@@ -42,7 +42,7 @@ export function renderContrast(guide) {
 
   const head = el('thead', {}, [
     el('tr', {}, [
-      el('td', { className: 'sf-contrast__corner', text: 'Text on background' }),
+      el('th', { className: 'sf-contrast__corner', attrs: { scope: 'col' }, text: 'Text on background' }),
       ...backgrounds.map((bg) => el('th', { attrs: { scope: 'col' } }, [colorLabel(bg, nameOf(bg))])),
     ]),
   ]);
