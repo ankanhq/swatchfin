@@ -20,6 +20,7 @@ come back as a tiny "304 Not Modified", so it stays fast.
 """
 
 import email.utils
+import errno
 import functools
 import gzip
 import http.server
@@ -102,7 +103,19 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
 def main() -> None:
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
     handler = functools.partial(NoCacheHandler, directory=str(FRONTEND))
-    with http.server.ThreadingHTTPServer(("127.0.0.1", port), handler) as server:
+    try:
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", port), handler)
+    except OSError as error:
+        if error.errno != errno.EADDRINUSE:
+            raise
+        # Something is already listening on this port, often an earlier copy
+        # of this server. Say so in one line instead of a Python traceback.
+        sys.exit(
+            f"Port {port} is already in use. Swatchfin may already be running at http://localhost:{port}.\n"
+            f"To start another server, pick another port: python3 tools/serve.py {port + 1}"
+        )
+
+    with server:
         print(f"Serving {FRONTEND} at http://localhost:{port} (no-cache)")
         try:
             server.serve_forever()
