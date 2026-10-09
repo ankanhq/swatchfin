@@ -547,3 +547,507 @@
     }
   }
 }
+
+/* --------------------------------------------------------------------------
+   Guide page (guide.html)
+   <main data-state="loading | ready | error">. guide.js sets the state.
+   Order on the page: sticky toolbar, notice, brand header, then a two-column
+   grid ("On this page" + sections) from 992px.
+   -------------------------------------------------------------------------- */
+
+/* ---- Page states ---- */
+.sf-guide-page[data-state="loading"] .sf-guide-header__title {
+  color: var(--sf-color-text-muted);
+}
+
+/* Error: only the header (now the error message) stays. */
+.sf-guide-page[data-state="error"] :is(.sf-guidebar, .sf-guide) {
+  display: none;
+}
+
+.sf-guide-page[data-state="error"] .sf-guide-header {
+  padding-block: var(--sf-section-space);
+  border-bottom: 0;
+}
+
+/* When the data arrives, the new content fades in over the placeholders. */
+@media (prefers-reduced-motion: no-preference) {
+  .sf-guide-page[data-state="ready"] :is(.sf-guide-header__logo, .sf-guide-header__details, .sf-guide-section__body) {
+    animation: sf-fade-in var(--sf-duration-slow) var(--sf-ease-out);
+  }
+}
+
+@keyframes sf-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---- Toolbar: brand name on the left, Export on the right (sticky) ---- */
+.sf-guidebar {
+  position: sticky;
+  top: 0;
+  z-index: var(--sf-z-toolbar);
+  background-color: var(--sf-color-bg-translucent);
+  border-block: var(--sf-border-width) solid var(--sf-color-border);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  backdrop-filter: saturate(180%) blur(12px);
+}
+
+.sf-guidebar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sf-space-4);
+  height: var(--sf-toolbar-height);
+}
+
+.sf-guidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sf-space-2);
+  min-width: 0;
+  margin: 0;
+  font-size: var(--sf-text-sm);
+}
+
+.sf-guidebar__back {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin-inline-start: calc(var(--sf-space-2) * -1);
+  color: var(--sf-color-text-muted);
+  border-radius: var(--sf-radius-sm);
+  transition:
+    color var(--sf-duration-fast) var(--sf-ease-out),
+    background-color var(--sf-duration-fast) var(--sf-ease-out);
+}
+
+.sf-guidebar__back:hover {
+  color: var(--sf-color-text);
+  background-color: var(--sf-color-surface-subtle);
+}
+
+.sf-guidebar__name,
+.sf-guidebar__domain {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sf-guidebar__name {
+  font-weight: var(--sf-weight-semibold);
+}
+
+.sf-guidebar__domain {
+  display: none;
+  font-family: var(--sf-font-mono);
+  font-size: var(--sf-text-xs);
+  font-variant-ligatures: none;
+  color: var(--sf-color-text-muted);
+}
+
+@media (min-width: 576px) {
+  .sf-guidebar__domain:not(:empty) {
+    display: inline;
+  }
+}
+
+/* ---- Export menu: a button that opens a panel of formats ----
+   exports.js toggles .sf-export--open and aria-expanded. */
+.sf-export {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.sf-export__chevron {
+  transition: transform var(--sf-duration-base) var(--sf-ease-out);
+}
+
+.sf-export--open .sf-export__chevron {
+  transform: rotate(180deg);
+}
+
+.sf-export__panel {
+  position: absolute;
+  top: calc(100% + var(--sf-space-2));
+  right: 0;
+  z-index: var(--sf-z-dropdown);
+  display: none;
+  width: min(22rem, calc(100vw - 2 * var(--sf-gutter)));
+  padding: var(--sf-space-2);
+  background-color: var(--sf-color-surface);
+  border: var(--sf-border-width) solid var(--sf-color-border);
+  border-radius: var(--sf-radius-lg);
+  box-shadow: var(--sf-shadow-lg);
+}
+
+.sf-export--open .sf-export__panel {
+  display: block;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sf-export--open .sf-export__panel {
+    animation: sf-pop-in var(--sf-duration-base) var(--sf-ease-out);
+    transform-origin: top right;
+  }
+}
+
+@keyframes sf-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+
+.sf-export__title {
+  margin: 0;
+  padding: var(--sf-space-2) var(--sf-space-3);
+  font-size: var(--sf-text-xs);
+  font-weight: var(--sf-weight-semibold);
+  letter-spacing: var(--sf-tracking-caps);
+  text-transform: uppercase;
+  color: var(--sf-color-text-muted);
+}
+
+.sf-export__list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sf-export__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sf-space-3);
+  width: 100%;
+  padding: var(--sf-space-2) var(--sf-space-3);
+  text-align: left;
+  color: var(--sf-color-text);
+  background-color: transparent;
+  border: 0;
+  border-radius: var(--sf-radius-md);
+  transition: background-color var(--sf-duration-fast) var(--sf-ease-out);
+}
+
+.sf-export__item:hover {
+  background-color: var(--sf-color-surface-subtle);
+}
+
+/* Not available yet: muted (still AA), and no hover highlight. */
+.sf-export__item[aria-disabled="true"] {
+  color: var(--sf-color-text-muted);
+  cursor: not-allowed;
+}
+
+.sf-export__item[aria-disabled="true"]:hover {
+  background-color: transparent;
+}
+
+.sf-export__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  color: var(--sf-color-accent-text);
+  background-color: var(--sf-color-accent-subtle);
+  border-radius: var(--sf-radius-sm);
+}
+
+.sf-export__item[aria-disabled="true"] .sf-export__icon {
+  color: var(--sf-color-text-muted);
+  background-color: var(--sf-color-surface-subtle);
+}
+
+.sf-export__text {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.sf-export__name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sf-space-2);
+  font-size: var(--sf-text-sm);
+  font-weight: var(--sf-weight-semibold);
+  line-height: var(--sf-leading-snug);
+}
+
+.sf-export__desc {
+  font-size: var(--sf-text-xs);
+  color: var(--sf-color-text-muted);
+}
+
+.sf-export__note {
+  margin: var(--sf-space-2) var(--sf-space-3) var(--sf-space-1);
+  padding-top: var(--sf-space-3);
+  font-size: var(--sf-text-xs);
+  color: var(--sf-color-text-muted);
+  border-top: var(--sf-border-width) solid var(--sf-color-border);
+}
+
+/* ---- Brand header ---- */
+.sf-guide-header {
+  padding-block: var(--sf-space-10) var(--sf-space-12);
+  border-bottom: var(--sf-border-width) solid var(--sf-color-border);
+}
+
+/* Phones: logo above the name. 768px and up: logo beside it. */
+.sf-guide-header__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sf-space-6);
+}
+
+@media (min-width: 768px) {
+  .sf-guide-header__inner {
+    flex-direction: row;
+    gap: var(--sf-space-8);
+  }
+}
+
+/* The logo sits on a white tile in both themes: most logos are drawn for a
+   light background. The tile grows sideways for wide logos (up to 12rem). */
+.sf-guide-header__logo {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  min-width: 4.5rem;
+  max-width: 12rem;
+  height: 4.5rem;
+  padding: var(--sf-space-3);
+  background-color: var(--sf-white);
+  border: var(--sf-border-width) solid var(--sf-color-border);
+  border-radius: var(--sf-radius-lg);
+}
+
+.sf-guide-header__logo .sf-skeleton__block {
+  width: 3rem;
+  height: 3rem;
+  min-height: 0;
+}
+
+.sf-guide-header__img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.sf-guide-header__placeholder {
+  display: inline-flex;
+  color: var(--sf-grey-500);
+}
+
+/* Error state: the tile becomes a red icon tile. */
+.sf-guide-header__logo:has(.sf-guide-header__placeholder--danger) {
+  color: var(--sf-color-danger);
+  background-color: var(--sf-color-danger-subtle);
+  border-color: transparent;
+}
+
+.sf-guide-header__placeholder--danger {
+  color: var(--sf-color-danger);
+}
+
+.sf-guide-header__text {
+  min-width: 0;
+}
+
+.sf-guide-header__eyebrow {
+  margin-bottom: var(--sf-space-2);
+  font-size: var(--sf-text-sm);
+  font-weight: var(--sf-weight-medium);
+  color: var(--sf-color-text-muted);
+}
+
+.sf-guide-header__title {
+  margin-bottom: var(--sf-space-3);
+  font-size: var(--sf-text-4xl);
+  line-height: 1.05;
+  letter-spacing: var(--sf-tracking-display);
+  overflow-wrap: anywhere;
+}
+
+.sf-guide-header__domain {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sf-space-1);
+  font-family: var(--sf-font-mono);
+  font-size: var(--sf-text-sm);
+  font-variant-ligatures: none;
+  text-decoration: none;
+}
+
+.sf-guide-header__domain:hover {
+  text-decoration: underline;
+}
+
+.sf-guide-header__description {
+  max-width: 42rem;
+  margin: var(--sf-space-3) 0 0;
+  font-size: var(--sf-text-md);
+  color: var(--sf-color-text-muted);
+}
+
+.sf-guide-header__facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sf-space-2) var(--sf-space-5);
+  margin: var(--sf-space-5) 0 0;
+  padding: 0;
+  font-size: var(--sf-text-sm);
+  color: var(--sf-color-text-muted);
+  list-style: none;
+}
+
+.sf-guide-header__fact {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sf-space-2);
+}
+
+.sf-guide-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sf-space-3);
+  margin-top: var(--sf-space-6);
+}
+
+/* ---- Layout: "On this page" + sections ---- */
+.sf-guide {
+  padding-bottom: var(--sf-section-space);
+}
+
+@media (min-width: 992px) {
+  .sf-guide {
+    display: grid;
+    grid-template-columns: 11rem minmax(0, 1fr);
+    gap: var(--sf-space-12);
+  }
+}
+
+@media (min-width: 1200px) {
+  .sf-guide {
+    grid-template-columns: 12.5rem minmax(0, 1fr);
+    gap: var(--sf-space-16);
+  }
+}
+
+/* ---- On this page (992px and up) ---- */
+.sf-toc {
+  display: none;
+}
+
+@media (min-width: 992px) {
+  .sf-toc {
+    position: sticky;
+    top: calc(var(--sf-toolbar-height) + var(--sf-space-8));
+    display: block;
+    align-self: start;
+    padding-top: var(--sf-space-10);
+  }
+}
+
+.sf-toc__title {
+  margin-bottom: var(--sf-space-3);
+  font-size: var(--sf-text-xs);
+  font-weight: var(--sf-weight-semibold);
+  letter-spacing: var(--sf-tracking-caps);
+  text-transform: uppercase;
+  color: var(--sf-color-text-muted);
+}
+
+.sf-toc__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-left: var(--sf-border-width) solid var(--sf-color-border);
+}
+
+.sf-toc__link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sf-space-2);
+  margin-left: -1px;
+  padding: var(--sf-space-1) var(--sf-space-3);
+  font-size: var(--sf-text-sm);
+  color: var(--sf-color-text-muted);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  transition:
+    color var(--sf-duration-fast) var(--sf-ease-out),
+    border-color var(--sf-duration-base) var(--sf-ease-out);
+}
+
+.sf-toc__link:hover {
+  color: var(--sf-color-text);
+}
+
+/* The section being read (set by guide.js). */
+.sf-toc__link[aria-current] {
+  font-weight: var(--sf-weight-medium);
+  color: var(--sf-color-text);
+  border-left-color: var(--sf-color-accent);
+}
+
+.sf-toc__count {
+  min-width: 1.25rem;
+  padding: 0 var(--sf-space-1);
+  font-size: var(--sf-text-xs);
+  font-weight: var(--sf-weight-semibold);
+  line-height: 1.25rem;
+  text-align: center;
+  color: var(--sf-color-warning);
+  background-color: var(--sf-color-warning-subtle);
+  border-radius: var(--sf-radius-pill);
+}
+
+.sf-toc__count:empty {
+  display: none;
+}
+
+/* ---- Sections ---- */
+.sf-guide-section {
+  padding-block: var(--sf-space-10);
+}
+
+/* A hairline between sections (hidden sections don't count). */
+.sf-guide-section:not([hidden]) ~ .sf-guide-section {
+  border-top: var(--sf-border-width) solid var(--sf-color-border);
+}
+
+.sf-guide-section__header {
+  max-width: 42rem;
+  margin-bottom: var(--sf-space-6);
+}
+
+.sf-guide-section__title {
+  display: flex;
+  align-items: center;
+  gap: var(--sf-space-3);
+  margin-bottom: var(--sf-space-2);
+  font-size: var(--sf-text-xl);
+}
+
+.sf-guide-section__icon {
+  color: var(--sf-color-accent-text);
+}
+
+.sf-guide-section__lead {
+  margin: 0;
+  color: var(--sf-color-text-muted);
+}

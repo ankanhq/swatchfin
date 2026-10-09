@@ -113,3 +113,122 @@ export function createIcon(name, { size = 20, className = '' } = {}) {
   svg.append(use);
   return svg;
 }
+
+/* --------------------------------------------------------------------------
+   Helpers for showing website data safely (guide page).
+   Everything in a brand guide comes from someone else's website, so it is
+   treated as untrusted: URLs and colours are checked before they are used.
+   -------------------------------------------------------------------------- */
+
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+/**
+ * Returns a full, safe link for a URL from the guide, or null.
+ *
+ * In plain English: turn the value into a full address (relative ones like
+ * "mock/logo.svg" are resolved against this page), and only accept it if it
+ * is an http or https address. Anything else, such as "javascript:...",
+ * gives null so it never ends up in an href or src.
+ *
+ * @param {unknown} value
+ * @returns {string | null}
+ */
+export function safeUrl(value) {
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  try {
+    const url = new URL(value, window.location.href);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Shortens a URL for display: "https://www.example.com/about/" -> "example.com/about".
+ * @param {string} href
+ * @returns {string}
+ */
+export function displayUrl(href) {
+  try {
+    const url = new URL(href);
+    const host = url.hostname.replace(/^www\./, '');
+    const path = url.pathname.replace(/\/$/, '');
+    return host + path + url.search;
+  } catch {
+    return href;
+  }
+}
+
+/**
+ * True for a six-digit hex colour such as "#B5532A". Colours are checked
+ * with this before they are put into CSS.
+ * @param {unknown} value
+ * @returns {value is string}
+ */
+export function isHexColor(value) {
+  return typeof value === 'string' && HEX_COLOR.test(value);
+}
+
+/**
+ * Formats an ISO date such as "2026-10-09T10:24:00Z" for people,
+ * e.g. "9 October 2026". Returns "" if the date is missing or invalid.
+ * @param {unknown} iso
+ * @param {{ withTime?: boolean }} [options] Also show the time, e.g. "10:24".
+ * @returns {string}
+ */
+export function formatDate(iso, { withTime = false } = {}) {
+  if (typeof iso !== 'string') return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const options = withTime
+    ? { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }
+    : { day: 'numeric', month: 'long', year: 'numeric' };
+  return new Intl.DateTimeFormat('en-GB', options).format(date);
+}
+
+/**
+ * Turns a confidence score from 0 to 1 into a level people can read.
+ * High is 0.8 and above, medium 0.5 and above, low below that.
+ * @param {unknown} value
+ * @returns {{ level: 'high' | 'medium' | 'low', label: string, percent: number } | null}
+ */
+export function confidenceLevel(value) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return null;
+  const score = Math.min(Math.max(value, 0), 1);
+  const percent = Math.round(score * 100);
+  if (score >= 0.8) return { level: 'high', label: 'High', percent };
+  if (score >= 0.5) return { level: 'medium', label: 'Medium', percent };
+  return { level: 'low', label: 'Low', percent };
+}
+
+/**
+ * Copies text to the clipboard. Resolves to true if it worked.
+ * The Clipboard API only works on https or localhost, and the visitor's
+ * browser can refuse it, so a failure is a normal outcome, not an error.
+ * @param {string} text
+ * @returns {Promise<boolean>}
+ */
+export async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Makes a safe file name part: "Northwind Roasters" -> "northwind-roasters".
+ * @param {unknown} value
+ * @returns {string}
+ */
+export function slugify(value) {
+  return String(value ?? '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^\w\s.-]/g, '')
+    .trim()
+    .replace(/[\s_.]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}

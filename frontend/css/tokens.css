@@ -89,6 +89,7 @@
   --sf-container-max: 75rem;                 /* 1200px of content */
   --sf-gutter: clamp(1rem, 0.6rem + 1.8vw, 2rem); /* 16px → 32px side padding */
   --sf-header-height: 4rem;                  /* 64px */
+  --sf-toolbar-height: 3.5rem;               /* 56px: the guide page's sticky toolbar */
   --sf-section-space: clamp(3rem, 2.2rem + 3.5vw, 5.5rem); /* 48 → 88px between sections */
 
   /* ---- Radii ---- */
@@ -106,6 +107,7 @@
 
   /* ---- Layers (z-index) ---- */
   --sf-z-raised: 10;
+  --sf-z-toolbar: 90;   /* sticky bars that must stay under the header's mobile menu */
   --sf-z-sticky: 100;
   --sf-z-dropdown: 200;
   --sf-z-overlay: 300;
