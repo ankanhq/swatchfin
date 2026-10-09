@@ -295,7 +295,7 @@
       "fetched_at": "2026-10-09T10:23:31Z"
     }
   ],
-  "tinyfish_usage": { "search_calls": 2, "fetch_urls": 7, "browser_sessions": 1 },
+  "tinyfish_usage": { "search_calls": 1, "fetch_urls": 6, "browser_sessions": 1 },
   "warnings": [
     "MOCK DATA: Northwind Roasters is a fictional brand. Nothing in this guide was read from a real website.",
     "The Press page (https://northwind-roasters.example/press) was blocked by an anti-bot check and was skipped.",

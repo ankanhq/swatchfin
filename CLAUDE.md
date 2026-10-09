@@ -267,8 +267,8 @@ swatchfin/
 ## 13. Build phases
 
 - [x] **Phase 0:** Repo setup: structure, `.gitignore`, `.env.example`, README skeleton, LICENSE, first commit, push to GitHub
-- [ ] **Phase 1:** Design system (`tokens.css`, `base.css`), header/footer, theme toggle, landing page
-- [ ] **Phase 2:** Guide result page rendered from `mock/MOCK_northwind-roasters.json`
+- [x] **Phase 1:** Design system (`tokens.css`, `base.css`), header/footer, theme toggle, landing page
+- [x] **Phase 2:** Guide result page rendered from `mock/MOCK_northwind-roasters.json`
 - [ ] **Phase 3:** Progress view, error/empty states, about page, 404, print stylesheet, accessibility + Lighthouse pass
 - [ ] **Phase 4:** FastAPI skeleton, schemas, job system, serves frontend; frontend switches from mock to real API
 - [ ] **Phase 5:** TinyFish Search + Fetch: resolve, homepage parsing, logo, page discovery, content

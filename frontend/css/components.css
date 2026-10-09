@@ -1131,7 +1131,9 @@
   font-variant-ligatures: none;
   color: var(--sf-color-link);
   text-decoration: none;
-  overflow-wrap: anywhere;
+  /* Wrap only where dom.js allows it (after a "/"), never mid-word. */
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .sf-source-link:hover {

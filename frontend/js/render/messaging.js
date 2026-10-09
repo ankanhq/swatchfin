@@ -4,7 +4,7 @@
  * missing, with the reason, rather than left out.
  */
 
-import { el, emptyState, list, sourceLink, subsection, text, verifiedBadge } from './dom.js';
+import { el, emptyState, list, siteHost, sourceLink, subsection, text, verifiedBadge } from './dom.js';
 
 /**
  * @param {Record<string, any>} guide
@@ -16,6 +16,7 @@ export function renderMessaging(guide) {
   const mission = statementText(messaging.mission);
   const props = list(messaging.value_props).filter((prop) => text(prop?.title) || text(prop?.quote));
   const audience = list(messaging.audience).map(text).filter(Boolean);
+  const site = siteHost(guide);
 
   if (!tagline && !mission && props.length === 0 && audience.length === 0) {
     return emptyState('No key messages found', 'None of the fetched pages had a tagline, mission or value proposition that could be verified word for word.');
@@ -24,13 +25,13 @@ export function renderMessaging(guide) {
   return el('div', { className: 'sf-messaging' }, [
     el('div', { className: 'sf-statements' }, [
       tagline
-        ? statement('Tagline', messaging.tagline, 'tagline')
+        ? statement('Tagline', messaging.tagline, 'tagline', site)
         : missingStatement('Tagline', 'No tagline found', 'Swatchfin only shows a tagline that appears word for word on the site.'),
       mission
-        ? statement('Mission', messaging.mission, 'mission')
+        ? statement('Mission', messaging.mission, 'mission', site)
         : missingStatement('Mission', 'No mission statement found', 'Swatchfin only shows a mission that appears word for word on the site.'),
     ]),
-    props.length > 0 ? subsection('Value propositions', [el('ul', { className: 'sf-props' }, props.map(valueProp))]) : null,
+    props.length > 0 ? subsection('Value propositions', [el('ul', { className: 'sf-props' }, props.map((prop) => valueProp(prop, site)))]) : null,
     audience.length > 0
       ? subsection('Audience', [
           el('ul', { className: 'sf-tags' }, audience.map((item) => el('li', { className: 'sf-tag', text: item }))),
@@ -52,13 +53,14 @@ function statementText(value) {
  * @param {string} label
  * @param {Record<string, any>} value
  * @param {'tagline' | 'mission'} kind
+ * @param {string} site The brand's host, for a short source link.
  * @returns {HTMLElement}
  */
-function statement(label, value, kind) {
+function statement(label, value, kind, site) {
   return el('figure', { className: `sf-statement sf-statement--${kind}` }, [
     el('p', { className: 'sf-statement__label', text: label }),
     el('blockquote', { className: 'sf-statement__text' }, [el('p', { text: text(value.text) })]),
-    el('figcaption', { className: 'sf-statement__meta' }, [verifiedBadge(value.verified), sourceLink(value.source_url)]),
+    el('figcaption', { className: 'sf-statement__meta' }, [verifiedBadge(value.verified), sourceLink(value.source_url, { site })]),
   ]);
 }
 
@@ -78,13 +80,14 @@ function missingStatement(label, title, reason) {
 
 /**
  * @param {Record<string, any>} prop { title, quote, source_url, verified }
+ * @param {string} site The brand's host, for a short source link.
  * @returns {HTMLElement}
  */
-function valueProp(prop) {
+function valueProp(prop, site) {
   const quote = text(prop.quote);
   return el('li', { className: 'sf-prop' }, [
     text(prop.title) ? el('h4', { className: 'sf-prop__title', text: text(prop.title) }) : null,
     quote ? el('blockquote', { className: 'sf-prop__quote' }, [el('p', { text: quote })]) : null,
-    el('div', { className: 'sf-prop__meta' }, [verifiedBadge(prop.verified), sourceLink(prop.source_url)]),
+    el('div', { className: 'sf-prop__meta' }, [verifiedBadge(prop.verified), sourceLink(prop.source_url, { site })]),
   ]);
 }

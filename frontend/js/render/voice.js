@@ -3,7 +3,7 @@
  * quotes, four tone scales, and do / don't lists.
  */
 
-import { el, createIcon, emptyState, list, sourceLink, subsection, text, verifiedBadge } from './dom.js';
+import { el, createIcon, emptyState, list, siteHost, sourceLink, subsection, text, verifiedBadge } from './dom.js';
 
 /** The four scales in the schema: 0 is the left word, 100 the right. */
 const SCALES = [
@@ -24,6 +24,7 @@ export function renderVoice(guide) {
   const scales = SCALES.filter(({ key }) => Number.isFinite(voice.spectrum?.[key]));
   const dos = list(voice.do).map(text).filter(Boolean);
   const donts = list(voice.dont).map(text).filter(Boolean);
+  const site = siteHost(guide);
 
   if (!summary && traits.length === 0 && scales.length === 0 && dos.length === 0 && donts.length === 0) {
     return emptyState('No tone of voice found', 'There wasn’t enough text on the fetched pages to describe how the brand writes.');
@@ -32,7 +33,7 @@ export function renderVoice(guide) {
   return el('div', { className: 'sf-voice' }, [
     summary ? el('p', { className: 'sf-voice__summary', text: summary }) : null,
     traits.length > 0
-      ? subsection('Traits', [el('div', { className: 'sf-traits' }, traits.map((trait, i) => traitCard(trait, i === 0)))])
+      ? subsection('Traits', [el('div', { className: 'sf-traits' }, traits.map((trait, i) => traitCard(trait, i === 0, site)))])
       : null,
     scales.length > 0
       ? subsection('Tone scales', [
@@ -56,9 +57,10 @@ export function renderVoice(guide) {
  * trait starts open, so people see that the others open too.
  * @param {Record<string, any>} trait
  * @param {boolean} open
+ * @param {string} site The brand's host, for short source links.
  * @returns {HTMLElement}
  */
-function traitCard(trait, open) {
+function traitCard(trait, open, site) {
   const evidence = list(trait.evidence).filter((item) => text(item?.quote));
   const description = text(trait.description);
 
@@ -73,7 +75,7 @@ function traitCard(trait, open) {
     ]),
     el('div', { className: 'sf-trait__evidence' },
       evidence.length > 0
-        ? evidence.map(quote)
+        ? evidence.map((item) => quote(item, site))
         : [el('p', { className: 'sf-trait__none', text: 'No quote could be verified for this trait.' })],
     ),
   ]);
@@ -84,12 +86,13 @@ function traitCard(trait, open) {
 /**
  * A quote from the site with its verified badge and source link.
  * @param {Record<string, any>} item { quote, source_url, verified }
+ * @param {string} site The brand's host, for a short source link.
  * @returns {HTMLElement}
  */
-export function quote(item) {
+function quote(item, site) {
   return el('figure', { className: 'sf-quote' }, [
     el('blockquote', { className: 'sf-quote__text' }, [el('p', { text: text(item.quote) })]),
-    el('figcaption', { className: 'sf-quote__meta' }, [verifiedBadge(item.verified), sourceLink(item.source_url)]),
+    el('figcaption', { className: 'sf-quote__meta' }, [verifiedBadge(item.verified), sourceLink(item.source_url, { site })]),
   ]);
 }
 

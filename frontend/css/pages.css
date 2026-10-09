@@ -560,9 +560,23 @@
   color: var(--sf-color-text-muted);
 }
 
-/* Error: only the header (now the error message) stays. */
-.sf-guide-page[data-state="error"] :is(.sf-guidebar, .sf-guide) {
+/* Error: only the header stays, showing the message and its buttons
+   (static HTML, so they work even if the scripts failed). */
+.sf-guide-page[data-state="error"] :is(.sf-guidebar, .sf-guide, .sf-guide-header__details, .sf-guide-header__logo .sf-skeleton__block) {
   display: none;
+}
+
+.sf-guide-header__error,
+.sf-guide-header__error-icon {
+  display: none;
+}
+
+.sf-guide-page[data-state="error"] .sf-guide-header__error {
+  display: block;
+}
+
+.sf-guide-page[data-state="error"] .sf-guide-header__error-icon {
+  display: inline-block;
 }
 
 .sf-guide-page[data-state="error"] .sf-guide-header {
@@ -851,14 +865,10 @@
 }
 
 /* Error state: the tile becomes a red icon tile. */
-.sf-guide-header__logo:has(.sf-guide-header__placeholder--danger) {
+.sf-guide-page[data-state="error"] .sf-guide-header__logo {
   color: var(--sf-color-danger);
   background-color: var(--sf-color-danger-subtle);
   border-color: transparent;
-}
-
-.sf-guide-header__placeholder--danger {
-  color: var(--sf-color-danger);
 }
 
 .sf-guide-header__text {
@@ -1138,15 +1148,41 @@
   }
 }
 
-.sf-logo-card__previews {
+.sf-logo-card__tiles {
   display: grid;
   gap: var(--sf-space-3);
 }
 
 @media (min-width: 576px) {
-  .sf-logo-card__previews {
+  .sf-logo-card__tiles {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+/* "Low contrast on dark backgrounds…" (added by logo.js when it applies). */
+.sf-logo-card__notes {
+  display: grid;
+  gap: var(--sf-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sf-logo-card__notes:not(:empty) {
+  margin-top: var(--sf-space-3);
+}
+
+.sf-logo-card__note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sf-space-2);
+  font-size: var(--sf-text-sm);
+  color: var(--sf-color-text-muted);
+}
+
+.sf-logo-card__note .sf-icon {
+  margin-top: 0.1875rem;
+  color: var(--sf-color-warning);
 }
 
 /* Fixed light and dark tiles (they don't follow the theme on purpose). */
@@ -1243,6 +1279,7 @@
 .sf-logo-version__text {
   display: grid;
   flex: 1 1 auto;
+  gap: var(--sf-space-1);
   min-width: 0;
   font-size: var(--sf-text-sm);
 }
@@ -1251,8 +1288,17 @@
   font-weight: var(--sf-weight-medium);
 }
 
+/* Link and confidence badge share a row that wraps rather than squeezes. */
+.sf-logo-version__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sf-space-1) var(--sf-space-3);
+}
+
 .sf-logo-version__link {
   font-size: var(--sf-text-xs);
+  white-space: nowrap;
 }
 
 /* ---- Colour palette ---- */
@@ -2233,11 +2279,14 @@
     transform: scaleY(0);
   }
 
-  .sf-motion .sf-share-strip__bar[data-sequence] {
-    transition: clip-path 700ms var(--sf-ease-out);
+  /* The share strip draws in as its section fades in. It has no scroll
+     trigger of its own, so it can never be left hidden: whenever the
+     section is visible, so is the strip. */
+  .sf-motion .sf-share-strip__bar {
+    transition: clip-path 700ms var(--sf-ease-out) 150ms;
   }
 
-  .sf-motion .sf-share-strip__bar[data-sequence]:not(.is-visible) {
+  .sf-motion .sf-guide-section[data-reveal]:not(.is-visible) .sf-share-strip__bar {
     clip-path: inset(0 100% 0 0);
   }
 

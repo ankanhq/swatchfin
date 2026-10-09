@@ -10,6 +10,7 @@
  * 4. Switch on the extras: copy buttons, the "On this page" highlight and
  *    the Export menu.
  * If loading fails, the header turns into a clear error with a way forward.
+ * guide-guard.js makes sure the loading state ends after 15 seconds at most.
  */
 
 import { loadGuide, isMockGuide, GuideError, MOCK_ID } from './api.js';
@@ -65,6 +66,10 @@ async function start(page) {
     showError(page, error);
     return;
   }
+
+  // guide-guard.js may already have ended the wait ("This is taking too
+  // long"). Keep that message rather than swapping the page under the reader.
+  if (page.dataset.state !== 'loading') return;
 
   const mock = isMockGuide(guide);
   renderNotice(page, { mock, query: request.query });
@@ -129,6 +134,7 @@ function renderSections(page, guide) {
  * @param {unknown} error
  */
 function showError(page, error) {
+  if (page.dataset.state !== 'loading') return; // the time limit already showed an error
   const shown =
     error instanceof GuideError
       ? error

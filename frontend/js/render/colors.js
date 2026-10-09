@@ -87,7 +87,7 @@ function shareStrip(colors) {
   return el('figure', { className: 'sf-share-strip' }, [
     el('div', {
       className: 'sf-share-strip__bar',
-      attrs: { role: 'img', 'aria-label': `Share of the visible homepage: ${shares.map(describe).join(', ')}.`, 'data-sequence': '' },
+      attrs: { role: 'img', 'aria-label': `Share of the visible homepage: ${shares.map(describe).join(', ')}.` },
     }, segments),
     el('figcaption', { className: 'sf-share-strip__caption', text: 'Share of the visible homepage area' }),
   ]);
