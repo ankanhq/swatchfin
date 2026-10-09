@@ -462,6 +462,10 @@
   text-decoration: underline;
 }
 
+.sf-footer__link[aria-current="page"] {
+  color: var(--sf-color-text);
+}
+
 .sf-footer__bottom {
   display: flex;
   flex-wrap: wrap;
