@@ -66,7 +66,32 @@ cd swatchfin
 cp .env.example .env   # then add your keys to .env (it is git-ignored)
 ```
 
-Install and run instructions are coming soon.
+### Run the frontend
+
+The frontend is a static site with no build step. Serve the `frontend` folder over HTTP (the icon sprite does not load from `file://`):
+
+```bash
+python3 -m http.server 8000 --directory frontend
+```
+
+Then open [http://localhost:8000](http://localhost:8000). The landing page works today. The guide page and the backend that generates guides are in progress, so submitting the form leads to a "not found" page for now.
+
+### Development tools
+
+Node.js is only used for small dev scripts. Nothing from `node_modules` is shipped to the browser.
+
+```bash
+npm install          # installs the pinned lucide-static package
+npm run icons        # rebuilds frontend/assets/icons/icons.svg from the icon list in tools/build-icons.mjs
+npm run contrast     # checks every colour pair in frontend/css/tokens.css against WCAG 2.2 AA
+```
+
+The social preview image (`frontend/assets/og-image.png`) is built from `tools/og-image.html`. The command is at the top of that file.
+
+## Credits
+
+- Icons: [Lucide](https://lucide.dev) (ISC licence, see `frontend/assets/icons/LICENSE.txt`)
+- Fonts: [Inter, Inter Tight](https://rsms.me/inter/) and [JetBrains Mono](https://www.jetbrains.com/lp/mono/) via Google Fonts (SIL Open Font License)
 
 ## License
 
