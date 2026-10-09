@@ -171,43 +171,47 @@
 /* ---- Semantic colours: dark theme ----
    Used when the visitor picks dark with the toggle (data-theme="dark"),
    or when their system is dark and they have not picked light.
-   The two blocks below must stay identical; `npm run contrast` checks this. */
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --sf-color-bg: var(--sf-ink);
-  --sf-color-bg-translucent: rgb(11 15 25 / 0.8);
-  --sf-color-surface: var(--sf-grey-950);
-  --sf-color-surface-subtle: var(--sf-grey-900);
-  --sf-color-text: var(--sf-paper);
-  --sf-color-text-muted: var(--sf-grey-400);
-  --sf-color-text-inverse: var(--sf-ink);
-  --sf-color-border: var(--sf-grey-800);
-  --sf-color-border-strong: var(--sf-grey-700);
-  --sf-color-border-input: var(--sf-grey-500);
-  --sf-color-accent: var(--sf-coral-500);
-  --sf-color-accent-hover: var(--sf-coral-400);
-  --sf-color-on-accent: var(--sf-ink);
-  --sf-color-accent-text: var(--sf-coral-400);
-  --sf-color-accent-subtle: #2d1a1a;
-  --sf-color-link: var(--sf-coral-400);
-  --sf-color-link-hover: var(--sf-coral-300);
-  --sf-color-highlight: var(--sf-amber-500);
-  --sf-color-selection: #60471b;
-  --sf-color-focus: var(--sf-coral-400);
-  --sf-color-success: #59cf94;
-  --sf-color-success-subtle: #162a2a;
-  --sf-color-warning: #ffbe3d;
-  --sf-color-warning-subtle: #2d281e;
-  --sf-color-danger: #fb7486;
-  --sf-color-danger-subtle: #2d1d28;
-  --sf-color-band: var(--sf-grey-800);
+   The two blocks below must stay identical; `npm run contrast` checks this.
+   Screens only: printing and "Save as PDF" always use the light theme on
+   white paper (see print.css). */
+@media screen {
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --sf-color-bg: var(--sf-ink);
+    --sf-color-bg-translucent: rgb(11 15 25 / 0.8);
+    --sf-color-surface: var(--sf-grey-950);
+    --sf-color-surface-subtle: var(--sf-grey-900);
+    --sf-color-text: var(--sf-paper);
+    --sf-color-text-muted: var(--sf-grey-400);
+    --sf-color-text-inverse: var(--sf-ink);
+    --sf-color-border: var(--sf-grey-800);
+    --sf-color-border-strong: var(--sf-grey-700);
+    --sf-color-border-input: var(--sf-grey-500);
+    --sf-color-accent: var(--sf-coral-500);
+    --sf-color-accent-hover: var(--sf-coral-400);
+    --sf-color-on-accent: var(--sf-ink);
+    --sf-color-accent-text: var(--sf-coral-400);
+    --sf-color-accent-subtle: #2d1a1a;
+    --sf-color-link: var(--sf-coral-400);
+    --sf-color-link-hover: var(--sf-coral-300);
+    --sf-color-highlight: var(--sf-amber-500);
+    --sf-color-selection: #60471b;
+    --sf-color-focus: var(--sf-coral-400);
+    --sf-color-success: #59cf94;
+    --sf-color-success-subtle: #162a2a;
+    --sf-color-warning: #ffbe3d;
+    --sf-color-warning-subtle: #2d281e;
+    --sf-color-danger: #fb7486;
+    --sf-color-danger-subtle: #2d1d28;
+    --sf-color-band: var(--sf-grey-800);
 
-  --sf-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
-  --sf-shadow-md: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.25);
-  --sf-shadow-lg: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 32px rgb(0 0 0 / 0.4);
+    --sf-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+    --sf-shadow-md: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.25);
+    --sf-shadow-lg: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 32px rgb(0 0 0 / 0.4);
+  }
 }
 
-@media (prefers-color-scheme: dark) {
+@media screen and (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
     --sf-color-bg: var(--sf-ink);
@@ -236,7 +240,7 @@
     --sf-color-warning-subtle: #2d281e;
     --sf-color-danger: #fb7486;
     --sf-color-danger-subtle: #2d1d28;
-  --sf-color-band: var(--sf-grey-800);
+    --sf-color-band: var(--sf-grey-800);
 
     --sf-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
     --sf-shadow-md: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.25);

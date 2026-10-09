@@ -621,6 +621,11 @@
   }
 }
 
+/* Print only (print.css shows it). */
+.sf-print-masthead {
+  display: none;
+}
+
 /* ---- Toolbar: brand name on the left, Export on the right (sticky) ---- */
 .sf-guidebar {
   position: sticky;

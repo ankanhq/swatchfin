@@ -1,0 +1,293 @@
+/* ==========================================================================
+   Swatchfin print styles (Print / Save as PDF)
+   Loaded on every page with media="print", so it costs nothing on screen.
+
+   The goal is a clean, light document:
+   - always the light theme (tokens.css keeps the dark theme to screens),
+     on white paper, with brand colours printed exactly as they are;
+   - no site navigation, buttons or other things you can only click;
+   - on the guide page, a first page with the brand header, then one
+     section per page, with cards and table rows never cut in half.
+   print.js opens collapsed parts and turns scroll animations off just
+   before printing.
+   ========================================================================== */
+
+@page {
+  margin: 16mm 14mm 18mm;
+
+  /* A small footer on every page. Margin boxes work in Chrome and Edge;
+     other browsers skip them and print without the footer. */
+  @bottom-left {
+    content: "Swatchfin · Brand guides from any URL";
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 8pt;
+    color: #5c5f64;
+  }
+
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 8pt;
+    color: #5c5f64;
+  }
+}
+
+/* ---- Paper ----
+   A 14px base instead of 16px (10.5pt, a comfortable print size); every rem
+   size scales with it. Sections need far less space between them on paper.
+   print-color-adjust: exact keeps swatches, contrast samples and badges in
+   their real colours: browsers otherwise drop backgrounds to save ink, and
+   a brand guide with blank swatches is no use. */
+:root {
+  --sf-color-bg: var(--sf-white);
+  --sf-section-space: 1.5rem;
+  --sf-shadow-sm: none;
+  --sf-shadow-md: none;
+  --sf-shadow-lg: none;
+
+  font-size: 87.5%;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+body {
+  display: block;
+  min-height: 0;
+  background-color: var(--sf-white);
+}
+
+.sf-container {
+  max-width: none;
+  padding-inline: 0;
+}
+
+/* ---- Only on screen: navigation, buttons and anything you click ---- */
+.sf-skip-link,
+.sf-header,
+.sf-footer,
+.sf-toast-region,
+.sf-guidebar,
+.sf-toc,
+.sf-progress__aside,
+.sf-cta,
+.sf-generate,
+.sf-btn,
+.sf-copy__icon,
+.sf-swatch__hint,
+.sf-trait__chevron,
+.sf-not-found__links,
+noscript {
+  display: none;
+}
+
+/* Only in print: the Swatchfin masthead on a printed guide. */
+.sf-print-masthead {
+  display: block;
+}
+
+/* Copy buttons print as plain values. */
+.sf-copy {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Nothing waits to fade in on paper. print.js turns the animations off
+   before printing; these rules are the fallback for the guide's own if it
+   can't run. Starting with ":root.sf-motion" makes each one outrank the
+   hidden starting state it undoes (in components.css and pages.css). */
+:root.sf-motion [data-reveal]:not(.is-visible),
+:root.sf-motion .sf-flow__steps[data-sequence]:not(.is-visible) .sf-flow__step {
+  opacity: 1;
+  transform: none;
+}
+
+:root.sf-motion .sf-swatches[data-sequence]:not(.is-visible) .sf-swatch__color::before {
+  transform: none;
+}
+
+:root.sf-motion .sf-guide-section[data-reveal]:not(.is-visible) .sf-share-strip__bar {
+  clip-path: none;
+}
+
+/* Grey bands become plain white; hairlines are enough on paper. */
+.sf-section--subtle {
+  background: none;
+}
+
+/* ---- Keep things whole ----
+   Headings and section intros stay with what follows; cards, rows and
+   code never split; no paragraph leaves one lonely line behind. */
+h1,
+h2,
+h3,
+.sf-section__header,
+.sf-api__name {
+  break-after: avoid;
+}
+
+.sf-section__header {
+  break-inside: avoid;
+}
+
+p,
+li {
+  orphans: 3;
+  widows: 3;
+}
+
+/* Cards fill their grid cell on screen; on paper that height can't be
+   worked out across a page break, so they take their natural height. */
+.sf-card {
+  height: auto;
+}
+
+.sf-card,
+.sf-callout,
+.sf-notice,
+.sf-empty,
+.sf-swatch,
+.sf-share-strip,
+.sf-contrast__table tr,
+.sf-type,
+.sf-trait,
+.sf-quote,
+.sf-scale,
+.sf-dodont > *,
+.sf-statement,
+.sf-prop,
+.sf-logo-card,
+.sf-logo-version,
+.sf-usage__tile,
+.sf-source,
+.sf-progress-step,
+.sf-flow__step,
+.sf-code,
+figure {
+  break-inside: avoid;
+}
+
+/* --------------------------------------------------------------------------
+   Guide page
+   -------------------------------------------------------------------------- */
+
+/* Masthead: the Swatchfin lockup and the guide's address, above a rule. */
+.sf-print-masthead__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sf-space-6);
+  padding-bottom: var(--sf-space-4);
+  border-bottom: var(--sf-border-width) solid var(--sf-color-border);
+}
+
+.sf-print-masthead__logo {
+  width: auto;
+  height: 1.75rem;
+}
+
+.sf-print-masthead__text {
+  margin: 0;
+  font-size: var(--sf-text-xs);
+  color: var(--sf-color-text-muted);
+  text-align: right;
+}
+
+.sf-print-masthead__url {
+  display: block;
+  font-family: var(--sf-font-mono);
+  font-variant-ligatures: none;
+  overflow-wrap: anywhere;
+}
+
+/* First page: notice and brand header. */
+.sf-guide-page .sf-notice {
+  margin-top: var(--sf-space-6);
+}
+
+.sf-guide-header {
+  padding-block: var(--sf-space-8);
+  border-bottom: 0;
+}
+
+/* Then one section per page. */
+.sf-guide {
+  display: block;
+  padding-bottom: 0;
+}
+
+.sf-guide-section {
+  padding-block: 0;
+  break-before: page;
+}
+
+.sf-guide-section:not([hidden]) ~ .sf-guide-section {
+  border-top: 0;
+}
+
+/* Warnings belong on the first page, under the brand header: they are
+   the first thing to read before relying on the guide. */
+.sf-guide-section[data-section="warnings"] {
+  padding-top: var(--sf-space-4);
+  break-before: auto;
+}
+
+/* A printed page is about 690px wide, so the guide would get its phone
+   layout. These rules bring back the denser wide-screen arrangements so
+   each section fits on its page. */
+
+/* Colour palette: shorter colour blocks (three per row). */
+.sf-swatch__color {
+  aspect-ratio: auto;
+  height: 4rem;
+}
+
+/* Contrast: the text-colour cards two by two. */
+.sf-contrast__table tbody {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+/* Typography: specimen and details side by side, with a smaller specimen. */
+.sf-type {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+.sf-type__specimen {
+  min-height: 0;
+  padding: var(--sf-space-5);
+  border-right: var(--sf-border-width) solid var(--sf-color-border);
+  border-bottom: 0;
+}
+
+.sf-type__aa {
+  font-size: 3rem;
+}
+
+/* Tone of voice: tone scales and do / don't in two columns. */
+.sf-scales {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sf-space-5) var(--sf-space-8);
+  max-width: none;
+}
+
+.sf-dodont {
+  grid-template-columns: 1fr 1fr;
+}
+
+/* Proof quotes are opened by print.js; the summary needs no hover cue. */
+.sf-trait__summary {
+  cursor: auto;
+}
+
+/* --------------------------------------------------------------------------
+   About page: the eight-step pipeline prints as its numbered list.
+   -------------------------------------------------------------------------- */
+.sf-page-hero {
+  padding-block: var(--sf-space-4) var(--sf-space-8);
+}
+
+.sf-about-facts {
+  margin-top: var(--sf-space-8);
+}
