@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brand guide · Swatchfin</title>
+  <meta name="description" content="A structured brand guide read from a live website with TinyFish: logo, colour palette, contrast, typography, tone of voice, key messaging and sources.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#fafaf7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b0f19" media="(prefers-color-scheme: dark)">
+
+  <!-- Social previews. og:image must become an absolute URL once the site has its public domain (Phase 10). -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Swatchfin">
+  <meta property="og:title" content="Brand guide · Swatchfin">
+  <meta property="og:description" content="Logo, colours, fonts, tone of voice and key messaging from any website, read live with TinyFish and checked against the source.">
+  <meta property="og:image" content="assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Swatchfin logo with the tagline: Brand guides from any URL, powered by TinyFish.">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <!-- Applies the saved theme before the first paint (see the comment in theme.js). -->
+  <script src="js/theme.js"></script>
+  <script type="module" src="js/header.js"></script>
+  <script type="module" src="js/motion.js"></script>
+  <script type="module" src="js/guide.js"></script>
+
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/brand/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="site.webmanifest">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..600&family=Inter+Tight:wght@500..700&family=JetBrains+Mono:wght@400..500&display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+  <a class="sf-skip-link" href="#main">Skip to content</a>
+
+  <!-- On this page the site header scrolls away and the guide toolbar below sticks instead. -->
+  <header class="sf-header sf-header--static" data-site-header>
+    <div class="sf-container sf-header__inner">
+      <a class="sf-header__brand" href="./">
+        <picture class="sf-only-light">
+          <source srcset="assets/brand/swatchfin-logo-animated.svg" type="image/svg+xml" media="(prefers-reduced-motion: no-preference)">
+          <img class="sf-logo" src="assets/brand/swatchfin-logo.svg" alt="Swatchfin" width="106" height="32">
+        </picture>
+        <picture class="sf-only-dark">
+          <source srcset="assets/brand/swatchfin-logo-dark-animated.svg" type="image/svg+xml" media="(prefers-reduced-motion: no-preference)">
+          <img class="sf-logo" src="assets/brand/swatchfin-logo-dark.svg" alt="Swatchfin" width="106" height="32">
+        </picture>
+      </a>
+
+      <nav class="sf-nav" aria-label="Main">
+        <button class="sf-btn sf-btn--ghost sf-btn--icon sf-menu-toggle" type="button" aria-expanded="false" aria-controls="site-menu" data-menu-toggle>
+          <svg class="sf-icon sf-menu-toggle__open" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#menu"></use></svg>
+          <svg class="sf-icon sf-menu-toggle__close" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#x"></use></svg>
+          <span class="visually-hidden">Menu</span>
+        </button>
+
+        <ul class="sf-nav__list" id="site-menu">
+          <li><a class="sf-nav__link" href="./#how-it-works">How it works</a></li>
+          <li><a class="sf-nav__link" href="./#features">Features</a></li>
+          <li><a class="sf-nav__link" href="./#exports">Exports</a></li>
+          <li><a class="sf-nav__link" href="about.html">About</a></li>
+          <li>
+            <a class="sf-nav__link" href="https://github.com/ankanhq/swatchfin">
+              GitHub
+              <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#arrow-up-right"></use></svg>
+            </a>
+          </li>
+        </ul>
+
+        <button class="sf-btn sf-btn--ghost sf-btn--icon sf-theme-toggle" type="button" aria-pressed="false" data-theme-toggle>
+          <svg class="sf-icon sf-only-light" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#moon"></use></svg>
+          <svg class="sf-icon sf-only-dark" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#sun"></use></svg>
+          <span class="visually-hidden">Dark theme</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- data-state is "loading", "ready" or "error" (set by guide.js). -->
+  <main id="main" class="sf-guide-page" data-state="loading" aria-busy="true" data-guide>
+    <p class="visually-hidden" role="status" data-guide-status>Loading brand guide…</p>
+
+    <noscript>
+      <div class="sf-container">
+        <p class="sf-notice">Swatchfin needs JavaScript to show a brand guide. Turn it on and reload the page.</p>
+      </div>
+    </noscript>
+
+    <!-- ============ Guide toolbar: brand name and exports (sticky) ============ -->
+    <div class="sf-guidebar" data-guidebar>
+      <div class="sf-container sf-guidebar__inner">
+        <p class="sf-guidebar__brand">
+          <a class="sf-guidebar__back" href="./#generate">
+            <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#arrow-left"></use></svg>
+            <span class="visually-hidden">New guide</span>
+          </a>
+          <span class="sf-guidebar__name" data-guidebar-name>Brand guide</span>
+          <span class="sf-guidebar__domain" data-guidebar-domain></span>
+        </p>
+
+        <div class="sf-export" data-export>
+          <button class="sf-btn sf-btn--primary sf-btn--sm" type="button" aria-expanded="false" aria-controls="export-menu" disabled data-export-toggle>
+            <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#download"></use></svg>
+            Export
+            <svg class="sf-icon sf-icon--16 sf-export__chevron" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#chevron-down"></use></svg>
+          </button>
+
+          <div class="sf-export__panel" id="export-menu" data-export-panel>
+            <p class="sf-export__title">Export this guide</p>
+            <ul class="sf-export__list">
+              <li>
+                <button class="sf-export__item" type="button" data-export-format="json">
+                  <span class="sf-export__icon"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#braces"></use></svg></span>
+                  <span class="sf-export__text">
+                    <span class="sf-export__name">JSON</span>
+                    <span class="sf-export__desc">The full guide in the versioned schema.</span>
+                  </span>
+                </button>
+              </li>
+              <li>
+                <button class="sf-export__item" type="button" data-export-format="print">
+                  <span class="sf-export__icon"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#printer"></use></svg></span>
+                  <span class="sf-export__text">
+                    <span class="sf-export__name">Print or save as PDF</span>
+                    <span class="sf-export__desc">Opens your browser’s print dialog.</span>
+                  </span>
+                </button>
+              </li>
+              <li>
+                <button class="sf-export__item" type="button" aria-disabled="true" aria-describedby="export-note" data-export-format="css">
+                  <span class="sf-export__icon"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#code"></use></svg></span>
+                  <span class="sf-export__text">
+                    <span class="sf-export__name">CSS <span class="sf-badge">Soon</span></span>
+                    <span class="sf-export__desc">Colours and fonts as custom properties.</span>
+                  </span>
+                </button>
+              </li>
+              <li>
+                <button class="sf-export__item" type="button" aria-disabled="true" aria-describedby="export-note" data-export-format="tailwind">
+                  <span class="sf-export__icon"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#wind"></use></svg></span>
+                  <span class="sf-export__text">
+                    <span class="sf-export__name">Tailwind <span class="sf-badge">Soon</span></span>
+                    <span class="sf-export__desc">A theme extension for tailwind.config.js.</span>
+                  </span>
+                </button>
+              </li>
+              <li>
+                <button class="sf-export__item" type="button" aria-disabled="true" aria-describedby="export-note" data-export-format="tokens">
+                  <span class="sf-export__icon"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#swatch-book"></use></svg></span>
+                  <span class="sf-export__text">
+                    <span class="sf-export__name">Design Tokens <span class="sf-badge">Soon</span></span>
+                    <span class="sf-export__desc">W3C Design Tokens JSON.</span>
+                  </span>
+                </button>
+              </li>
+              <li>
+                <button class="sf-export__item" type="button" aria-disabled="true" aria-describedby="export-note" data-export-format="voice">
+                  <span class="sf-export__icon"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#message-square-text"></use></svg></span>
+                  <span class="sf-export__text">
+                    <span class="sf-export__name">Voice prompt <span class="sf-badge">Soon</span></span>
+                    <span class="sf-export__desc">A prompt for writing in the brand’s voice.</span>
+                  </span>
+                </button>
+              </li>
+            </ul>
+            <p class="sf-export__note" id="export-note">CSS, Tailwind, Design Tokens and the voice prompt are built by the Swatchfin backend, which isn’t connected yet.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filled by guide.js: explains when the page shows sample data. -->
+    <div class="sf-container" data-guide-notice></div>
+
+    <!-- ============ Brand header ============ -->
+    <header class="sf-guide-header" id="overview">
+      <div class="sf-container sf-guide-header__inner">
+        <div class="sf-guide-header__logo" data-brand-logo>
+          <span class="sf-skeleton__block" aria-hidden="true"></span>
+        </div>
+        <div class="sf-guide-header__text">
+          <p class="sf-guide-header__eyebrow">Brand guide</p>
+          <h1 class="sf-guide-header__title" data-brand-name>Loading brand guide…</h1>
+          <div class="sf-guide-header__details" data-brand-details>
+            <div class="sf-skeleton" aria-hidden="true">
+              <span class="sf-skeleton__line sf-skeleton__line--short"></span>
+              <span class="sf-skeleton__line"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="sf-container">
+      <div class="sf-guide">
+        <!-- ============ On this page (992px and up) ============ -->
+        <nav class="sf-toc" aria-labelledby="toc-title" data-toc>
+          <p class="sf-toc__title" id="toc-title">On this page</p>
+          <ol class="sf-toc__list">
+            <li data-toc-item="warnings"><a class="sf-toc__link" href="#warnings">Warnings <span class="sf-toc__count" data-toc-warning-count></span></a></li>
+            <li><a class="sf-toc__link" href="#logo">Logo</a></li>
+            <li><a class="sf-toc__link" href="#colours">Colour palette</a></li>
+            <li><a class="sf-toc__link" href="#contrast">Contrast</a></li>
+            <li><a class="sf-toc__link" href="#typography">Typography</a></li>
+            <li><a class="sf-toc__link" href="#voice">Tone of voice</a></li>
+            <li><a class="sf-toc__link" href="#messaging">Key messaging</a></li>
+            <li><a class="sf-toc__link" href="#sources">Sources</a></li>
+          </ol>
+        </nav>
+
+        <div class="sf-guide__content">
+          <!-- ============ Warnings (hidden when there are none) ============ -->
+          <section class="sf-guide-section" id="warnings" aria-labelledby="warnings-title" data-section="warnings">
+            <div class="sf-guide-section__header">
+              <h2 class="sf-guide-section__title" id="warnings-title">
+                <svg class="sf-icon sf-guide-section__icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#triangle-alert"></use></svg>
+                Warnings
+              </h2>
+              <p class="sf-guide-section__lead">What Swatchfin couldn’t find or verify. Read these before you rely on the guide.</p>
+            </div>
+            <div class="sf-guide-section__body" data-render="warnings">
+              <div class="sf-skeleton" aria-hidden="true">
+                <span class="sf-skeleton__line"></span>
+                <span class="sf-skeleton__line sf-skeleton__line--short"></span>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============ Logo ============ -->
+          <section class="sf-guide-section" id="logo" aria-labelledby="logo-title" data-section="logo">
+            <div class="sf-guide-section__header">
+              <h2 class="sf-guide-section__title" id="logo-title">
+                <svg class="sf-icon sf-guide-section__icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#image"></use></svg>
+                Logo
+              </h2>
+              <p class="sf-guide-section__lead">The logo file Swatchfin found, where it came from, and how it looks on light and dark backgrounds.</p>
+            </div>
+            <div class="sf-guide-section__body" data-render="logo">
+              <div class="sf-skeleton" aria-hidden="true">
+                <span class="sf-skeleton__block sf-skeleton__block--wide"></span>
+                <span class="sf-skeleton__line sf-skeleton__line--short"></span>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============ Colour palette ============ -->
+          <section class="sf-guide-section" id="colours" aria-labelledby="colours-title" data-section="colours">
+            <div class="sf-guide-section__header">
+              <h2 class="sf-guide-section__title" id="colours-title">
+                <svg class="sf-icon sf-guide-section__icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#palette"></use></svg>
+                Colour palette
+              </h2>
+              <p class="sf-guide-section__lead">Measured from the computed styles of real elements on the live homepage. Click a colour or value to copy it.</p>
+            </div>
+            <div class="sf-guide-section__body" data-render="colours">
+              <div class="sf-skeleton" aria-hidden="true">
+                <span class="sf-skeleton__block sf-skeleton__block--wide"></span>
+                <span class="sf-skeleton__line"></span>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============ Contrast ============ -->
+          <section class="sf-guide-section" id="contrast" aria-labelledby="contrast-title" data-section="contrast">
+            <div class="sf-guide-section__header">
+              <h2 class="sf-guide-section__title" id="contrast-title">
+                <svg class="sf-icon sf-guide-section__icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#contrast"></use></svg>
+                Contrast
+              </h2>
+              <p class="sf-guide-section__lead">WCAG 2.2 contrast for the colour pairs the site uses for text.</p>
+            </div>
+            <div class="sf-guide-section__body" data-render="contrast">
+              <div class="sf-skeleton" aria-hidden="true">
+                <span class="sf-skeleton__block sf-skeleton__block--wide"></span>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============ Typography ============ -->
+          <section class="sf-guide-section" id="typography" aria-labelledby="typography-title" data-section="typography">
+            <div class="sf-guide-section__header">
+              <h2 class="sf-guide-section__title" id="typography-title">
+                <svg class="sf-icon sf-guide-section__icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#type"></use></svg>
+                Typography
+              </h2>
+              <p class="sf-guide-section__lead">The fonts the page loaded, with the weights and sizes that headings, body text and interface elements use.</p>
+            </div>
+            <div class="sf-guide-section__body" data-render="typography">
+              <div class="sf-skeleton" aria-hidden="true">
+                <span class="sf-skeleton__block sf-skeleton__block--wide"></span>
+                <span class="sf-skeleton__line"></span>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============ Tone of voice ============ -->
+          <section class="sf-guide-section" id="voice" aria-labelledby="voice-title" data-section="voice">
+            <div class="sf-guide-section__header">
+              <h2 class="sf-guide-section__title" id="voice-title">
+                <svg class="sf-icon sf-guide-section__icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#message-square-quote"></use></svg>
+                Tone of voice
+              </h2>
+              <p class="sf-guide-section__lead">How the brand writes. A language model drafts it, and every quote that backs it up was found word for word on the site.</p>
+            </div>
+            <div class="sf-guide-section__body" data-render="voice">
+              <div class="sf-skeleton" aria-hidden="true">
+                <span class="sf-skeleton__line"></span>
+                <span class="sf-skeleton__line"></span>
+                <span class="sf-skeleton__line sf-skeleton__line--short"></span>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============ Key messaging ============ -->
+          <section class="sf-guide-section" id="messaging" aria-labelledby="messaging-title" data-section="messaging">
+            <div class="sf-guide-section__header">
+              <h2 class="sf-guide-section__title" id="messaging-title">
+                <svg class="sf-icon sf-guide-section__icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#megaphone"></use></svg>
+                Key messaging
+              </h2>
+              <p class="sf-guide-section__lead">The tagline, mission and value propositions, each linked to the page it came from.</p>
+            </div>
+            <div class="sf-guide-section__body" data-render="messaging">
+              <div class="sf-skeleton" aria-hidden="true">
+                <span class="sf-skeleton__line"></span>
+                <span class="sf-skeleton__line sf-skeleton__line--short"></span>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============ Sources ============ -->
+          <section class="sf-guide-section" id="sources" aria-labelledby="sources-title" data-section="sources">
+            <div class="sf-guide-section__header">
+              <h2 class="sf-guide-section__title" id="sources-title">
+                <svg class="sf-icon sf-guide-section__icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#globe"></use></svg>
+                Sources
+              </h2>
+              <p class="sf-guide-section__lead">Every page Swatchfin read for this guide, and which TinyFish API read it.</p>
+            </div>
+            <div class="sf-guide-section__body" data-render="sources">
+              <div class="sf-skeleton" aria-hidden="true">
+                <span class="sf-skeleton__line"></span>
+                <span class="sf-skeleton__line"></span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="sf-footer">
+    <div class="sf-container">
+      <div class="sf-footer__top">
+        <div class="sf-footer__brand">
+          <a class="sf-footer__logo" href="./">
+            <img class="sf-logo sf-only-light" src="assets/brand/swatchfin-logo.svg" alt="Swatchfin" width="106" height="32">
+            <img class="sf-logo sf-only-dark" src="assets/brand/swatchfin-logo-dark.svg" alt="Swatchfin" width="106" height="32">
+          </a>
+          <p class="sf-footer__tagline">Brand guides from any URL. Logo, colours, fonts, voice and messaging, read from the live site and checked against it.</p>
+          <a class="sf-footer__powered" href="https://www.tinyfish.ai/">
+            Powered by TinyFish
+            <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#arrow-up-right"></use></svg>
+          </a>
+          <p class="sf-footer__note">Built for the TinyFish Student Bounty Drop 001.</p>
+        </div>
+
+        <nav class="sf-footer__nav" aria-label="Footer">
+          <div>
+            <h2 class="sf-footer__heading">Product</h2>
+            <ul class="sf-footer__list">
+              <li><a class="sf-footer__link" href="./#how-it-works">How it works</a></li>
+              <li><a class="sf-footer__link" href="./#features">Features</a></li>
+              <li><a class="sf-footer__link" href="./#exports">Exports</a></li>
+              <li><a class="sf-footer__link" href="about.html">About</a></li>
+            </ul>
+          </div>
+          <div>
+            <h2 class="sf-footer__heading">Project</h2>
+            <ul class="sf-footer__list">
+              <li><a class="sf-footer__link" href="https://github.com/ankanhq/swatchfin">Source on GitHub</a></li>
+              <li><a class="sf-footer__link" href="https://docs.tinyfish.ai/">TinyFish docs</a></li>
+            </ul>
+          </div>
+        </nav>
+      </div>
+
+      <div class="sf-footer__bottom">
+        <p>© 2026 Ankan Chowdhury · <a href="https://github.com/ankanhq/swatchfin/blob/main/LICENSE">MIT</a></p>
+        <p>Independent project built with TinyFish APIs. Not an official TinyFish product.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Short confirmations such as "Copied #B5532A" (see toast.js). -->
+  <div class="sf-toast-region" role="status" aria-live="polite" data-toast-region></div>
+</body>
+</html>

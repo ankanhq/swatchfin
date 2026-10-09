@@ -13,39 +13,50 @@
  * theme.js adds "sf-motion" to <html> before the page is drawn, and only
  * when the visitor has not asked for reduced motion. Without that class this
  * file does nothing and the CSS shows everything in its final state.
+ *
+ * Pages that add content later (the guide page renders after its data
+ * loads) call observeMotion(container) once the new elements are in place.
  */
 
 const root = document.documentElement;
+const motionOn = root.classList.contains('sf-motion');
 
-if (root.classList.contains('sf-motion')) {
+/** One shared observer: adds "is-visible" once, then stops watching. */
+const observer =
+  motionOn && 'IntersectionObserver' in window
+    ? new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            entry.target.classList.add('is-visible');
+            observer.unobserve(entry.target); // play once only
+          });
+        },
+        // Start when 15% of the element is on screen, ignoring the bottom 10%
+        // of the window, so things animate just after they appear.
+        { threshold: 0.15, rootMargin: '0px 0px -10% 0px' },
+      )
+    : null;
+
+if (motionOn) {
   // Tell theme.js's safety timer that motion is up and running.
   root.classList.add('sf-motion-ready');
-  watchForReveals();
+  observeMotion(document);
 }
 
-/** Adds "is-visible" to each opted-in element once, as it scrolls into view. */
-function watchForReveals() {
-  const targets = document.querySelectorAll('[data-reveal], [data-sequence]');
-  const show = (element) => element.classList.add('is-visible');
+/**
+ * Starts watching every [data-reveal] / [data-sequence] element inside
+ * `container` that has not played yet.
+ * @param {ParentNode} container
+ */
+export function observeMotion(container) {
+  if (!motionOn) return;
+  const targets = container.querySelectorAll('[data-reveal]:not(.is-visible), [data-sequence]:not(.is-visible)');
 
   // Very old browsers: just show everything.
-  if (!('IntersectionObserver' in window)) {
-    targets.forEach(show);
+  if (!observer) {
+    targets.forEach((target) => target.classList.add('is-visible'));
     return;
   }
-
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-        show(entry.target);
-        observer.unobserve(entry.target); // play once only
-      });
-    },
-    // Start when 15% of the element is on screen, ignoring the bottom 10%
-    // of the window, so things animate just after they appear.
-    { threshold: 0.15, rootMargin: '0px 0px -10% 0px' },
-  );
-
   targets.forEach((target) => observer.observe(target));
 }

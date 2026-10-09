@@ -12,6 +12,13 @@
    10. Chips
    11. Generate form ("Company name or URL")
    12. Motion: scroll reveals
+   13. Notices and callouts
+   14. Badge variants (status, confidence, verified)
+   15. Copy button
+   16. Toast
+   17. Loading skeleton
+   18. Empty state
+   19. Source link
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
@@ -228,6 +235,12 @@
   border-bottom-color: transparent;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+}
+
+/* Pages with their own sticky toolbar (the guide page): the header scrolls
+   away with the page instead of sticking. */
+.sf-header--static {
+  position: relative;
 }
 
 /* Menu open: a solid bar, so the bar and the menu panel read as one piece. */
@@ -836,4 +849,292 @@
       transition-delay: 120ms;
     }
   }
+}
+
+/* --------------------------------------------------------------------------
+   13. Notices and callouts
+   .sf-notice   neutral information (e.g. "this is sample data")
+   .sf-callout  a titled list; --warning tints it amber
+   -------------------------------------------------------------------------- */
+.sf-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sf-space-3);
+  margin: var(--sf-space-6) 0 0;
+  padding: var(--sf-space-4) var(--sf-space-5);
+  font-size: var(--sf-text-sm);
+  background-color: var(--sf-color-surface-subtle);
+  border: var(--sf-border-width) solid var(--sf-color-border);
+  border-radius: var(--sf-radius-lg);
+}
+
+.sf-notice__icon {
+  margin-top: 0.0625rem;
+  color: var(--sf-color-accent-text);
+}
+
+.sf-notice__title {
+  margin: 0 0 var(--sf-space-1);
+  font-weight: var(--sf-weight-semibold);
+}
+
+.sf-notice__text {
+  margin: 0;
+  color: var(--sf-color-text-muted);
+}
+
+.sf-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sf-space-3);
+  padding: var(--sf-space-5);
+  border: var(--sf-border-width) solid var(--sf-color-border);
+  border-radius: var(--sf-radius-lg);
+}
+
+.sf-callout--warning {
+  background-color: var(--sf-color-warning-subtle);
+}
+
+.sf-callout--warning .sf-callout__icon {
+  color: var(--sf-color-warning);
+}
+
+.sf-callout__icon {
+  margin-top: 0.0625rem;
+}
+
+.sf-callout__body {
+  min-width: 0;
+}
+
+.sf-callout__title {
+  margin: 0 0 var(--sf-space-2);
+  font-weight: var(--sf-weight-semibold);
+}
+
+.sf-callout__list {
+  display: grid;
+  gap: var(--sf-space-2);
+  margin: 0;
+  padding-left: 1.125rem;
+  font-size: var(--sf-text-sm);
+  overflow-wrap: anywhere; /* long URLs inside a warning wrap instead of overflowing */
+}
+
+/* --------------------------------------------------------------------------
+   14. Badge variants
+   Status colours come in text/background pairs that pass AA in both themes
+   (checked by `npm run contrast`). The word is always shown, so meaning
+   never depends on colour alone.
+   -------------------------------------------------------------------------- */
+.sf-badge--success,
+.sf-confidence--high,
+.sf-verified--yes {
+  color: var(--sf-color-success);
+  background-color: var(--sf-color-success-subtle);
+}
+
+.sf-badge--warning,
+.sf-confidence--medium,
+.sf-verified--no {
+  color: var(--sf-color-warning);
+  background-color: var(--sf-color-warning-subtle);
+}
+
+.sf-badge--danger,
+.sf-confidence--low {
+  color: var(--sf-color-danger);
+  background-color: var(--sf-color-danger-subtle);
+}
+
+.sf-badge--link {
+  text-decoration: none;
+}
+
+.sf-badge--link:hover {
+  text-decoration: underline;
+}
+
+/* Keep the badge colour on hover (base.css would switch it to the link colour). */
+.sf-badge--warning.sf-badge--link:hover {
+  color: var(--sf-color-warning);
+}
+
+.sf-badge .sf-icon {
+  margin-inline-start: -0.125rem;
+}
+
+/* --------------------------------------------------------------------------
+   15. Copy button
+   A value in mono with a copy icon. guide.js copies data-copy on click,
+   shows a toast and swaps the icon for a tick for a moment.
+   -------------------------------------------------------------------------- */
+.sf-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sf-space-2);
+  min-height: 1.75rem;
+  margin-inline-start: calc(var(--sf-space-2) * -1);
+  padding: 0 var(--sf-space-2);
+  font-family: var(--sf-font-mono);
+  font-size: var(--sf-text-sm);
+  font-variant-ligatures: none;
+  color: var(--sf-color-text);
+  background-color: transparent;
+  border: var(--sf-border-width) solid transparent;
+  border-radius: var(--sf-radius-sm);
+  transition:
+    background-color var(--sf-duration-fast) var(--sf-ease-out),
+    border-color var(--sf-duration-fast) var(--sf-ease-out);
+}
+
+.sf-copy:hover {
+  background-color: var(--sf-color-surface-subtle);
+  border-color: var(--sf-color-border);
+}
+
+.sf-copy__icon {
+  color: var(--sf-color-text-muted);
+}
+
+.sf-copy:hover .sf-copy__icon {
+  color: var(--sf-color-text);
+}
+
+/* --------------------------------------------------------------------------
+   16. Toast
+   One at a time, centred at the bottom of the window. The region itself
+   never catches clicks, so it can't block the page.
+   -------------------------------------------------------------------------- */
+.sf-toast-region {
+  position: fixed;
+  bottom: var(--sf-space-6);
+  left: 50%;
+  z-index: var(--sf-z-toast);
+  width: max-content;
+  max-width: calc(100vw - 2 * var(--sf-gutter));
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.sf-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--sf-space-2);
+  padding: var(--sf-space-3) var(--sf-space-4);
+  font-size: var(--sf-text-sm);
+  font-weight: var(--sf-weight-medium);
+  color: var(--sf-color-text-inverse);
+  background-color: var(--sf-color-text);
+  border-radius: var(--sf-radius-md);
+  box-shadow: var(--sf-shadow-lg);
+  opacity: 0;
+  transform: translateY(var(--sf-space-2));
+  transition:
+    opacity var(--sf-duration-slow) var(--sf-ease-out),
+    transform var(--sf-duration-slow) var(--sf-ease-out);
+}
+
+.sf-toast.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* --------------------------------------------------------------------------
+   17. Loading skeleton
+   Grey blocks in the shape of the content that is on its way. They pulse
+   gently, unless the visitor prefers reduced motion.
+   -------------------------------------------------------------------------- */
+.sf-skeleton {
+  display: grid;
+  gap: var(--sf-space-3);
+}
+
+.sf-skeleton__line,
+.sf-skeleton__block {
+  display: block;
+  width: 100%;
+  background-color: var(--sf-color-border);
+  border-radius: var(--sf-radius-sm);
+}
+
+.sf-skeleton__line {
+  max-width: 36rem;
+  height: 0.875rem;
+}
+
+.sf-skeleton__line--short {
+  max-width: 14rem;
+}
+
+.sf-skeleton__block {
+  height: 100%;
+  min-height: 3rem;
+  border-radius: var(--sf-radius-md);
+}
+
+.sf-skeleton__block--wide {
+  height: 8rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sf-skeleton__line,
+  .sf-skeleton__block {
+    animation: sf-pulse 1.6s var(--sf-ease-in-out) infinite;
+  }
+}
+
+@keyframes sf-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   18. Empty state: a part of the guide that could not be found
+   -------------------------------------------------------------------------- */
+.sf-empty {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sf-space-3);
+  padding: var(--sf-space-5);
+  font-size: var(--sf-text-sm);
+  color: var(--sf-color-text-muted);
+  border: var(--sf-border-width) dashed var(--sf-color-border-strong);
+  border-radius: var(--sf-radius-lg);
+}
+
+.sf-empty__icon {
+  margin-top: 0.0625rem;
+}
+
+.sf-empty__title {
+  margin: 0;
+  font-weight: var(--sf-weight-semibold);
+  color: var(--sf-color-text);
+}
+
+.sf-empty__text {
+  margin: var(--sf-space-1) 0 0;
+}
+
+/* --------------------------------------------------------------------------
+   19. Source link: where a fact came from, e.g. "example.com/about ↗"
+   -------------------------------------------------------------------------- */
+.sf-source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sf-space-1);
+  min-width: 0;
+  font-family: var(--sf-font-mono);
+  font-size: var(--sf-text-xs);
+  font-variant-ligatures: none;
+  color: var(--sf-color-link);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.sf-source-link:hover {
+  text-decoration: underline;
 }
