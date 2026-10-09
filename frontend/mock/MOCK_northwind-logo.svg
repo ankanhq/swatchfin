@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 248 64" width="248" height="64">
+  <title>MOCK · Northwind Roasters logo (fictional brand)</title>
+  <rect width="64" height="64" rx="14" fill="#2B1D16"/>
+  <path d="M32 10 L42 32 L32 54 Z" fill="#B5532A"/>
+  <path d="M32 10 L22 32 L32 54 Z" fill="#F3ECE2"/>
+  <circle cx="32" cy="32" r="3" fill="#2B1D16"/>
+  <text x="80" y="36" fill="#2B1D16" font-family="Georgia, 'Times New Roman', serif" font-size="27" font-weight="700">Northwind</text>
+  <text x="81" y="54" fill="#B5532A" font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="700" letter-spacing="3.6">ROASTERS</text>
+</svg>

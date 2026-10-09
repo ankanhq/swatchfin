@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>MOCK · Northwind Roasters mark (fictional brand)</title>
+  <rect width="64" height="64" rx="14" fill="#2B1D16"/>
+  <path d="M32 10 L42 32 L32 54 Z" fill="#B5532A"/>
+  <path d="M32 10 L22 32 L32 54 Z" fill="#F3ECE2"/>
+  <circle cx="32" cy="32" r="3" fill="#2B1D16"/>
+</svg>

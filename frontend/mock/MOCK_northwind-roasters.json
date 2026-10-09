@@ -1,0 +1,305 @@
+{
+  "schema_version": "1.0",
+  "id": "bg_MOCK_northwind",
+  "status": "complete",
+  "query": "Northwind Roasters",
+  "generated_at": "2026-10-09T10:24:00Z",
+  "brand": {
+    "name": "Northwind Roasters",
+    "domain": "northwind-roasters.example",
+    "url": "https://northwind-roasters.example/",
+    "description": "MOCK DATA for a fictional brand. Northwind Roasters is a made-up small-batch coffee roaster used to develop the Swatchfin guide page.",
+    "language": "en"
+  },
+  "logo": {
+    "primary": {
+      "url": "mock/MOCK_northwind-logo.svg",
+      "format": "svg",
+      "method": "header-img",
+      "source_url": "https://northwind-roasters.example/",
+      "confidence": 0.94
+    },
+    "alternates": [
+      {
+        "url": "mock/MOCK_northwind-mark.svg",
+        "format": "svg",
+        "method": "favicon",
+        "source_url": "https://northwind-roasters.example/",
+        "confidence": 0.72
+      }
+    ],
+    "favicon": "mock/MOCK_northwind-mark.svg"
+  },
+  "colors": [
+    {
+      "hex": "#B5532A",
+      "rgb": [181, 83, 42],
+      "role": "primary",
+      "usage": ["primary button background", "header call-to-action", "active navigation underline"],
+      "share": 0.07,
+      "source": "computed-style",
+      "confidence": 0.93
+    },
+    {
+      "hex": "#5F7A63",
+      "rgb": [95, 122, 99],
+      "role": "accent",
+      "usage": ["origin tags", "success messages"],
+      "share": 0.03,
+      "source": "computed-style",
+      "confidence": 0.78
+    },
+    {
+      "hex": "#FFFCF7",
+      "rgb": [255, 252, 247],
+      "role": "background",
+      "usage": ["page background"],
+      "share": 0.52,
+      "source": "computed-style",
+      "confidence": 0.97
+    },
+    {
+      "hex": "#F3ECE2",
+      "rgb": [243, 236, 226],
+      "role": "surface",
+      "usage": ["card background", "subscription panel"],
+      "share": 0.18,
+      "source": "computed-style",
+      "confidence": 0.89
+    },
+    {
+      "hex": "#2B1D16",
+      "rgb": [43, 29, 22],
+      "role": "text",
+      "usage": ["headings", "body text", "footer background"],
+      "share": 0.11,
+      "source": "computed-style",
+      "confidence": 0.96
+    },
+    {
+      "hex": "#6B6259",
+      "rgb": [107, 98, 89],
+      "role": "text-muted",
+      "usage": ["captions", "product details", "form hints"],
+      "share": 0.04,
+      "source": "computed-style",
+      "confidence": 0.84
+    },
+    {
+      "hex": "#8F3E1D",
+      "rgb": [143, 62, 29],
+      "role": "link",
+      "usage": ["inline links"],
+      "share": 0.01,
+      "source": "computed-style",
+      "confidence": 0.81
+    },
+    {
+      "hex": "#E2D6C6",
+      "rgb": [226, 214, 198],
+      "role": "border",
+      "usage": ["card borders", "dividers", "input borders"],
+      "share": 0.04,
+      "source": "computed-style",
+      "confidence": 0.66
+    }
+  ],
+  "contrast": [
+    { "fg": "#2B1D16", "bg": "#FFFCF7", "ratio": 15.91, "wcag": "AAA" },
+    { "fg": "#2B1D16", "bg": "#F3ECE2", "ratio": 13.88, "wcag": "AAA" },
+    { "fg": "#6B6259", "bg": "#FFFCF7", "ratio": 5.84, "wcag": "AA" },
+    { "fg": "#6B6259", "bg": "#F3ECE2", "ratio": 5.09, "wcag": "AA" },
+    { "fg": "#8F3E1D", "bg": "#FFFCF7", "ratio": 7.14, "wcag": "AAA" },
+    { "fg": "#8F3E1D", "bg": "#F3ECE2", "ratio": 6.23, "wcag": "AA" },
+    { "fg": "#B5532A", "bg": "#FFFCF7", "ratio": 4.84, "wcag": "AA" },
+    { "fg": "#B5532A", "bg": "#F3ECE2", "ratio": 4.23, "wcag": "AA-large" },
+    { "fg": "#5F7A63", "bg": "#FFFCF7", "ratio": 4.61, "wcag": "AA" },
+    { "fg": "#5F7A63", "bg": "#F3ECE2", "ratio": 4.02, "wcag": "AA-large" },
+    { "fg": "#FFFCF7", "bg": "#B5532A", "ratio": 4.84, "wcag": "AA" },
+    { "fg": "#6B6259", "bg": "#2B1D16", "ratio": 2.73, "wcag": "fail" }
+  ],
+  "typography": [
+    {
+      "role": "heading",
+      "family": "Fraunces",
+      "fallback_stack": "Georgia, \"Times New Roman\", serif",
+      "weights": [600],
+      "sizes_px": [56, 36, 24],
+      "is_webfont": true,
+      "source": "computed-style",
+      "confidence": 0.92
+    },
+    {
+      "role": "body",
+      "family": "Inter",
+      "fallback_stack": "system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "weights": [400, 500],
+      "sizes_px": [18, 16],
+      "is_webfont": true,
+      "source": "computed-style",
+      "confidence": 0.9
+    },
+    {
+      "role": "ui",
+      "family": "Northwind Grotesk",
+      "fallback_stack": "\"Helvetica Neue\", Arial, sans-serif",
+      "weights": [500, 600],
+      "sizes_px": [15, 13],
+      "is_webfont": true,
+      "source": "computed-style",
+      "confidence": 0.81
+    }
+  ],
+  "voice": {
+    "summary": "Warm, unhurried and specific. Northwind writes like a roaster talking across the counter: short sentences, plain words and real details about origins, roast dates and brewing.",
+    "traits": [
+      {
+        "name": "Warm",
+        "description": "Speaks to the reader as a regular, not a customer, and takes responsibility when something goes wrong.",
+        "evidence": [
+          {
+            "quote": "Pull up a stool. We’ll tell you what we’re roasting this week.",
+            "source_url": "https://northwind-roasters.example/",
+            "verified": true
+          },
+          {
+            "quote": "If a bag isn’t right for you, write to us and we’ll make it right.",
+            "source_url": "https://northwind-roasters.example/subscriptions",
+            "verified": true
+          }
+        ]
+      },
+      {
+        "name": "Unhurried",
+        "description": "Short sentences with room to breathe. It never pushes urgency or countdowns.",
+        "evidence": [
+          {
+            "quote": "We roast on Tuesdays. Your coffee ships on Wednesday. That’s the whole plan.",
+            "source_url": "https://northwind-roasters.example/subscriptions",
+            "verified": true
+          },
+          {
+            "quote": "Good coffee takes a little time. So does good writing about it.",
+            "source_url": "https://northwind-roasters.example/journal",
+            "verified": true
+          }
+        ]
+      },
+      {
+        "name": "Craft-minded",
+        "description": "Names origins, farms, roast dates and brew ratios instead of vague praise.",
+        "evidence": [
+          {
+            "quote": "This lot comes from the Gakuyuni washing station in Kirinyaga, Kenya, and tastes of blackcurrant and brown sugar.",
+            "source_url": "https://northwind-roasters.example/coffee",
+            "verified": true
+          },
+          {
+            "quote": "Every bag is stamped with its roast date, so you always know how fresh it is.",
+            "source_url": "https://northwind-roasters.example/coffee",
+            "verified": true
+          }
+        ]
+      }
+    ],
+    "spectrum": { "formal_casual": 70, "serious_playful": 40, "technical_simple": 58, "reserved_bold": 30 },
+    "do": [
+      "Name the origin, farm or roast date when you talk about a coffee.",
+      "Write short sentences and leave room between ideas.",
+      "Talk to the reader as a regular: use “we” and “you”, not “customers”.",
+      "Promise only what you deliver, such as “ships on Wednesday”."
+    ],
+    "dont": [
+      "Don’t use urgency or countdown language.",
+      "Don’t lean on vague words like “premium” or “artisanal” without a detail to back them up.",
+      "Don’t use exclamation marks to add energy.",
+      "Don’t build headlines around coffee puns."
+    ]
+  },
+  "messaging": {
+    "tagline": {
+      "text": "Small-batch coffee, roasted on Tuesdays.",
+      "source_url": "https://northwind-roasters.example/",
+      "verified": true
+    },
+    "mission": null,
+    "value_props": [
+      {
+        "title": "Roasted to order",
+        "quote": "Nothing sits on a shelf. We roast what’s ordered and ship it the next morning.",
+        "source_url": "https://northwind-roasters.example/subscriptions",
+        "verified": true
+      },
+      {
+        "title": "Traceable origins",
+        "quote": "We buy from the same twelve farms every year and pay them before the harvest, not after.",
+        "source_url": "https://northwind-roasters.example/about",
+        "verified": true
+      },
+      {
+        "title": "Flexible subscriptions",
+        "quote": "Skip a delivery, change your grind or pause for a month from your account. No phone calls.",
+        "source_url": "https://northwind-roasters.example/subscriptions",
+        "verified": true
+      }
+    ],
+    "audience": ["Home brewers", "Coffee subscribers", "People new to speciality coffee"]
+  },
+  "sources": [
+    {
+      "url": "https://northwind-roasters.example/",
+      "title": "Northwind Roasters · Small-batch coffee, roasted on Tuesdays",
+      "api": "search",
+      "fetched_at": "2026-10-09T10:22:41Z"
+    },
+    {
+      "url": "https://northwind-roasters.example/",
+      "title": "Northwind Roasters · Small-batch coffee, roasted on Tuesdays",
+      "api": "fetch",
+      "fetched_at": "2026-10-09T10:22:46Z"
+    },
+    {
+      "url": "https://northwind-roasters.example/about",
+      "title": "Our story · Northwind Roasters",
+      "api": "fetch",
+      "fetched_at": "2026-10-09T10:22:58Z"
+    },
+    {
+      "url": "https://northwind-roasters.example/coffee",
+      "title": "Our coffee · Northwind Roasters",
+      "api": "fetch",
+      "fetched_at": "2026-10-09T10:22:58Z"
+    },
+    {
+      "url": "https://northwind-roasters.example/subscriptions",
+      "title": "Subscriptions · Northwind Roasters",
+      "api": "fetch",
+      "fetched_at": "2026-10-09T10:22:58Z"
+    },
+    {
+      "url": "https://northwind-roasters.example/journal",
+      "title": "The Journal · Northwind Roasters",
+      "api": "fetch",
+      "fetched_at": "2026-10-09T10:22:58Z"
+    },
+    {
+      "url": "https://northwind-roasters.example/careers",
+      "title": "Work with us · Northwind Roasters",
+      "api": "fetch",
+      "fetched_at": "2026-10-09T10:22:58Z"
+    },
+    {
+      "url": "https://northwind-roasters.example/",
+      "title": "Northwind Roasters · Small-batch coffee, roasted on Tuesdays",
+      "api": "browser",
+      "fetched_at": "2026-10-09T10:23:31Z"
+    }
+  ],
+  "tinyfish_usage": { "search_calls": 2, "fetch_urls": 7, "browser_sessions": 1 },
+  "warnings": [
+    "MOCK DATA: Northwind Roasters is a fictional brand. Nothing in this guide was read from a real website.",
+    "The Press page (https://northwind-roasters.example/press) was blocked by an anti-bot check and was skipped.",
+    "No mission statement was found on the fetched pages, so the mission is left empty.",
+    "One value proposition was dropped because its quote could not be found word for word in the fetched text."
+  ]
+}
