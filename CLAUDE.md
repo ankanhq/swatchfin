@@ -278,3 +278,5 @@ swatchfin/
 - [ ] **Phase 9:** Test on 10+ varied real sites, fix failures, remove mock usage from production paths
 - [ ] **Phase 10:** Deploy, final README (with "How TinyFish is used"), screenshots, demo video on 3+ brands
 - [ ] **Phase 11:** Submit: build link, LinkedIn post tagging TinyFish, #showcase on Discord
+
+- [ ] **Phase 12 (only after the bounty is submitted and judged):** Rename this file. Move `CLAUDE.md` to `docs/PROJECT_BRIEF.md` with `git mv`, update any links to it, then commit as "docs: rename project brief" and push. Do this last, because after the rename Claude Code no longer reads these rules automatically.
