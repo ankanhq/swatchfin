@@ -181,6 +181,7 @@ Generation takes 30–90 s, so it is an async job with polling.
   `steps` always lists the seven steps in order (`resolving` is `skipped` when a URL was given). `detail` is one short line for people, shown as plain text. `tinyfish_usage` counts the calls made so far. `error` is `{ "title", "message" }` when `failed`; `guide` is the full BrandGuide when `complete`.
 - Validate input (length, URL format), rate-limit per IP, CORS restricted to our own origin, timeouts on every outbound call.
 - Storage: in-memory + JSON files in `backend/data/guides/` is fine (git-ignored).
+- Static files: serve `/frontend` with `Cache-Control: no-cache`, gzip for text files, and `404.html` with a real 404 status for unknown paths. `tools/serve.py` does all three in development; without them, cached modules break the guide page and mobile Lighthouse scores drop.
 
 ---
 
@@ -283,7 +284,7 @@ swatchfin/
 - [x] **Phase 0:** Repo setup: structure, `.gitignore`, `.env.example`, README skeleton, LICENSE, first commit, push to GitHub
 - [x] **Phase 1:** Design system (`tokens.css`, `base.css`), header/footer, theme toggle, landing page
 - [x] **Phase 2:** Guide result page rendered from `mock/MOCK_northwind-roasters.json`
-- [ ] **Phase 3:** Progress view, error/empty states, about page, 404, print stylesheet, accessibility + Lighthouse pass
+- [x] **Phase 3:** Progress view, error/empty states, about page, 404, print stylesheet, accessibility + Lighthouse pass
 - [ ] **Phase 4:** FastAPI skeleton, schemas, job system, serves frontend; frontend switches from mock to real API
 - [ ] **Phase 5:** TinyFish Search + Fetch: resolve, homepage parsing, logo, page discovery, content
 - [ ] **Phase 6:** TinyFish Browser: computed colours, fonts, logo confirmation

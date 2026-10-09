@@ -90,6 +90,24 @@ Then open [http://localhost:8000](http://localhost:8000) (pass another port as a
 
 The mock is only for building the frontend: it follows the exact BrandGuide and job status shapes in `CLAUDE.md`, and every part of it is labelled as mock.
 
+The other pages: [`about.html`](http://localhost:8000/about.html) explains how Swatchfin uses TinyFish Search, Fetch and Browser (with a pipeline diagram, limitations and a privacy note), and any missing address shows the 404 page ([localhost:8000/anything](http://localhost:8000/anything)).
+
+**Print or save as PDF.** On a guide, choose Export → *Print or save as PDF*, or press Cmd/Ctrl+P. The printout is always light, keeps the brand colours exact, starts with the brand header and warnings, and puts each section on its own page, with page numbers in Chrome and Edge.
+
+### Quality checks
+
+Last run (`npm run lighthouse`, Lighthouse 13.5.0, dev server with gzip):
+
+| | Performance | Accessibility | Best Practices | SEO |
+|---|---|---|---|---|
+| Desktop, every page and guide state | 100 | 100 | 100 | 100 |
+| Mobile: start, about, 404 | 95–97 | 100 | 100 | 100* |
+| Mobile: guide states | 91–94 | 100 | 100 | 100 |
+
+\* The 404 page is `noindex` on purpose, so its SEO score doesn't count. Mobile scores use Lighthouse's simulated slow phone and move by a few points between runs. On the guide, the remaining time is the guide data arriving and being drawn, which changes with the real backend in Phase 4.
+
+Checked by hand as well: keyboard only (visible focus everywhere, nothing hidden under the sticky toolbar), no sideways scrolling at 320px, 24px touch targets, screen reader announcements for each progress step, reduced motion, and both themes.
+
 ### Development tools
 
 Node.js is only used for small dev scripts. Nothing from `node_modules` is shipped to the browser.
