@@ -3028,3 +3028,66 @@
     transform: translateY(var(--sf-reveal-distance));
   }
 }
+
+/* --------------------------------------------------------------------------
+   Not found page (404.html)
+   Left-aligned like the rest of the site: the message, the Generate form
+   from the start page, then a short row of ways out.
+   -------------------------------------------------------------------------- */
+.sf-not-found {
+  padding-block: var(--sf-space-16) var(--sf-section-space);
+}
+
+@media (min-width: 992px) {
+  .sf-not-found {
+    padding-top: var(--sf-space-24);
+  }
+}
+
+.sf-not-found__code {
+  margin-bottom: var(--sf-space-4);
+  font-family: var(--sf-font-mono);
+  font-size: var(--sf-text-sm);
+  font-weight: var(--sf-weight-medium);
+  color: var(--sf-color-accent-text);
+}
+
+.sf-not-found__title {
+  max-width: 14ch;
+  margin-bottom: var(--sf-space-5);
+  font-size: var(--sf-text-4xl);
+  line-height: 1.05;
+  letter-spacing: var(--sf-tracking-display);
+}
+
+.sf-not-found__lead {
+  max-width: 36rem;
+  margin-bottom: var(--sf-space-10);
+  font-size: var(--sf-text-md);
+  color: var(--sf-color-text-muted);
+}
+
+.sf-not-found__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sf-space-3) var(--sf-space-8);
+  max-width: 36rem;
+  margin: var(--sf-space-12) 0 0;
+  padding: var(--sf-space-6) 0 0;
+  list-style: none;
+  border-top: var(--sf-border-width) solid var(--sf-color-border);
+}
+
+.sf-not-found__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sf-space-1);
+  min-height: 1.5rem;
+  font-size: var(--sf-text-sm);
+  font-weight: var(--sf-weight-medium);
+  text-decoration: none;
+}
+
+.sf-not-found__link:hover {
+  text-decoration: underline;
+}
