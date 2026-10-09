@@ -18,6 +18,13 @@ import { copyText } from './utils.js';
 import { emptyState } from './render/dom.js';
 import { brandName, renderBrandHeader, renderHeaderError, renderNotice, renderToolbar } from './render/brand.js';
 import { renderWarnings } from './render/warnings.js';
+import { renderLogo } from './render/logo.js';
+import { renderColors } from './render/colors.js';
+import { renderContrast } from './render/contrast.js';
+import { renderTypography } from './render/typography.js';
+import { renderVoice } from './render/voice.js';
+import { renderMessaging } from './render/messaging.js';
+import { renderSources } from './render/sources.js';
 
 /**
  * Section name (data-render="…" in guide.html) -> function that draws it.
@@ -27,6 +34,13 @@ import { renderWarnings } from './render/warnings.js';
  */
 const SECTIONS = {
   warnings: renderWarnings,
+  logo: renderLogo,
+  colours: renderColors,
+  contrast: renderContrast,
+  typography: renderTypography,
+  voice: renderVoice,
+  messaging: renderMessaging,
+  sources: renderSources,
 };
 
 const page = document.querySelector('[data-guide]');
@@ -149,7 +163,7 @@ function setUpCopyButtons(page) {
 
     const value = button.getAttribute('data-copy') ?? '';
     if (!(await copyText(value))) {
-      showToast('Couldn’t copy. Select the value and copy it yourself.', { icon: 'circle-alert', tone: 'danger' });
+      showToast(`Couldn’t copy ${value}: the browser blocked the clipboard.`, { icon: 'circle-alert', tone: 'danger' });
       return;
     }
 

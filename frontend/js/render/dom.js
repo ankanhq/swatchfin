@@ -120,6 +120,31 @@ export function copyButton(value, label) {
 }
 
 /**
+ * A <dt>/<dd> pair for a facts list (<dl class="sf-facts">). Spread it:
+ *   el('dl', { className: 'sf-facts' }, [...fact('Format', 'SVG')])
+ * @param {string} term
+ * @param {Node | string} value
+ * @returns {HTMLElement[]}
+ */
+export function fact(term, value) {
+  return [el('dt', { text: term }), el('dd', {}, [value])];
+}
+
+/**
+ * A titled group inside a section, e.g. "Traits" or "Value propositions".
+ * Returns null when there is no content, so callers can pass it straight
+ * into el()'s children.
+ * @param {string} title
+ * @param {Array<Node | null | false>} children
+ * @returns {HTMLElement | null}
+ */
+export function subsection(title, children) {
+  const content = children.filter(Boolean);
+  if (content.length === 0) return null;
+  return el('div', { className: 'sf-subsection' }, [el('h3', { className: 'sf-subsection__title', text: title }), ...content]);
+}
+
+/**
  * Sentence case for labels from the data: "primary button background" ->
  * "Primary button background".
  * @param {string} text
@@ -127,6 +152,19 @@ export function copyButton(value, label) {
  */
 export function sentenceCase(text) {
   return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+}
+
+/**
+ * Looks up a key in one of our own label tables. Website data could contain
+ * keys like "constructor" that every JavaScript object has, so only the
+ * table's own entries count.
+ * @template T
+ * @param {Record<string, T>} table
+ * @param {unknown} key
+ * @returns {T | undefined}
+ */
+export function lookup(table, key) {
+  return typeof key === 'string' && Object.hasOwn(table, key) ? table[key] : undefined;
 }
 
 /**

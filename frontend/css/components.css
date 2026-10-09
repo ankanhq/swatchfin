@@ -598,6 +598,7 @@
   font-weight: var(--sf-weight-semibold);
   line-height: 1;
   color: var(--sf-color-text-muted);
+  white-space: nowrap;
   background-color: var(--sf-color-surface-subtle);
   border-radius: var(--sf-radius-pill);
 }
@@ -981,6 +982,7 @@
   font-size: var(--sf-text-sm);
   font-variant-ligatures: none;
   color: var(--sf-color-text);
+  white-space: nowrap;
   background-color: transparent;
   border: var(--sf-border-width) solid transparent;
   border-radius: var(--sf-radius-sm);
@@ -1122,11 +1124,8 @@
 /* --------------------------------------------------------------------------
    19. Source link: where a fact came from, e.g. "example.com/about ↗"
    -------------------------------------------------------------------------- */
+/* Inline (not flex), so a long URL wraps like text and the arrow follows it. */
 .sf-source-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sf-space-1);
-  min-width: 0;
   font-family: var(--sf-font-mono);
   font-size: var(--sf-text-xs);
   font-variant-ligatures: none;
@@ -1137,4 +1136,8 @@
 
 .sf-source-link:hover {
   text-decoration: underline;
+}
+
+.sf-source-link .sf-icon {
+  margin-left: 0.125rem;
 }
