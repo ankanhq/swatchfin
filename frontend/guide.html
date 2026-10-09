@@ -88,7 +88,7 @@
     </div>
   </header>
 
-  <!-- data-state is "loading", "ready" or "error" (set by guide.js). -->
+  <!-- data-state is "loading", "running", "ready", "failed", "error" or "empty" (set by guide.js; see its top comment). -->
   <main id="main" class="sf-guide-page" data-state="loading" aria-busy="true" data-guide>
     <p class="visually-hidden" role="status" data-guide-status>Loading brand guide…</p>
 
@@ -187,12 +187,15 @@
     <!-- ============ Brand header ============ -->
     <header class="sf-guide-header" id="overview">
       <div class="sf-container sf-guide-header__inner">
+        <!-- One of these shows, depending on the state: placeholder (loading), Swatchfin mark (running), alert icon (failed, error), search icon (empty). -->
         <div class="sf-guide-header__logo" data-brand-logo>
           <span class="sf-skeleton__block" aria-hidden="true"></span>
+          <img class="sf-guide-header__mark" src="assets/brand/swatchfin-mark.svg" alt="" width="40" height="40">
           <svg class="sf-icon sf-icon--24 sf-guide-header__error-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#circle-alert"></use></svg>
+          <svg class="sf-icon sf-icon--24 sf-guide-header__empty-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#search"></use></svg>
         </div>
         <div class="sf-guide-header__text">
-          <p class="sf-guide-header__eyebrow">Brand guide</p>
+          <p class="sf-guide-header__eyebrow" data-brand-eyebrow>Brand guide</p>
           <h1 class="sf-guide-header__title" data-brand-name>Loading brand guide…</h1>
           <div class="sf-guide-header__details" data-brand-details>
             <div class="sf-skeleton" aria-hidden="true">
@@ -201,7 +204,7 @@
             </div>
           </div>
 
-          <!-- Error state only (data-state="error"). guide.js or guide-guard.js fills in the message. -->
+          <!-- Error states only (data-state="error" or "failed"). guide.js or guide-guard.js fills in the message. -->
           <div class="sf-guide-header__error">
             <p class="sf-guide-header__description" data-guide-error-message></p>
             <div class="sf-guide-header__actions">
@@ -209,16 +212,139 @@
                 Start a new guide
                 <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#arrow-right"></use></svg>
               </a>
-              <!-- An empty href opens this same address again, so Try again works even if the scripts failed. -->
-              <a class="sf-btn sf-btn--secondary" href="">
+              <!-- An empty href opens this same address again, so Try again works even if the scripts failed.
+                   For a failed job, guide.js points it at a new job for the same query. -->
+              <a class="sf-btn sf-btn--secondary" href="" data-guide-retry>
                 <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#refresh-cw"></use></svg>
-                Try again
+                <span data-guide-retry-label>Try again</span>
               </a>
+            </div>
+          </div>
+
+          <!-- Empty state only (data-state="empty"): the address doesn't name a guide. -->
+          <div class="sf-guide-header__empty">
+            <p class="sf-guide-header__description">This address doesn’t point to a guide. Start one from a company name or URL, or open the sample to see what a finished guide looks like.</p>
+            <div class="sf-guide-header__actions">
+              <a class="sf-btn sf-btn--primary" href="./#generate">
+                Start a new guide
+                <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#arrow-right"></use></svg>
+              </a>
+              <a class="sf-btn sf-btn--secondary" href="guide.html?id=mock">See the sample guide</a>
             </div>
           </div>
         </div>
       </div>
     </header>
+
+    <!-- ============ Progress view (data-state="running" or "failed") ============
+         The seven pipeline steps from CLAUDE.md, section 5. progress.js sets each
+         step's data-status, marker icon, status word and detail line. -->
+    <section class="sf-progress" aria-labelledby="progress-title" data-progress>
+      <div class="sf-container sf-progress__inner">
+        <div class="sf-progress__main">
+          <h2 class="sf-progress__title" id="progress-title">Progress</h2>
+          <ol class="sf-progress__steps">
+            <li class="sf-progress-step" data-step="resolving" data-status="pending">
+              <span class="sf-progress-step__marker" data-step-marker><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#search"></use></svg></span>
+              <div class="sf-progress-step__body">
+                <p class="sf-progress-step__api">TinyFish Search</p>
+                <h3 class="sf-progress-step__title" data-step-title>Finding the official site</h3>
+                <p class="sf-progress-step__status" data-step-status>Waiting</p>
+                <p class="sf-progress-step__text">Turns a company name into the brand’s own domain, skipping Wikipedia, social profiles and news.</p>
+                <p class="sf-progress-step__detail" data-step-detail hidden></p>
+              </div>
+            </li>
+            <li class="sf-progress-step" data-step="reading_homepage" data-status="pending">
+              <span class="sf-progress-step__marker" data-step-marker><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#file-code"></use></svg></span>
+              <div class="sf-progress-step__body">
+                <p class="sf-progress-step__api">TinyFish Fetch</p>
+                <h3 class="sf-progress-step__title" data-step-title>Reading the homepage</h3>
+                <p class="sf-progress-step__status" data-step-status>Waiting</p>
+                <p class="sf-progress-step__text">Reads the live homepage HTML for the logo, favicon, meta tags and links.</p>
+                <p class="sf-progress-step__detail" data-step-detail hidden></p>
+              </div>
+            </li>
+            <li class="sf-progress-step" data-step="discovering_pages" data-status="pending">
+              <span class="sf-progress-step__marker" data-step-marker><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#link"></use></svg></span>
+              <div class="sf-progress-step__body">
+                <p class="sf-progress-step__api sf-progress-step__api--own">Swatchfin</p>
+                <h3 class="sf-progress-step__title" data-step-title>Choosing pages to read</h3>
+                <p class="sf-progress-step__status" data-step-status>Waiting</p>
+                <p class="sf-progress-step__text">Picks up to nine pages from the site’s own links, such as About, Careers, Press and Blog.</p>
+                <p class="sf-progress-step__detail" data-step-detail hidden></p>
+              </div>
+            </li>
+            <li class="sf-progress-step" data-step="reading_pages" data-status="pending">
+              <span class="sf-progress-step__marker" data-step-marker><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#files"></use></svg></span>
+              <div class="sf-progress-step__body">
+                <p class="sf-progress-step__api">TinyFish Fetch</p>
+                <h3 class="sf-progress-step__title" data-step-title>Reading the pages</h3>
+                <p class="sf-progress-step__status" data-step-status>Waiting</p>
+                <p class="sf-progress-step__text">Fetches those pages live, as clean text, in one batch.</p>
+                <p class="sf-progress-step__detail" data-step-detail hidden></p>
+              </div>
+            </li>
+            <li class="sf-progress-step" data-step="reading_styles" data-status="pending">
+              <span class="sf-progress-step__marker" data-step-marker><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#pipette"></use></svg></span>
+              <div class="sf-progress-step__body">
+                <p class="sf-progress-step__api">TinyFish Browser</p>
+                <h3 class="sf-progress-step__title" data-step-title>Measuring colours and fonts</h3>
+                <p class="sf-progress-step__status" data-step-status>Waiting</p>
+                <p class="sf-progress-step__text">Opens the homepage in a real browser and reads the computed styles of buttons, headings, links and text.</p>
+                <p class="sf-progress-step__detail" data-step-detail hidden></p>
+              </div>
+            </li>
+            <li class="sf-progress-step" data-step="analysing_voice" data-status="pending">
+              <span class="sf-progress-step__marker" data-step-marker><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#message-square-quote"></use></svg></span>
+              <div class="sf-progress-step__body">
+                <p class="sf-progress-step__api sf-progress-step__api--own">Swatchfin</p>
+                <h3 class="sf-progress-step__title" data-step-title>Analysing the tone of voice</h3>
+                <p class="sf-progress-step__status" data-step-status>Waiting</p>
+                <p class="sf-progress-step__text">A language model drafts the traits and key messages, quoting the site for each one.</p>
+                <p class="sf-progress-step__detail" data-step-detail hidden></p>
+              </div>
+            </li>
+            <li class="sf-progress-step" data-step="verifying" data-status="pending">
+              <span class="sf-progress-step__marker" data-step-marker><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#shield-check"></use></svg></span>
+              <div class="sf-progress-step__body">
+                <p class="sf-progress-step__api sf-progress-step__api--own">Swatchfin</p>
+                <h3 class="sf-progress-step__title" data-step-title>Checking every quote</h3>
+                <p class="sf-progress-step__status" data-step-status>Waiting</p>
+                <p class="sf-progress-step__text">Keeps a quote only if it appears word for word in the fetched text, then scores colour contrast.</p>
+                <p class="sf-progress-step__detail" data-step-detail hidden></p>
+              </div>
+            </li>
+          </ol>
+        </div>
+
+        <!-- Hidden once the job has failed: the header then offers Try again. -->
+        <aside class="sf-progress__aside" aria-labelledby="usage-title">
+          <div class="sf-progress-card">
+            <h2 class="sf-progress-card__title" id="usage-title">TinyFish calls so far</h2>
+            <dl class="sf-calls">
+              <div class="sf-calls__row">
+                <dt>Search</dt>
+                <dd data-usage="search_calls">0 calls</dd>
+              </div>
+              <div class="sf-calls__row">
+                <dt>Fetch</dt>
+                <dd data-usage="fetch_urls">0 URLs</dd>
+              </div>
+              <div class="sf-calls__row">
+                <dt>Browser</dt>
+                <dd data-usage="browser_sessions">0 sessions</dd>
+              </div>
+            </dl>
+            <p class="sf-progress-card__note">Every page that was read is listed under Sources when the guide is ready.</p>
+            <!-- guide.js adds the query (./?q=…#generate), so the start page opens with it filled in. -->
+            <a class="sf-btn sf-btn--secondary sf-progress-card__cancel" href="./#generate" data-progress-cancel>
+              <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#x"></use></svg>
+              Cancel
+            </a>
+          </div>
+        </aside>
+      </div>
+    </section>
 
     <div class="sf-container">
       <div class="sf-guide">

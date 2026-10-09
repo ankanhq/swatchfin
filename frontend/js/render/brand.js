@@ -1,11 +1,13 @@
 /**
  * The top of the guide page: the notice about sample data, the brand header
  * (logo, name, domain, description, facts) and the name in the toolbar.
- * Also the error version of the header, used when a guide can't be loaded.
+ * Also the error version of the header, used when a guide can't be loaded
+ * or its job failed.
  */
 
 import { formatDate, safeUrl, displayUrl } from '../utils.js';
-import { el, createIcon, list, text } from './dom.js';
+import { el, createIcon, list, lookup, text } from './dom.js';
+import { validColors } from './colors.js';
 
 /**
  * The brand's display name, with sensible fallbacks.
@@ -26,6 +28,7 @@ export function renderBrandHeader(page, guide, { mock }) {
   const name = brandName(guide);
   const brand = guide.brand ?? {};
 
+  page.querySelector('[data-brand-eyebrow]').textContent = 'Brand guide';
   page.querySelector('[data-brand-name]').textContent = name;
   page.querySelector('[data-brand-logo]').replaceChildren(headerLogo(guide.logo?.primary?.url));
 
@@ -64,7 +67,8 @@ function headerLogo(url) {
 
 /**
  * The row of small facts under the description: generated date, the
- * original query, language, a mock label and the warning count.
+ * original query, language, a mock label and the warning count (which
+ * also says "Partial guide" when whole sections are missing).
  * @param {Record<string, any>} guide
  * @param {{ mock: boolean }} options
  * @returns {HTMLElement}
@@ -86,18 +90,42 @@ function headerFacts(guide, { mock }) {
   }
 
   const warnings = list(guide.warnings).length;
+  const missing = missingSections(guide);
+  const count = warnings === 1 ? '1 warning' : `${warnings} warnings`;
+  const label = missing.length > 0 ? (warnings > 0 ? `Partial guide · ${count}` : 'Partial guide') : count;
+
   items.push(
     el('li', {}, [
-      warnings > 0
+      warnings > 0 || missing.length > 0
         ? el('a', { className: 'sf-badge sf-badge--warning sf-badge--link', attrs: { href: '#warnings' } }, [
             createIcon('triangle-alert', { size: 16 }),
-            warnings === 1 ? '1 warning' : `${warnings} warnings`,
+            label,
+            missing.length > 0 ? el('span', { className: 'visually-hidden', text: `. Missing: ${missing.join(', ')}.` }) : null,
           ])
         : el('span', { className: 'sf-badge sf-badge--success' }, [createIcon('circle-check', { size: 16 }), 'No warnings']),
     ]),
   );
 
   return el('ul', { className: 'sf-guide-header__facts' }, items);
+}
+
+/**
+ * The parts of the guide that are missing completely, e.g. ["colours",
+ * "fonts"] when the browser step failed. An empty list means a full guide.
+ * @param {Record<string, any>} guide
+ * @returns {string[]}
+ */
+export function missingSections(guide) {
+  const messaging = guide.messaging ?? {};
+  const checks = {
+    logo: Boolean(safeUrl(guide.logo?.primary?.url)),
+    colours: validColors(guide).length > 0,
+    fonts: list(guide.typography).length > 0,
+    'tone of voice': list(guide.voice?.traits).length > 0,
+    'key messaging':
+      Boolean(text(messaging.tagline?.text) || text(messaging.mission?.text)) || list(messaging.value_props).length > 0,
+  };
+  return Object.keys(checks).filter((name) => !checks[name]);
 }
 
 /**
@@ -134,18 +162,52 @@ export function renderToolbar(page, guide) {
 }
 
 /**
- * The notice above the header that says when the page shows sample data.
- * @param {HTMLElement} page
- * @param {{ mock: boolean, query: string }} options
+ * MOCK: the notices that label sample data and simulated runs. Phase 4
+ * keeps "sample" (the mock guide stays for development) and deletes the
+ * three "simulated" ones with mock-job.js.
+ * @type {Record<string, { title: string, message: (query: string) => string }>}
  */
-export function renderNotice(page, { mock, query }) {
-  const slot = page.querySelector('[data-guide-notice]');
-  if (!slot || !mock) return;
+const NOTICES = {
+  sample: {
+    title: 'Sample guide',
+    message: () =>
+      'This guide uses mock data for Northwind Roasters, a fictional brand, so the page can be built before live generation is connected. None of it was read from a real website.',
+  },
+  'simulated-run': {
+    title: 'Simulated run',
+    message: () =>
+      'Live generation isn’t connected yet, so these steps are a timed preview. No website is being read, and the result will be the sample guide for Northwind Roasters, a fictional brand.',
+  },
+  'simulated-result': {
+    title: 'Live generation isn’t connected yet',
+    message: (query) =>
+      `You searched for “${query}”. The steps were a simulation, and this page shows the sample guide for Northwind Roasters, a fictional brand. None of it was read from a real website.`,
+  },
+  'simulated-failure': {
+    title: 'Simulated failure',
+    message: () => 'This preview shows how a run that can’t be finished looks. No website was read.',
+  },
+};
 
-  const title = query ? 'Live generation isn’t connected yet' : 'Sample guide';
-  const message = query
-    ? `You searched for “${query}”. Until the Swatchfin backend is connected, this page shows a sample guide for Northwind Roasters, a fictional brand.`
-    : 'This guide uses mock data for Northwind Roasters, a fictional brand, so the page can be built before live generation is connected. None of it was read from a real website.';
+/**
+ * The notice above the header that says when the page shows sample data
+ * or a simulated run. With no kind (a real guide), the notice is removed.
+ * @param {HTMLElement} page
+ * @param {string | null} kind A key of NOTICES, or null.
+ * @param {{ query?: string }} [options]
+ */
+export function renderNotice(page, kind, { query = '' } = {}) {
+  const slot = page.querySelector('[data-guide-notice]');
+  if (!slot) return;
+
+  const notice = lookup(NOTICES, kind);
+  if (!notice) {
+    slot.replaceChildren();
+    return;
+  }
+
+  const title = notice.title;
+  const message = notice.message(query);
 
   slot.replaceChildren(
     el('div', { className: 'sf-notice' }, [
@@ -161,11 +223,20 @@ export function renderNotice(page, { mock, query }) {
 /**
  * Turns the header into an error message. The buttons (Start a new guide,
  * Try again) are plain HTML in guide.html; the CSS shows them, and hides
- * the placeholders, when data-state is "error".
+ * the placeholders, when data-state is "error" or "failed".
  * @param {HTMLElement} page
- * @param {{ title: string, message: string }} error
+ * @param {{ title: string, message: string, retryLabel?: string }} error
+ * @param {{ eyebrow?: string, retryHref?: string }} [options]
+ *   eyebrow: the small line above the title. retryHref: where Try again
+ *   goes. Without it, Try again opens this same address again.
  */
-export function renderHeaderError(page, error) {
+export function renderHeaderError(page, error, { eyebrow = 'Brand guide', retryHref } = {}) {
+  page.querySelector('[data-brand-eyebrow]').textContent = eyebrow;
   page.querySelector('[data-brand-name]').textContent = error.title;
   page.querySelector('[data-guide-error-message]').textContent = error.message;
+
+  const retry = page.querySelector('[data-guide-retry]');
+  if (retry && retryHref) retry.setAttribute('href', retryHref);
+  const label = page.querySelector('[data-guide-retry-label]');
+  if (label && error.retryLabel) label.textContent = error.retryLabel;
 }

@@ -1,0 +1,176 @@
+{
+  "schema_version": "1.0",
+  "id": "bg_MOCK_northwind_partial",
+  "status": "complete",
+  "query": "Northwind Roasters",
+  "generated_at": "2026-10-09T11:02:00Z",
+  "brand": {
+    "name": "Northwind Roasters",
+    "domain": "northwind-roasters.example",
+    "url": "https://northwind-roasters.example/",
+    "description": "MOCK DATA for a fictional brand. This copy of the Northwind Roasters sample has no colours or fonts, to show how a partial guide looks.",
+    "language": "en"
+  },
+  "logo": {
+    "primary": {
+      "url": "mock/MOCK_northwind-logo.svg",
+      "format": "svg",
+      "method": "header-img",
+      "source_url": "https://northwind-roasters.example/",
+      "confidence": 0.94
+    },
+    "alternates": [
+      {
+        "url": "mock/MOCK_northwind-mark.svg",
+        "format": "svg",
+        "method": "favicon",
+        "source_url": "https://northwind-roasters.example/",
+        "confidence": 0.72
+      }
+    ],
+    "favicon": "mock/MOCK_northwind-mark.svg"
+  },
+  "colors": [],
+  "contrast": [],
+  "typography": [],
+  "voice": {
+    "summary": "Warm, unhurried and specific. Northwind writes like a roaster talking across the counter: short sentences, plain words and real details about origins, roast dates and brewing.",
+    "traits": [
+      {
+        "name": "Warm",
+        "description": "Speaks to the reader as a regular, not a customer, and takes responsibility when something goes wrong.",
+        "evidence": [
+          {
+            "quote": "Pull up a stool. We’ll tell you what we’re roasting this week.",
+            "source_url": "https://northwind-roasters.example/",
+            "verified": true
+          },
+          {
+            "quote": "If a bag isn’t right for you, write to us and we’ll make it right.",
+            "source_url": "https://northwind-roasters.example/subscriptions",
+            "verified": true
+          }
+        ]
+      },
+      {
+        "name": "Unhurried",
+        "description": "Short sentences with room to breathe. It never pushes urgency or countdowns.",
+        "evidence": [
+          {
+            "quote": "We roast on Tuesdays. Your coffee ships on Wednesday. That’s the whole plan.",
+            "source_url": "https://northwind-roasters.example/subscriptions",
+            "verified": true
+          },
+          {
+            "quote": "Good coffee takes a little time. So does good writing about it.",
+            "source_url": "https://northwind-roasters.example/journal",
+            "verified": true
+          }
+        ]
+      },
+      {
+        "name": "Craft-minded",
+        "description": "Names origins, farms, roast dates and brew ratios instead of vague praise.",
+        "evidence": [
+          {
+            "quote": "This lot comes from the Gakuyuni washing station in Kirinyaga, Kenya, and tastes of blackcurrant and brown sugar.",
+            "source_url": "https://northwind-roasters.example/coffee",
+            "verified": true
+          },
+          {
+            "quote": "Every bag is stamped with its roast date, so you always know how fresh it is.",
+            "source_url": "https://northwind-roasters.example/coffee",
+            "verified": true
+          }
+        ]
+      }
+    ],
+    "spectrum": {
+      "formal_casual": 70,
+      "serious_playful": 40,
+      "technical_simple": 58,
+      "reserved_bold": 30
+    },
+    "do": ["Name the origin, farm or roast date when you talk about a coffee.", "Write short sentences and leave room between ideas.", "Talk to the reader as a regular: use “we” and “you”, not “customers”.", "Promise only what you deliver, such as “ships on Wednesday”."],
+    "dont": ["Don’t use urgency or countdown language.", "Don’t lean on vague words like “premium” or “artisanal” without a detail to back them up.", "Don’t use exclamation marks to add energy.", "Don’t build headlines around coffee puns."]
+  },
+  "messaging": {
+    "tagline": {
+      "text": "Small-batch coffee, roasted on Tuesdays.",
+      "source_url": "https://northwind-roasters.example/",
+      "verified": true
+    },
+    "mission": null,
+    "value_props": [
+      {
+        "title": "Roasted to order",
+        "quote": "Nothing sits on a shelf. We roast what’s ordered and ship it the next morning.",
+        "source_url": "https://northwind-roasters.example/subscriptions",
+        "verified": true
+      },
+      {
+        "title": "Traceable origins",
+        "quote": "We buy from the same twelve farms every year and pay them before the harvest, not after.",
+        "source_url": "https://northwind-roasters.example/about",
+        "verified": true
+      },
+      {
+        "title": "Flexible subscriptions",
+        "quote": "Skip a delivery, change your grind or pause for a month from your account. No phone calls.",
+        "source_url": "https://northwind-roasters.example/subscriptions",
+        "verified": true
+      }
+    ],
+    "audience": ["Home brewers", "Coffee subscribers", "People new to speciality coffee"]
+  },
+  "sources": [
+    {
+      "url": "https://northwind-roasters.example/",
+      "title": "Northwind Roasters · Small-batch coffee, roasted on Tuesdays",
+      "api": "search",
+      "fetched_at": "2026-10-09T10:22:41Z"
+    },
+    {
+      "url": "https://northwind-roasters.example/",
+      "title": "Northwind Roasters · Small-batch coffee, roasted on Tuesdays",
+      "api": "fetch",
+      "fetched_at": "2026-10-09T10:22:46Z"
+    },
+    {
+      "url": "https://northwind-roasters.example/about",
+      "title": "Our story · Northwind Roasters",
+      "api": "fetch",
+      "fetched_at": "2026-10-09T10:22:58Z"
+    },
+    {
+      "url": "https://northwind-roasters.example/coffee",
+      "title": "Our coffee · Northwind Roasters",
+      "api": "fetch",
+      "fetched_at": "2026-10-09T10:22:58Z"
+    },
+    {
+      "url": "https://northwind-roasters.example/subscriptions",
+      "title": "Subscriptions · Northwind Roasters",
+      "api": "fetch",
+      "fetched_at": "2026-10-09T10:22:58Z"
+    },
+    {
+      "url": "https://northwind-roasters.example/journal",
+      "title": "The Journal · Northwind Roasters",
+      "api": "fetch",
+      "fetched_at": "2026-10-09T10:22:58Z"
+    },
+    {
+      "url": "https://northwind-roasters.example/careers",
+      "title": "Work with us · Northwind Roasters",
+      "api": "fetch",
+      "fetched_at": "2026-10-09T10:22:58Z"
+    }
+  ],
+  "tinyfish_usage": {
+    "search_calls": 1,
+    "fetch_urls": 6,
+    "browser_sessions": 1
+  },
+  "warnings": ["MOCK DATA: Northwind Roasters is a fictional brand. Nothing in this guide was read from a real website.", "The TinyFish Browser session timed out before the homepage finished loading, so the colours, contrast checks and fonts couldn’t be measured. Generate the guide again to retry.", "The Press page (https://northwind-roasters.example/press) was blocked by an anti-bot check and was skipped.", "No mission statement was found on the fetched pages, so the mission is left empty.", "One value proposition was dropped because its quote could not be found word for word in the fetched text."]
+}
