@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How Swatchfin works · TinyFish Search, Fetch and Browser</title>
+  <meta name="description" content="How Swatchfin turns a company name or URL into a verified brand guide: TinyFish Search finds the site, Fetch reads the live pages, Browser measures the real colours and fonts, and every quote is checked.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#fafaf7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b0f19" media="(prefers-color-scheme: dark)">
+
+  <!-- Social previews. og:image must become an absolute URL once the site has its public domain (Phase 10). -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Swatchfin">
+  <meta property="og:title" content="How Swatchfin works">
+  <meta property="og:description" content="TinyFish Search finds the site, Fetch reads the live pages, Browser measures the real colours and fonts, and every quote is checked against the source.">
+  <meta property="og:image" content="assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Swatchfin logo with the tagline: Brand guides from any URL, powered by TinyFish.">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <!-- Applies the saved theme before the first paint (see the comment in theme.js). -->
+  <script src="js/theme.js"></script>
+  <script type="module" src="js/header.js"></script>
+  <script type="module" src="js/motion.js"></script>
+
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/brand/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="site.webmanifest">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..600&family=Inter+Tight:wght@500..700&family=JetBrains+Mono:wght@400..500&display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/pages.css">
+</head>
+<body>
+  <a class="sf-skip-link" href="#main">Skip to content</a>
+
+  <header class="sf-header" data-site-header>
+    <div class="sf-container sf-header__inner">
+      <a class="sf-header__brand" href="./">
+        <picture class="sf-only-light">
+          <source srcset="assets/brand/swatchfin-logo-animated.svg" type="image/svg+xml" media="(prefers-reduced-motion: no-preference)">
+          <img class="sf-logo" src="assets/brand/swatchfin-logo.svg" alt="Swatchfin" width="106" height="32">
+        </picture>
+        <picture class="sf-only-dark">
+          <source srcset="assets/brand/swatchfin-logo-dark-animated.svg" type="image/svg+xml" media="(prefers-reduced-motion: no-preference)">
+          <img class="sf-logo" src="assets/brand/swatchfin-logo-dark.svg" alt="Swatchfin" width="106" height="32">
+        </picture>
+      </a>
+
+      <nav class="sf-nav" aria-label="Main">
+        <button class="sf-btn sf-btn--ghost sf-btn--icon sf-menu-toggle" type="button" aria-expanded="false" aria-controls="site-menu" data-menu-toggle>
+          <svg class="sf-icon sf-menu-toggle__open" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#menu"></use></svg>
+          <svg class="sf-icon sf-menu-toggle__close" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#x"></use></svg>
+          <span class="visually-hidden">Menu</span>
+        </button>
+
+        <ul class="sf-nav__list" id="site-menu">
+          <li><a class="sf-nav__link" href="./#how-it-works">How it works</a></li>
+          <li><a class="sf-nav__link" href="./#features">Features</a></li>
+          <li><a class="sf-nav__link" href="./#exports">Exports</a></li>
+          <li><a class="sf-nav__link" href="about.html" aria-current="page">About</a></li>
+          <li>
+            <a class="sf-nav__link" href="https://github.com/ankanhq/swatchfin">
+              GitHub
+              <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#arrow-up-right"></use></svg>
+            </a>
+          </li>
+        </ul>
+
+        <button class="sf-btn sf-btn--ghost sf-btn--icon sf-theme-toggle" type="button" aria-pressed="false" data-theme-toggle>
+          <svg class="sf-icon sf-only-light" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#moon"></use></svg>
+          <svg class="sf-icon sf-only-dark" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#sun"></use></svg>
+          <span class="visually-hidden">Dark theme</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ============ Intro ============ -->
+    <section class="sf-page-hero" aria-labelledby="about-title">
+      <div class="sf-container">
+        <p class="sf-eyebrow">About Swatchfin</p>
+        <h1 class="sf-page-hero__title" id="about-title">How Swatchfin reads a brand</h1>
+        <p class="sf-page-hero__lead">Swatchfin turns a company name or a URL into a brand guide by reading the live website with three TinyFish APIs. This page explains what each one does, how the result is checked, and where the limits are.</p>
+
+        <ul class="sf-about-facts">
+          <li class="sf-about-facts__item">
+            <span class="sf-about-facts__number">3</span>
+            <span class="sf-about-facts__text">TinyFish APIs, each with one job: Search, Fetch and Browser</span>
+          </li>
+          <li class="sf-about-facts__item">
+            <span class="sf-about-facts__number">10</span>
+            <span class="sf-about-facts__text">pages read at most: the homepage and up to nine more</span>
+          </li>
+          <li class="sf-about-facts__item">
+            <span class="sf-about-facts__number">1</span>
+            <span class="sf-about-facts__text">short browser session per guide, always closed</span>
+          </li>
+          <li class="sf-about-facts__item">
+            <span class="sf-about-facts__number">0</span>
+            <span class="sf-about-facts__text">guesses: anything not found stays empty, with a warning</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============ Pipeline diagram ============
+         The eight steps in order. From 992px they sit in four columns, one per
+         worker (Search, Fetch, Browser, Swatchfin), so the diagram shows who does
+         what and when. On smaller screens it is a numbered list; every step also
+         names its worker in text, so the columns are only a visual aid. -->
+    <section class="sf-section sf-section--subtle" id="pipeline" aria-labelledby="pipeline-title">
+      <div class="sf-container">
+        <div class="sf-section__header" data-reveal>
+          <p class="sf-eyebrow">The pipeline</p>
+          <h2 id="pipeline-title">Eight steps from a name to a guide</h2>
+          <p class="sf-section__lead">TinyFish does all of the reading. Swatchfin decides what to read, analyses it and checks it. A step that fails doesn’t stop the others: the guide shows what is missing instead.</p>
+        </div>
+
+        <div class="sf-flow">
+          <div class="sf-flow__lanes" aria-hidden="true">
+            <div class="sf-flow__lane">
+              <span class="sf-flow__lane-name"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#search"></use></svg> TinyFish Search</span>
+            </div>
+            <div class="sf-flow__lane">
+              <span class="sf-flow__lane-name"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#file-text"></use></svg> TinyFish Fetch</span>
+            </div>
+            <div class="sf-flow__lane">
+              <span class="sf-flow__lane-name"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#app-window"></use></svg> TinyFish Browser</span>
+            </div>
+            <div class="sf-flow__lane sf-flow__lane--own">
+              <span class="sf-flow__lane-name"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#shield-check"></use></svg> Swatchfin</span>
+            </div>
+          </div>
+
+          <ol class="sf-flow__steps" data-sequence>
+            <li class="sf-flow__step sf-flow__step--search">
+              <span class="sf-flow__number" aria-hidden="true">1</span>
+              <p class="sf-flow__api">TinyFish Search</p>
+              <h3 class="sf-flow__title">Resolve</h3>
+              <p class="sf-flow__text">Turns a company name into its official domain. Skipped when you paste a URL.</p>
+            </li>
+            <li class="sf-flow__step sf-flow__step--fetch">
+              <span class="sf-flow__number" aria-hidden="true">2</span>
+              <p class="sf-flow__api">TinyFish Fetch</p>
+              <h3 class="sf-flow__title">Read the homepage</h3>
+              <p class="sf-flow__text">Live HTML: logo, icons, meta tags, theme colour and the site’s links.</p>
+            </li>
+            <li class="sf-flow__step sf-flow__step--own">
+              <span class="sf-flow__number" aria-hidden="true">3</span>
+              <p class="sf-flow__api">Swatchfin</p>
+              <h3 class="sf-flow__title">Choose pages</h3>
+              <p class="sf-flow__text">Up to nine pages worth reading: About, Careers, Press, Blog, Product.</p>
+            </li>
+            <li class="sf-flow__step sf-flow__step--fetch">
+              <span class="sf-flow__number" aria-hidden="true">4</span>
+              <p class="sf-flow__api">TinyFish Fetch</p>
+              <h3 class="sf-flow__title">Read the pages</h3>
+              <p class="sf-flow__text">All of them in one batch, as clean text.</p>
+            </li>
+            <li class="sf-flow__step sf-flow__step--browser">
+              <span class="sf-flow__number" aria-hidden="true">5</span>
+              <p class="sf-flow__api">TinyFish Browser</p>
+              <h3 class="sf-flow__title">Measure the styles</h3>
+              <p class="sf-flow__text">Computed colours and fonts of real elements on the rendered homepage.</p>
+            </li>
+            <li class="sf-flow__step sf-flow__step--own">
+              <span class="sf-flow__number" aria-hidden="true">6</span>
+              <p class="sf-flow__api">Swatchfin</p>
+              <h3 class="sf-flow__title">Draft the voice</h3>
+              <p class="sf-flow__text">A language model drafts the tone and messaging, quoting the site for each point.</p>
+            </li>
+            <li class="sf-flow__step sf-flow__step--own">
+              <span class="sf-flow__number" aria-hidden="true">7</span>
+              <p class="sf-flow__api">Swatchfin</p>
+              <h3 class="sf-flow__title">Verify</h3>
+              <p class="sf-flow__text">Drops any quote not found word for word. Scores contrast and confidence.</p>
+            </li>
+            <li class="sf-flow__step sf-flow__step--own">
+              <span class="sf-flow__number" aria-hidden="true">8</span>
+              <p class="sf-flow__api">Swatchfin</p>
+              <h3 class="sf-flow__title">Assemble</h3>
+              <p class="sf-flow__text">The guide as versioned JSON, the page you read and the exports.</p>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ The three TinyFish APIs ============ -->
+    <section class="sf-section" id="tinyfish" aria-labelledby="tinyfish-title">
+      <div class="sf-container">
+        <div class="sf-section__header" data-reveal>
+          <p class="sf-eyebrow">How TinyFish is used</p>
+          <h2 id="tinyfish-title">Three TinyFish APIs, three different jobs</h2>
+          <p class="sf-section__lead">Each API does something the others can’t, so none of them is there for show. Every call is counted and listed in the guide’s Sources.</p>
+        </div>
+
+        <div class="sf-apis">
+          <!-- Search -->
+          <article class="sf-api" aria-labelledby="api-search-title" data-reveal>
+            <div class="sf-api__text">
+              <p class="sf-api__name"><span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#search"></use></svg></span> TinyFish Search</p>
+              <h3 class="sf-api__title" id="api-search-title">Find the official site</h3>
+              <p>When you type a company name, Swatchfin searches for it and takes the first result on the brand’s own domain. Wikipedia, social networks, app stores and news sites are skipped, because they write about the brand rather than speak for it.</p>
+              <p>When you paste a URL, there is nothing to find, so Swatchfin uses your address and skips this step. Search can also look for a brand-guidelines or press-kit page to add to the pages read in step 4.</p>
+              <p class="sf-api__usage"><strong>Per guide:</strong> one or two searches, none when you give a URL.</p>
+            </div>
+            <figure class="sf-api__example">
+              <pre class="sf-code"><code>GET https://api.search.tinyfish.ai?query=duolingo
+
+→ ranked results, each with a
+  title, site name, snippet and URL</code></pre>
+              <figcaption class="sf-api__caption">The request, shortened. Every call sends the Swatchfin API key in an <code>X-API-Key</code> header, from the server only.</figcaption>
+            </figure>
+          </article>
+
+          <!-- Fetch -->
+          <article class="sf-api" aria-labelledby="api-fetch-title" data-reveal>
+            <div class="sf-api__text">
+              <p class="sf-api__name"><span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#file-text"></use></svg></span> TinyFish Fetch</p>
+              <h3 class="sf-api__title" id="api-fetch-title">Read the live pages</h3>
+              <p>Fetch does the core reading, in two requests. The first reads the homepage as HTML with <code>ttl</code> set to 0, which asks for a live copy rather than a cached one. Swatchfin parses that HTML for the logo (an image or inline SVG in the header, then the Open Graph image and the icons), the theme colour, the description and the site’s own navigation and footer links.</p>
+              <p>The second reads up to nine of those pages in one batch, as markdown: the page’s text without menus, scripts or styling. That text is what the tone of voice is drafted from, and what every quote is checked against. Fetch doesn’t return images, so the logo’s address always comes from the HTML.</p>
+              <p class="sf-api__usage"><strong>Per guide:</strong> up to 10 URLs.</p>
+            </div>
+            <figure class="sf-api__example">
+              <pre class="sf-code"><code>POST https://api.fetch.tinyfish.ai
+{
+  "urls": ["https://www.duolingo.com/"],
+  "format": "html",
+  "ttl": 0
+}
+
+POST https://api.fetch.tinyfish.ai
+{
+  "urls": ["…/info", "…/careers", "…/press"],
+  "format": "markdown"
+}</code></pre>
+              <figcaption class="sf-api__caption">Each URL succeeds or fails on its own. A page blocked by an anti-bot check is skipped and named in the guide’s warnings.</figcaption>
+            </figure>
+          </article>
+
+          <!-- Browser -->
+          <article class="sf-api" aria-labelledby="api-browser-title" data-reveal>
+            <div class="sf-api__text">
+              <p class="sf-api__name"><span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#app-window"></use></svg></span> TinyFish Browser</p>
+              <h3 class="sf-api__title" id="api-browser-title">Measure the real styles</h3>
+              <p>A site’s stylesheet isn’t its palette: most rules never apply, and the final colours come from variables, themes and scripts. So Swatchfin opens the homepage in a TinyFish Browser session, a real browser in the cloud, and reads the <em>computed</em> style of what people actually see: body text, headings, links, navigation, header, footer and the main buttons.</p>
+              <p>Each colour is weighted by how important its element is and how much of the screen it covers, which decides its role: primary, background, text and so on. The fonts come from the ones the page really loaded. The same session confirms which image is the logo and how large it shows.</p>
+              <p class="sf-api__usage"><strong>Per guide:</strong> one session, closed as soon as the styles are read, even when something goes wrong.</p>
+            </div>
+            <figure class="sf-api__example">
+              <pre class="sf-code"><code>POST https://api.browser.tinyfish.ai
+→ { "session_id": "…", "cdp_url": "wss://…" }
+
+chromium.connect_over_cdp(cdp_url)
+getComputedStyle(button).backgroundColor
+document.fonts   // the fonts the page loaded
+
+DELETE https://api.browser.tinyfish.ai/{session_id}</code></pre>
+              <figcaption class="sf-api__caption">Swatchfin drives the session with Playwright over the Chrome DevTools Protocol.</figcaption>
+            </figure>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Checks ============ -->
+    <section class="sf-section sf-section--subtle" id="checks" aria-labelledby="checks-title">
+      <div class="sf-container">
+        <div class="sf-section__header" data-reveal>
+          <p class="sf-eyebrow">Checks</p>
+          <h2 id="checks-title">How a guide stays honest</h2>
+          <p class="sf-section__lead">A language model is good at describing a voice and bad at admitting what it doesn’t know. These checks keep its output tied to what the site really says.</p>
+        </div>
+
+        <div class="row g-3 g-lg-4">
+          <div class="col-md-6" data-reveal>
+            <article class="sf-card">
+              <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#badge-check"></use></svg></span>
+              <h3 class="sf-card__title">Every quote is found word for word</h3>
+              <p class="sf-card__text">Each tone trait, tagline, mission and value proposition comes with an exact quote and the page it’s from. Swatchfin then looks for that quote in the text it fetched, allowing only for differences in spacing and quote marks. A quote that isn’t there is dropped, and the guide says so.</p>
+            </article>
+          </div>
+          <div class="col-md-6" data-reveal>
+            <article class="sf-card">
+              <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#triangle-alert"></use></svg></span>
+              <h3 class="sf-card__title">Gaps stay empty</h3>
+              <p class="sf-card__text">If a logo, colour, font or message can’t be found, its field is left empty and a warning explains why. A partial guide is labelled as partial. Swatchfin never fills a gap with a plausible guess.</p>
+            </article>
+          </div>
+          <div class="col-md-6" data-reveal>
+            <article class="sf-card">
+              <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#contrast"></use></svg></span>
+              <h3 class="sf-card__title">Measured, then scored</h3>
+              <p class="sf-card__text">Contrast is calculated with the WCAG 2.2 formula from the measured colours, and graded AA or AAA. Colours, fonts and the logo each get a confidence score that reflects how they were found.</p>
+            </article>
+          </div>
+          <div class="col-md-6" data-reveal>
+            <article class="sf-card">
+              <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#globe"></use></svg></span>
+              <h3 class="sf-card__title">Every source is listed</h3>
+              <p class="sf-card__text">The guide lists every page it read, which TinyFish API read it and when, and how many calls each API made. You can open any page and check a quote yourself.</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Output ============ -->
+    <section class="sf-section" id="output" aria-labelledby="output-title">
+      <div class="sf-container">
+        <div class="row gy-5 gx-lg-5 align-items-start">
+          <div class="col-lg-5" data-reveal>
+            <p class="sf-eyebrow">Output</p>
+            <h2 id="output-title">Structured for other tools, not only for reading</h2>
+            <p class="sf-section__lead">Every guide is a JSON document with a versioned schema, so design tools, code and AI agents can use it directly.</p>
+            <ul class="sf-about-list">
+              <li>Colours with their role, where they’re used, their share of the page and a confidence score.</li>
+              <li>Fonts with their weights, sizes and a fallback stack.</li>
+              <li>Tone traits and key messages, each with its quote, source page and a “verified” flag.</li>
+              <li>Exports as CSS custom properties, a Tailwind theme, W3C Design Tokens and a ready-to-paste voice prompt.</li>
+            </ul>
+            <a class="sf-about-link" href="./#exports">
+              See every export format
+              <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#arrow-right"></use></svg>
+            </a>
+          </div>
+          <div class="col-lg-7" data-reveal>
+            <figure class="sf-api__example">
+              <pre class="sf-code"><code>"colors": [{
+  "hex": "#B5532A",
+  "rgb": [181, 83, 42],
+  "role": "primary",
+  "usage": [
+    "primary button background",
+    "header call-to-action",
+    "active navigation underline"
+  ],
+  "share": 0.07,
+  "source": "computed-style",
+  "confidence": 0.93
+}],
+"evidence": [{
+  "quote": "Pull up a stool. We’ll tell you what we’re roasting this week.",
+  "source_url": "https://northwind-roasters.example/",
+  "verified": true
+}]</code></pre>
+              <figcaption class="sf-api__caption">Two excerpts from the <a href="guide.html?id=mock">sample guide</a> for Northwind Roasters, a fictional brand.</figcaption>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Limitations ============ -->
+    <section class="sf-section sf-section--divided" id="limitations" aria-labelledby="limitations-title">
+      <div class="sf-container">
+        <div class="row gy-5 gx-lg-5">
+          <div class="col-lg-5" data-reveal>
+            <p class="sf-eyebrow">Limitations</p>
+            <h2 id="limitations-title">What Swatchfin can’t see</h2>
+            <p class="sf-section__lead">A guide is a careful reading of a public website on one day. These are the places where that reading falls short.</p>
+          </div>
+          <div class="col-lg-7" data-reveal>
+            <ul class="sf-about-list">
+              <li>Some sites turn away automated visits. If the homepage can’t be read at all, there is no guide; if one page is blocked, it is skipped and named in the warnings.</li>
+              <li>Pages behind a login, a paywall or a cookie wall can’t be read.</li>
+              <li>Colours and fonts are measured on the homepage only, at one screen size and in its default theme. The browser visits from the United States, so a site that changes by country shows its US version.</li>
+              <li>Colours inside photos, videos, gradients and illustrations aren’t measured, only the colours of page elements.</li>
+              <li>A logo drawn in CSS or set as a background image can be missed. The guide then falls back to the Open Graph image or the favicon, and says which one it used.</li>
+              <li>Fonts are named as the site loads them, but a specimen can only show a font that Google Fonts offers. Other fonts are shown in a fallback font, and the guide says so.</li>
+              <li>The tone of voice is a language model’s reading of the text. Its quotes are verified; its judgement, such as the traits and the tone scales, is an interpretation.</li>
+              <li>A guide is a snapshot. When the site changes, generate a new one.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Privacy ============ -->
+    <section class="sf-section sf-section--subtle" id="privacy" aria-labelledby="privacy-title">
+      <div class="sf-container">
+        <div class="row gy-5 gx-lg-5">
+          <div class="col-lg-5" data-reveal>
+            <p class="sf-eyebrow">Privacy</p>
+            <h2 id="privacy-title">What is sent where</h2>
+            <p class="sf-section__lead">Swatchfin reads public websites. It doesn’t need anything about you to do that.</p>
+          </div>
+          <div class="col-lg-7" data-reveal>
+            <ul class="sf-about-list">
+              <li>The name or URL you type is sent to TinyFish, which searches for the site and reads its public pages.</li>
+              <!-- The only place the website names the AI provider. If the provider changes, change it here. -->
+              <li>The text of those pages is sent to Anthropic’s Claude API, the language model that drafts the tone of voice and messaging.</li>
+              <li>Swatchfin never logs in to a site, fills in its forms or reads anything that isn’t public.</li>
+              <li>Each guide is kept on the Swatchfin server for a limited time, so its link keeps working. It contains only what the website shows publicly.</li>
+              <li>There are no accounts, no cookies and no analytics. Your light or dark theme choice is saved in your own browser and never sent anywhere.</li>
+              <li>Your browser loads the interface fonts from Google Fonts and the Bootstrap stylesheet from jsDelivr. A guide may also load a brand’s font from Google Fonts to show its specimen.</li>
+              <li>Brand names, logos and text in a guide belong to their owners. Swatchfin shows them to describe the brand, not to grant any right to use them.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ The project ============ -->
+    <section class="sf-section" id="project" aria-labelledby="project-title">
+      <div class="sf-container">
+        <div class="row gy-5 gx-lg-5">
+          <div class="col-lg-5" data-reveal>
+            <p class="sf-eyebrow">The project</p>
+            <h2 id="project-title">Built for the TinyFish Student Bounty</h2>
+          </div>
+          <div class="col-lg-7" data-reveal>
+            <div class="sf-about-prose">
+              <p>Swatchfin is an independent project by Ankan Chowdhury, built for the TinyFish Student Bounty Drop 001, “Brand Guide Generator”. It is not an official TinyFish product.</p>
+              <p>The code is open source under the MIT licence on <a href="https://github.com/ankanhq/swatchfin">GitHub</a>. The TinyFish APIs are documented at <a href="https://docs.tinyfish.ai/">docs.tinyfish.ai</a>.</p>
+              <p>Icons are from <a href="https://lucide.dev">Lucide</a> (ISC licence). The interface uses Inter, Inter Tight and JetBrains Mono (SIL Open Font Licence).</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Call to action ============ -->
+    <section class="sf-cta" aria-labelledby="cta-title">
+      <div class="sf-container sf-cta__inner" data-reveal>
+        <div>
+          <h2 class="sf-cta__title" id="cta-title">Try it on a brand you know.</h2>
+          <p class="sf-cta__text">Then compare it with the live site: every quote links to the page it came from, and every colour was measured on the homepage.</p>
+        </div>
+        <div class="sf-cta__actions">
+          <a class="sf-btn sf-btn--primary sf-btn--lg" href="./#generate">
+            Generate a guide
+            <svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#arrow-right"></use></svg>
+          </a>
+          <a class="sf-cta__link" href="guide.html?id=mock">
+            See the sample guide
+            <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#arrow-right"></use></svg>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="sf-footer">
+    <div class="sf-container">
+      <div class="sf-footer__top">
+        <div class="sf-footer__brand">
+          <a class="sf-footer__logo" href="./">
+            <img class="sf-logo sf-only-light" src="assets/brand/swatchfin-logo.svg" alt="Swatchfin" width="106" height="32">
+            <img class="sf-logo sf-only-dark" src="assets/brand/swatchfin-logo-dark.svg" alt="Swatchfin" width="106" height="32">
+          </a>
+          <p class="sf-footer__tagline">Brand guides from any URL. Logo, colours, fonts, voice and messaging, read from the live site and checked against it.</p>
+          <a class="sf-footer__powered" href="https://www.tinyfish.ai/">
+            Powered by TinyFish
+            <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#arrow-up-right"></use></svg>
+          </a>
+          <p class="sf-footer__note">Built for the TinyFish Student Bounty Drop 001.</p>
+        </div>
+
+        <nav class="sf-footer__nav" aria-label="Footer">
+          <div>
+            <h2 class="sf-footer__heading">Product</h2>
+            <ul class="sf-footer__list">
+              <li><a class="sf-footer__link" href="./#how-it-works">How it works</a></li>
+              <li><a class="sf-footer__link" href="./#features">Features</a></li>
+              <li><a class="sf-footer__link" href="./#exports">Exports</a></li>
+              <li><a class="sf-footer__link" href="about.html" aria-current="page">About</a></li>
+            </ul>
+          </div>
+          <div>
+            <h2 class="sf-footer__heading">Project</h2>
+            <ul class="sf-footer__list">
+              <li><a class="sf-footer__link" href="https://github.com/ankanhq/swatchfin">Source on GitHub</a></li>
+              <li><a class="sf-footer__link" href="https://docs.tinyfish.ai/">TinyFish docs</a></li>
+            </ul>
+          </div>
+        </nav>
+      </div>
+
+      <div class="sf-footer__bottom">
+        <p>© 2026 Ankan Chowdhury · <a href="https://github.com/ankanhq/swatchfin/blob/main/LICENSE">MIT</a></p>
+        <p>Independent project built with TinyFish APIs. Not an official TinyFish product.</p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
