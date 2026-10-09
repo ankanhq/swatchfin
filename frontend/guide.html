@@ -25,6 +25,7 @@
   <!-- Ends the loading state after 15 seconds, even if the other scripts fail (see the comment in guide-guard.js). -->
   <script src="js/guide-guard.js" defer></script>
   <script type="module" src="js/header.js"></script>
+  <script type="module" src="js/print.js"></script>
   <script type="module" src="js/motion.js"></script>
   <script type="module" src="js/guide.js"></script>
 
@@ -41,6 +42,7 @@
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/pages.css">
+  <link rel="stylesheet" href="css/print.css" media="print">
 </head>
 <body>
   <a class="sf-skip-link" href="#main">Skip to content</a>
@@ -91,6 +93,14 @@
   <!-- data-state is "loading", "running", "ready", "failed", "error" or "empty" (set by guide.js; see its top comment). -->
   <main id="main" class="sf-guide-page" data-state="loading" aria-busy="true" data-guide>
     <p class="visually-hidden" role="status" data-guide-status>Loading brand guide…</p>
+
+    <!-- Print only: the Swatchfin lockup and this guide's address (filled in by guide.js). -->
+    <div class="sf-print-masthead">
+      <div class="sf-container sf-print-masthead__inner">
+        <img class="sf-print-masthead__logo" src="assets/brand/swatchfin-logo.svg" alt="Swatchfin" width="106" height="32">
+        <p class="sf-print-masthead__text">Brand guide made with Swatchfin <span class="sf-print-masthead__url" data-print-url></span></p>
+      </div>
+    </div>
 
     <noscript>
       <div class="sf-container">

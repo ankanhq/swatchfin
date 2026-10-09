@@ -57,20 +57,29 @@
    .sf-only-light / .sf-only-dark show an element in one theme only
    (used for the logo and the theme toggle icons). The rules mirror the
    theme logic in tokens.css: an explicit choice wins, otherwise the system.
+   Print is always light, like the colour tokens.
    -------------------------------------------------------------------------- */
-:root[data-theme="light"] .sf-only-dark,
-:root[data-theme="dark"] .sf-only-light {
-  display: none;
+@media screen {
+  :root[data-theme="light"] .sf-only-dark,
+  :root[data-theme="dark"] .sf-only-light {
+    display: none;
+  }
 }
 
-@media (prefers-color-scheme: dark) {
+@media screen and (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .sf-only-light {
     display: none;
   }
 }
 
-@media not (prefers-color-scheme: dark) {
+@media screen and (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) .sf-only-dark {
+    display: none;
+  }
+}
+
+@media print {
+  .sf-only-dark {
     display: none;
   }
 }

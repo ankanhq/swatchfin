@@ -103,7 +103,7 @@ function contrast(a, b) {
 }
 
 const base = readBlock(/^:root \{/m);
-const dark = readBlock(/^:root\[data-theme="dark"\] \{/m);
+const dark = readBlock(/^\s*:root\[data-theme="dark"\] \{/m);
 const darkSystem = readBlock(/:root:not\(\[data-theme="light"\]\) \{/);
 
 const themes = {

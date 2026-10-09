@@ -189,6 +189,10 @@ function showGuide(page, job) {
   renderToolbar(page, guide);
   renderSections(page, guide);
 
+  // The printed guide shows where to find it again.
+  const printUrl = page.querySelector('[data-print-url]');
+  if (printUrl) printUrl.textContent = window.location.href;
+
   setState(page, 'ready', `Brand guide for ${brandName(guide)} ${fromProgress ? 'is ready' : 'loaded'}.`);
   document.title = `${brandName(guide)} · Brand guide · ${SITE_NAME}`;
 
