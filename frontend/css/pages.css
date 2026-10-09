@@ -147,18 +147,40 @@
   list-style: none;
 }
 
+/* Each swatch is an empty slot whose colour is painted by ::before, so the
+   colour can "fill in" during the motion sequence. ::after draws a hairline
+   on top, so light colours (and dark ones in dark mode) keep an edge. */
 .sf-example__color {
+  position: relative;
   display: block;
   aspect-ratio: 1;
+  overflow: hidden;
+  background-color: var(--sf-color-surface-subtle);
   border-radius: var(--sf-radius-sm);
+}
+
+.sf-example__color::before,
+.sf-example__color::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  border-radius: inherit;
+}
+
+.sf-example__color::before {
+  background-color: var(--nw-swatch);
+  transform-origin: bottom;
+}
+
+.sf-example__color::after {
   box-shadow: inset 0 0 0 var(--sf-border-width) var(--sf-color-border);
 }
 
-.sf-example__color--espresso { background-color: var(--nw-espresso); }
-.sf-example__color--kiln { background-color: var(--nw-kiln); }
-.sf-example__color--oat { background-color: var(--nw-oat); }
-.sf-example__color--sage { background-color: var(--nw-sage); }
-.sf-example__color--slate { background-color: var(--nw-slate); }
+.sf-example__color--espresso { --nw-swatch: var(--nw-espresso); }
+.sf-example__color--kiln { --nw-swatch: var(--nw-kiln); }
+.sf-example__color--oat { --nw-swatch: var(--nw-oat); }
+.sf-example__color--sage { --nw-swatch: var(--nw-sage); }
+.sf-example__color--slate { --nw-swatch: var(--nw-slate); }
 
 .sf-example__role {
   display: block;
@@ -275,9 +297,9 @@
   justify-content: center;
   width: var(--sf-step-marker);
   height: var(--sf-step-marker);
-  color: var(--sf-color-text);
-  background-color: var(--sf-color-surface);
-  border: var(--sf-border-width) solid var(--sf-color-border-strong);
+  color: var(--sf-color-accent-text);
+  background-color: var(--sf-color-accent-subtle);
+  border: var(--sf-border-width) solid var(--sf-color-accent-subtle);
   border-radius: var(--sf-radius-md);
 }
 
@@ -306,7 +328,9 @@
   color: var(--sf-color-text-muted);
 }
 
-/* The connecting line, drawn from each marker to the next one. */
+/* The connection from each marker to the next: a faint track (::before)
+   with the lit coral line (::after) on top of it. */
+.sf-step:not(:last-child)::before,
 .sf-step:not(:last-child)::after {
   position: absolute;
   top: calc(var(--sf-step-marker) + var(--sf-space-2));
@@ -314,7 +338,15 @@
   left: calc(var(--sf-step-marker) / 2 - 0.5px);
   width: 1px;
   content: "";
+}
+
+.sf-step:not(:last-child)::before {
   background-color: var(--sf-color-border-strong);
+}
+
+.sf-step:not(:last-child)::after {
+  background-color: var(--sf-color-accent);
+  transform-origin: top;
 }
 
 @media (min-width: 992px) {
@@ -328,6 +360,7 @@
     row-gap: var(--sf-space-5);
   }
 
+  .sf-step:not(:last-child)::before,
   .sf-step:not(:last-child)::after {
     top: calc(var(--sf-step-marker) / 2 - 0.5px);
     right: calc(var(--sf-space-3) - var(--sf-space-8));
@@ -335,6 +368,10 @@
     left: calc(var(--sf-step-marker) + var(--sf-space-3));
     width: auto;
     height: 1px;
+  }
+
+  .sf-step:not(:last-child)::after {
+    transform-origin: left;
   }
 }
 
@@ -407,4 +444,106 @@
 .sf-cta__link:hover {
   color: var(--sf-color-text);
   text-decoration: underline;
+}
+
+/* --------------------------------------------------------------------------
+   Landing page motion
+   Everything below only runs while <html> has .sf-motion (set by theme.js
+   when reduced motion is off) and plays once, when motion.js adds
+   .is-visible. Without it, the page shows the final state shown above.
+   Only opacity and transform are animated, so nothing shifts the layout.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  /* ---- Example card: the brand is "read" in order ----
+     Swatches fill from the bottom one by one, then the two font specimens,
+     then the three voice traits fade in. About 1.4s in total. */
+  .sf-example__swatches > :nth-child(1) { --sf-seq-delay: 100ms; }
+  .sf-example__swatches > :nth-child(2) { --sf-seq-delay: 190ms; }
+  .sf-example__swatches > :nth-child(3) { --sf-seq-delay: 280ms; }
+  .sf-example__swatches > :nth-child(4) { --sf-seq-delay: 370ms; }
+  .sf-example__swatches > :nth-child(5) { --sf-seq-delay: 460ms; }
+  .sf-example__font:nth-child(1) { --sf-seq-delay: 750ms; }
+  .sf-example__font:nth-child(2) { --sf-seq-delay: 850ms; }
+  .sf-example__traits > :nth-child(1) { --sf-seq-delay: 1000ms; }
+  .sf-example__traits > :nth-child(2) { --sf-seq-delay: 1100ms; }
+  .sf-example__traits > :nth-child(3) { --sf-seq-delay: 1200ms; }
+
+  .sf-motion [data-sequence] .sf-example__color::before {
+    transition: transform 450ms var(--sf-ease-out);
+    transition-delay: var(--sf-seq-delay, 0ms);
+  }
+
+  /* Role and hex appear just after their swatch starts filling. */
+  .sf-motion [data-sequence] :is(.sf-example__role, .sf-example__hex) {
+    transition: opacity 300ms var(--sf-ease-out);
+    transition-delay: calc(var(--sf-seq-delay, 0ms) + 150ms);
+  }
+
+  .sf-motion [data-sequence] :is(.sf-example__font, .sf-example__traits > li) {
+    transition:
+      opacity 400ms var(--sf-ease-out),
+      transform 400ms var(--sf-ease-out);
+    transition-delay: var(--sf-seq-delay, 0ms);
+  }
+
+  .sf-motion [data-sequence]:not(.is-visible) .sf-example__color::before {
+    transform: scaleY(0);
+  }
+
+  .sf-motion [data-sequence]:not(.is-visible) :is(.sf-example__role, .sf-example__hex) {
+    opacity: 0;
+  }
+
+  .sf-motion [data-sequence]:not(.is-visible) :is(.sf-example__font, .sf-example__traits > li) {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  /* ---- How it works: markers light up and the line draws to the next ----
+     Desktop: the four steps light up left to right, 300ms apart.
+     Phones: each step lights up as it scrolls into view. */
+  .sf-motion .sf-step__marker {
+    transition:
+      color 300ms var(--sf-ease-out),
+      background-color 300ms var(--sf-ease-out),
+      border-color 300ms var(--sf-ease-out);
+    transition-delay: var(--sf-step-delay, 0ms);
+  }
+
+  .sf-motion .sf-step::after {
+    transition: transform 450ms var(--sf-ease-out);
+    transition-delay: calc(var(--sf-step-delay, 0ms) + 200ms);
+  }
+
+  .sf-motion .sf-step__body {
+    transition:
+      opacity var(--sf-duration-reveal) var(--sf-ease-out),
+      transform var(--sf-duration-reveal) var(--sf-ease-out);
+    transition-delay: var(--sf-step-delay, 0ms);
+  }
+
+  .sf-motion .sf-step:not(.is-visible) .sf-step__marker {
+    color: var(--sf-color-text-muted);
+    background-color: var(--sf-color-surface);
+    border-color: var(--sf-color-border-strong);
+  }
+
+  .sf-motion .sf-step:not(.is-visible)::after {
+    transform: scaleY(0);
+  }
+
+  .sf-motion .sf-step:not(.is-visible) .sf-step__body {
+    opacity: 0;
+    transform: translateY(var(--sf-reveal-distance));
+  }
+
+  @media (min-width: 992px) {
+    .sf-step:nth-child(2) { --sf-step-delay: 300ms; }
+    .sf-step:nth-child(3) { --sf-step-delay: 600ms; }
+    .sf-step:nth-child(4) { --sf-step-delay: 900ms; }
+
+    .sf-motion .sf-step:not(.is-visible)::after {
+      transform: scaleX(0);
+    }
+  }
 }

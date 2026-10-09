@@ -11,6 +11,10 @@
  *   1. If the visitor clicked the toggle before, use their saved choice.
  *   2. Otherwise follow the system setting (handled by CSS alone).
  * The choice is stored in localStorage under "sf-theme".
+ *
+ * It also sets one more before-paint flag: the "sf-motion" class on <html>,
+ * which allows the page's entrance animations (see motion.js). It is only
+ * added when the visitor has not asked for reduced motion.
  */
 (() => {
   const STORAGE_KEY = 'sf-theme';
@@ -79,6 +83,17 @@
   // Step 1, before the page is drawn: apply the saved choice.
   const saved = readSaved();
   if (saved) root.setAttribute('data-theme', saved);
+
+  // Motion flag. CSS hides elements that will animate in only while
+  // <html> has "sf-motion", so setting it before the first paint avoids a
+  // flash. motion.js answers by adding "sf-motion-ready". If it never does
+  // (the file failed to load), drop the flag so nothing stays hidden.
+  if (window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+    root.classList.add('sf-motion');
+    window.setTimeout(() => {
+      if (!root.classList.contains('sf-motion-ready')) root.classList.remove('sf-motion');
+    }, 2500);
+  }
 
   // Step 2, once the HTML has loaded: connect the toggle buttons.
   document.addEventListener('DOMContentLoaded', () => {

@@ -23,6 +23,7 @@
   <!-- Applies the saved theme before the first paint (see the comment in theme.js). -->
   <script src="js/theme.js"></script>
   <script type="module" src="js/header.js"></script>
+  <script type="module" src="js/motion.js"></script>
   <script type="module" src="js/app.js"></script>
 
   <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
@@ -46,9 +47,16 @@
 
   <header class="sf-header" data-site-header>
     <div class="sf-container sf-header__inner">
+      <!-- The animated logos fan the swatch cards open once on load. Visitors who prefer reduced motion get the original static files. -->
       <a class="sf-header__brand" href="./">
-        <img class="sf-logo sf-only-light" src="assets/brand/swatchfin-logo.svg" alt="Swatchfin" width="106" height="32">
-        <img class="sf-logo sf-only-dark" src="assets/brand/swatchfin-logo-dark.svg" alt="Swatchfin" width="106" height="32">
+        <picture class="sf-only-light">
+          <source srcset="assets/brand/swatchfin-logo-animated.svg" type="image/svg+xml" media="(prefers-reduced-motion: no-preference)">
+          <img class="sf-logo" src="assets/brand/swatchfin-logo.svg" alt="Swatchfin" width="106" height="32">
+        </picture>
+        <picture class="sf-only-dark">
+          <source srcset="assets/brand/swatchfin-logo-dark-animated.svg" type="image/svg+xml" media="(prefers-reduced-motion: no-preference)">
+          <img class="sf-logo" src="assets/brand/swatchfin-logo-dark.svg" alt="Swatchfin" width="106" height="32">
+        </picture>
       </a>
 
       <nav class="sf-nav" aria-label="Main">
@@ -121,7 +129,7 @@
 
           <div class="col-lg-6 col-xl-5 offset-xl-1">
             <figure class="sf-example">
-              <div class="sf-example__card">
+              <div class="sf-example__card" data-sequence>
                 <div class="sf-example__topbar">
                   <span class="sf-badge sf-badge--accent">Example</span>
                   <span class="sf-example__topbar-note">Fictional brand · not real data</span>
@@ -205,40 +213,40 @@
     <!-- ============ How it works ============ -->
     <section class="sf-section sf-section--subtle" id="how-it-works" aria-labelledby="how-title">
       <div class="sf-container">
-        <div class="sf-section__header">
+        <div class="sf-section__header" data-reveal>
           <p class="sf-eyebrow">How it works</p>
           <h2 id="how-title">Three TinyFish APIs read the site. Swatchfin checks the result.</h2>
           <p class="sf-section__lead">Every guide is built from the live website, not from a saved screenshot or a guess. Each step has one job.</p>
         </div>
 
         <ol class="sf-steps">
-          <li class="sf-step">
+          <li class="sf-step" data-sequence>
             <span class="sf-step__marker"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#search"></use></svg></span>
-            <div>
+            <div class="sf-step__body">
               <p class="sf-step__api">TinyFish Search</p>
               <h3 class="sf-step__title">Find the official site</h3>
               <p class="sf-step__text">Give it a company name and Search finds the brand’s own domain, skipping Wikipedia, social profiles and news. Paste a URL and this step is skipped.</p>
             </div>
           </li>
-          <li class="sf-step">
+          <li class="sf-step" data-sequence>
             <span class="sf-step__marker"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#file-text"></use></svg></span>
-            <div>
+            <div class="sf-step__body">
               <p class="sf-step__api">TinyFish Fetch</p>
               <h3 class="sf-step__title">Read the live pages</h3>
               <p class="sf-step__text">Fetch reads the homepage HTML for the logo, meta tags and links, then up to nine pages such as About, Careers and Press as clean text.</p>
             </div>
           </li>
-          <li class="sf-step">
+          <li class="sf-step" data-sequence>
             <span class="sf-step__marker"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#app-window"></use></svg></span>
-            <div>
+            <div class="sf-step__body">
               <p class="sf-step__api">TinyFish Browser</p>
               <h3 class="sf-step__title">Measure the real styles</h3>
               <p class="sf-step__text">A real browser session opens the homepage and reads the computed colours and fonts of buttons, headings, links and body text.</p>
             </div>
           </li>
-          <li class="sf-step">
+          <li class="sf-step" data-sequence>
             <span class="sf-step__marker"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#shield-check"></use></svg></span>
-            <div>
+            <div class="sf-step__body">
               <p class="sf-step__api sf-step__api--own">Swatchfin</p>
               <h3 class="sf-step__title">Check every claim</h3>
               <p class="sf-step__text">A language model drafts the tone of voice and messaging. Swatchfin keeps a quote only if it appears word for word in the fetched text.</p>
@@ -251,49 +259,49 @@
     <!-- ============ Features ============ -->
     <section class="sf-section" id="features" aria-labelledby="features-title">
       <div class="sf-container">
-        <div class="sf-section__header">
+        <div class="sf-section__header" data-reveal>
           <p class="sf-eyebrow">What you get</p>
           <h2 id="features-title">A complete brand guide, not a homepage summary.</h2>
           <p class="sf-section__lead">Swatchfin reads several pages and the rendered styles, so the guide covers the whole identity.</p>
         </div>
 
         <div class="row g-3 g-lg-4">
-          <div class="col-sm-6 col-lg-4">
+          <div class="col-sm-6 col-lg-4" data-reveal>
             <article class="sf-card">
               <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#image"></use></svg></span>
               <h3 class="sf-card__title">Logo</h3>
               <p class="sf-card__text">Found in the header, an inline SVG, the Open Graph image or the favicon, with its source and a download link.</p>
             </article>
           </div>
-          <div class="col-sm-6 col-lg-4">
+          <div class="col-sm-6 col-lg-4" data-reveal>
             <article class="sf-card">
               <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#palette"></use></svg></span>
               <h3 class="sf-card__title">Colour palette with roles</h3>
               <p class="sf-card__text">Primary, accent, background, text and link colours, measured from real elements. Every pair gets a WCAG contrast score.</p>
             </article>
           </div>
-          <div class="col-sm-6 col-lg-4">
+          <div class="col-sm-6 col-lg-4" data-reveal>
             <article class="sf-card">
               <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#type"></use></svg></span>
               <h3 class="sf-card__title">Typography</h3>
               <p class="sf-card__text">Heading, body and UI fonts with their weights and sizes, taken from the fonts the page actually loaded.</p>
             </article>
           </div>
-          <div class="col-sm-6 col-lg-4">
+          <div class="col-sm-6 col-lg-4" data-reveal>
             <article class="sf-card">
               <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#message-square-quote"></use></svg></span>
               <h3 class="sf-card__title">Tone of voice</h3>
               <p class="sf-card__text">Traits, four tone scales and do and don’t lists, each backed by quotes from the site and links to where they appear.</p>
             </article>
           </div>
-          <div class="col-sm-6 col-lg-4">
+          <div class="col-sm-6 col-lg-4" data-reveal>
             <article class="sf-card">
               <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#megaphone"></use></svg></span>
               <h3 class="sf-card__title">Key messaging</h3>
               <p class="sf-card__text">Tagline, mission, value propositions and audience, each linked to the page it came from.</p>
             </article>
           </div>
-          <div class="col-sm-6 col-lg-4">
+          <div class="col-sm-6 col-lg-4" data-reveal>
             <article class="sf-card">
               <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#badge-check"></use></svg></span>
               <h3 class="sf-card__title">Verified, never invented</h3>
@@ -307,14 +315,14 @@
     <!-- ============ Exports ============ -->
     <section class="sf-section sf-section--divided" id="exports" aria-labelledby="exports-title">
       <div class="sf-container">
-        <div class="sf-section__header">
+        <div class="sf-section__header" data-reveal>
           <p class="sf-eyebrow">Exports</p>
           <h2 id="exports-title">Take the guide into the tools you already use.</h2>
           <p class="sf-section__lead">Every guide downloads in open formats, so designers, developers and other AI tools can reuse it.</p>
         </div>
 
         <div class="row g-3 g-lg-4">
-          <div class="col-sm-6 col-lg-4">
+          <div class="col-sm-6 col-lg-4" data-reveal>
             <article class="sf-card sf-card--row">
               <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#braces"></use></svg></span>
               <div>
@@ -324,7 +332,7 @@
               </div>
             </article>
           </div>
-          <div class="col-sm-6 col-lg-4">
+          <div class="col-sm-6 col-lg-4" data-reveal>
             <article class="sf-card sf-card--row">
               <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#code"></use></svg></span>
               <div>
@@ -334,7 +342,7 @@
               </div>
             </article>
           </div>
-          <div class="col-sm-6 col-lg-4">
+          <div class="col-sm-6 col-lg-4" data-reveal>
             <article class="sf-card sf-card--row">
               <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#wind"></use></svg></span>
               <div>
@@ -344,7 +352,7 @@
               </div>
             </article>
           </div>
-          <div class="col-sm-6 col-lg-4">
+          <div class="col-sm-6 col-lg-4" data-reveal>
             <article class="sf-card sf-card--row">
               <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#swatch-book"></use></svg></span>
               <div>
@@ -354,7 +362,7 @@
               </div>
             </article>
           </div>
-          <div class="col-sm-6 col-lg-4">
+          <div class="col-sm-6 col-lg-4" data-reveal>
             <article class="sf-card sf-card--row">
               <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#printer"></use></svg></span>
               <div>
@@ -364,7 +372,7 @@
               </div>
             </article>
           </div>
-          <div class="col-sm-6 col-lg-4">
+          <div class="col-sm-6 col-lg-4" data-reveal>
             <article class="sf-card sf-card--row">
               <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#message-square-text"></use></svg></span>
               <div>
@@ -380,7 +388,7 @@
 
     <!-- ============ Final call to action ============ -->
     <section class="sf-cta" aria-labelledby="cta-title">
-      <div class="sf-container sf-cta__inner">
+      <div class="sf-container sf-cta__inner" data-reveal>
         <div>
           <h2 class="sf-cta__title" id="cta-title">See any brand the way its website shows it.</h2>
           <p class="sf-cta__text">Type a company name or URL and get a verified brand guide in about a minute.</p>
