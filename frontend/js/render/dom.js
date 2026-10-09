@@ -7,7 +7,7 @@
  * text and never runs.
  */
 
-import { createIcon, confidenceLevel, displayUrl, safeUrl } from '../utils.js';
+import { createIcon, confidenceLevel, safeUrl } from '../utils.js';
 
 export { createIcon };
 
@@ -69,20 +69,63 @@ export function verifiedBadge(verified) {
 }
 
 /**
- * A link to the page a fact came from, shown short ("example.com/about").
- * Unsafe or missing URLs come back as plain text, or null.
+ * The brand's own host name, e.g. "northwind-roasters.example" (without
+ * "www."), used to shorten links to pages on the brand's site. "" if unknown.
+ * @param {Record<string, any>} guide
+ * @returns {string}
+ */
+export function siteHost(guide) {
+  const domain = text(guide.brand?.domain);
+  const href = safeUrl(guide.brand?.url) ?? (domain ? safeUrl(`https://${domain}`) : null);
+  return href ? new URL(href).hostname.replace(/^www\./, '') : '';
+}
+
+/**
+ * A link to the page a fact came from. The link itself goes to the full URL
+ * (also shown on hover); the visible text stays short:
+ *   a page on the brand's site    -> "/subscriptions"
+ *   the brand's homepage          -> "Homepage"
+ *   any other site, or no `site`  -> "example.com/press"
+ * Screen readers hear "Source: /subscriptions on northwind-roasters.example".
+ * Unsafe or missing URLs give null.
  * @param {unknown} url
- * @param {{ label?: string }} [options] Text to show instead of the short URL.
+ * @param {{ site?: string }} [options] site: the brand's host, from siteHost().
  * @returns {HTMLElement | null}
  */
-export function sourceLink(url, { label } = {}) {
+export function sourceLink(url, { site = '' } = {}) {
   const href = safeUrl(url);
   if (!href) return null;
-  const text = label ?? displayUrl(href);
-  return el('a', { className: 'sf-source-link', attrs: { href, rel: 'noopener noreferrer' } }, [
-    el('span', { text }),
+
+  const parsed = new URL(href);
+  const host = parsed.hostname.replace(/^www\./, '');
+  const path = parsed.pathname.replace(/\/$/, '') + parsed.search;
+  const onSite = site !== '' && host === site;
+  const label = onSite ? path || 'Homepage' : host + path;
+
+  return el('a', { className: 'sf-source-link', attrs: { href, title: href, rel: 'noopener noreferrer' } }, [
+    el('span', { className: 'visually-hidden', text: 'Source: ' }),
+    breakAfterSlashes(label),
+    onSite ? el('span', { className: 'visually-hidden', text: ` on ${host}` }) : null,
     createIcon('arrow-up-right', { size: 16 }),
   ]);
+}
+
+/**
+ * Text that may wrap onto the next line only right after a "/" (and at
+ * hyphens, as usual), never in the middle of a word. Done with <wbr>
+ * ("word break opportunity") elements between the parts.
+ * @param {string} value
+ * @returns {HTMLElement}
+ */
+function breakAfterSlashes(value) {
+  const span = el('span', { className: 'sf-source-link__text' });
+  // "/blog/2026/news" -> ["/", "blog/", "2026/", "news"]
+  value.split(/(?<=\/)/).forEach((part, i, parts) => {
+    // No break straight after a leading "/": it would sit alone on its line.
+    if (i > 0 && !(i === 1 && parts[0] === '/')) span.append(document.createElement('wbr'));
+    span.append(part);
+  });
+  return span;
 }
 
 /**

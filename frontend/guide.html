@@ -22,6 +22,8 @@
 
   <!-- Applies the saved theme before the first paint (see the comment in theme.js). -->
   <script src="js/theme.js"></script>
+  <!-- Ends the loading state after 15 seconds, even if the other scripts fail (see the comment in guide-guard.js). -->
+  <script src="js/guide-guard.js" defer></script>
   <script type="module" src="js/header.js"></script>
   <script type="module" src="js/motion.js"></script>
   <script type="module" src="js/guide.js"></script>
@@ -187,6 +189,7 @@
       <div class="sf-container sf-guide-header__inner">
         <div class="sf-guide-header__logo" data-brand-logo>
           <span class="sf-skeleton__block" aria-hidden="true"></span>
+          <svg class="sf-icon sf-icon--24 sf-guide-header__error-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#circle-alert"></use></svg>
         </div>
         <div class="sf-guide-header__text">
           <p class="sf-guide-header__eyebrow">Brand guide</p>
@@ -195,6 +198,22 @@
             <div class="sf-skeleton" aria-hidden="true">
               <span class="sf-skeleton__line sf-skeleton__line--short"></span>
               <span class="sf-skeleton__line"></span>
+            </div>
+          </div>
+
+          <!-- Error state only (data-state="error"). guide.js or guide-guard.js fills in the message. -->
+          <div class="sf-guide-header__error">
+            <p class="sf-guide-header__description" data-guide-error-message></p>
+            <div class="sf-guide-header__actions">
+              <a class="sf-btn sf-btn--primary" href="./#generate">
+                Start a new guide
+                <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#arrow-right"></use></svg>
+              </a>
+              <!-- An empty href opens this same address again, so Try again works even if the scripts failed. -->
+              <a class="sf-btn sf-btn--secondary" href="">
+                <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#refresh-cw"></use></svg>
+                Try again
+              </a>
             </div>
           </div>
         </div>

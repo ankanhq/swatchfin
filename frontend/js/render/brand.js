@@ -159,30 +159,13 @@ export function renderNotice(page, { mock, query }) {
 }
 
 /**
- * Turns the header into an error message with a way forward.
+ * Turns the header into an error message. The buttons (Start a new guide,
+ * Try again) are plain HTML in guide.html; the CSS shows them, and hides
+ * the placeholders, when data-state is "error".
  * @param {HTMLElement} page
  * @param {{ title: string, message: string }} error
  */
 export function renderHeaderError(page, error) {
   page.querySelector('[data-brand-name]').textContent = error.title;
-  page.querySelector('[data-brand-logo]').replaceChildren(
-    el('span', { className: 'sf-guide-header__placeholder sf-guide-header__placeholder--danger' }, [createIcon('circle-alert', { size: 24 })]),
-  );
-
-  const retry = el('button', { className: 'sf-btn sf-btn--secondary', attrs: { type: 'button' } }, [
-    createIcon('refresh-cw', { size: 16 }),
-    'Try again',
-  ]);
-  retry.addEventListener('click', () => window.location.reload());
-
-  page.querySelector('[data-brand-details]').replaceChildren(
-    el('p', { className: 'sf-guide-header__description', text: error.message }),
-    el('div', { className: 'sf-guide-header__actions' }, [
-      el('a', { className: 'sf-btn sf-btn--primary', attrs: { href: './#generate' } }, [
-        'Start a new guide',
-        createIcon('arrow-right', { size: 16 }),
-      ]),
-      retry,
-    ]),
-  );
+  page.querySelector('[data-guide-error-message]').textContent = error.message;
 }

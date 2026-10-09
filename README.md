@@ -71,10 +71,10 @@ cp .env.example .env   # then add your keys to .env (it is git-ignored)
 The frontend is a static site with no build step. Serve the `frontend` folder over HTTP (the icon sprite does not load from `file://`):
 
 ```bash
-python3 -m http.server 8000 --directory frontend
+python3 tools/serve.py
 ```
 
-Then open [http://localhost:8000](http://localhost:8000). This simple server lets the browser cache files, so use a hard refresh (Cmd+Shift+R / Ctrl+Shift+R) after editing CSS or JavaScript.
+Then open [http://localhost:8000](http://localhost:8000) (pass another port as an argument, e.g. `python3 tools/serve.py 8001`). This is the standard Python file server plus one header, `Cache-Control: no-cache`, so the browser re-checks every file on every load. Avoid plain `python3 -m http.server`: it sends no caching rules, the browser keeps old copies of edited files, and an old cached module mixed with a new one stops the guide page from loading. If a page ever looks out of date, do a hard refresh (Cmd+Shift+R / Ctrl+Shift+R).
 
 **The guide page runs on mock data for now.** The backend that generates real guides is in progress, so [`guide.html?id=mock`](http://localhost:8000/guide.html?id=mock) shows a complete sample guide for *Northwind Roasters*, a fictional brand (`frontend/mock/MOCK_northwind-roasters.json`). Submitting the form on the landing page shows the same sample, with a notice saying that live generation isn't connected yet. Any other `?id=` shows the "guide not found" state. The mock is only for building the frontend: it follows the exact BrandGuide schema, and every part of it is labelled as mock.
 

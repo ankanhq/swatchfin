@@ -11,6 +11,9 @@ export const MOCK_ID = 'mock';
 
 const MOCK_URL = 'mock/MOCK_northwind-roasters.json';
 
+/** Longest wait for the guide data. guide-guard.js uses the same limit for the whole page. */
+const LOAD_TIMEOUT_MS = 15000;
+
 /** This page understands schema 1.x (see CLAUDE.md, section 6). */
 const SUPPORTED_MAJOR_VERSION = '1';
 
@@ -49,12 +52,15 @@ export async function loadGuide(id) {
     );
   }
 
+  // The request gives up after LOAD_TIMEOUT_MS instead of waiting forever.
+  const signal = AbortSignal.timeout(LOAD_TIMEOUT_MS);
+
   let response;
   try {
     // no-store: always read the file fresh while it is being edited.
-    response = await fetch(MOCK_URL, { cache: 'no-store' });
-  } catch {
-    throw new GuideError('Couldn’t load the guide', 'The connection failed. Check that you are online and try again.');
+    response = await fetch(MOCK_URL, { cache: 'no-store', signal });
+  } catch (error) {
+    throw requestError(error);
   }
 
   if (!response.ok) {
@@ -64,12 +70,25 @@ export async function loadGuide(id) {
   let data;
   try {
     data = await response.json();
-  } catch {
+  } catch (error) {
+    if (error?.name === 'TimeoutError') throw requestError(error);
     throw new GuideError('This guide can’t be read', 'The guide data is damaged or incomplete.');
   }
 
   checkGuide(data);
   return data;
+}
+
+/**
+ * Turns a failed request into a message for people: too slow, or no connection.
+ * @param {unknown} error
+ * @returns {GuideError}
+ */
+function requestError(error) {
+  if (error?.name === 'TimeoutError') {
+    return new GuideError('This is taking too long', 'The guide didn’t load within 15 seconds. Check your connection and try again.');
+  }
+  return new GuideError('Couldn’t load the guide', 'The connection failed. Check that you are online and try again.');
 }
 
 /**
