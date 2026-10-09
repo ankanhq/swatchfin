@@ -7,7 +7,8 @@
  * 2. Load the guide (api.js). The page shows grey placeholder blocks meanwhile.
  * 3. Fill each section. Each section is drawn on its own, so if one fails
  *    the rest of the guide still shows.
- * 4. Switch on the extras: copy buttons and the "On this page" highlight.
+ * 4. Switch on the extras: copy buttons, the "On this page" highlight and
+ *    the Export menu.
  * If loading fails, the header turns into a clear error with a way forward.
  */
 
@@ -25,6 +26,7 @@ import { renderTypography } from './render/typography.js';
 import { renderVoice } from './render/voice.js';
 import { renderMessaging } from './render/messaging.js';
 import { renderSources } from './render/sources.js';
+import { setUpExports } from './render/exports.js';
 
 /**
  * Section name (data-render="…" in guide.html) -> function that draws it.
@@ -73,6 +75,7 @@ async function start(page) {
   setState(page, 'ready', `Brand guide for ${brandName(guide)} loaded.`);
   observeMotion(page);
   setUpTableOfContents(page);
+  setUpExports(page, guide, { mock });
 }
 
 /**

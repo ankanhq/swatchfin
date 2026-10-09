@@ -74,7 +74,9 @@ The frontend is a static site with no build step. Serve the `frontend` folder ov
 python3 -m http.server 8000 --directory frontend
 ```
 
-Then open [http://localhost:8000](http://localhost:8000). This simple server lets the browser cache files, so use a hard refresh (Cmd+Shift+R / Ctrl+Shift+R) after editing CSS or JavaScript. The landing page works today. The guide page and the backend that generates guides are in progress, so submitting the form leads to a "not found" page for now.
+Then open [http://localhost:8000](http://localhost:8000). This simple server lets the browser cache files, so use a hard refresh (Cmd+Shift+R / Ctrl+Shift+R) after editing CSS or JavaScript.
+
+**The guide page runs on mock data for now.** The backend that generates real guides is in progress, so [`guide.html?id=mock`](http://localhost:8000/guide.html?id=mock) shows a complete sample guide for *Northwind Roasters*, a fictional brand (`frontend/mock/MOCK_northwind-roasters.json`). Submitting the form on the landing page shows the same sample, with a notice saying that live generation isn't connected yet. Any other `?id=` shows the "guide not found" state. The mock is only for building the frontend: it follows the exact BrandGuide schema, and every part of it is labelled as mock.
 
 ### Development tools
 
@@ -85,7 +87,10 @@ npm install          # installs the pinned lucide-static package
 npm run icons        # rebuilds frontend/assets/icons/icons.svg from the icon list in tools/build-icons.mjs
 npm run logo         # rebuilds the animated header logos from the original logo files
 npm run contrast     # checks every colour pair in frontend/css/tokens.css against WCAG 2.2 AA
+npm run fonts        # rebuilds frontend/assets/data/google-fonts.json (Google Fonts family names and weights)
 ```
+
+The guide page shows each detected font in that font when it can. It only asks Google Fonts for a family and weight that exist there, which it checks against `google-fonts.json`. A brand's self-hosted font is never requested; the specimen uses the fallback fonts and says so.
 
 The social preview image (`frontend/assets/og-image.png`) is built from `tools/og-image.html`. The command is at the top of that file.
 
