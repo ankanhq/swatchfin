@@ -9,12 +9,14 @@
  *    put the cursor in the input.
  * 4. The placeholder slowly types example brands until the visitor clicks
  *    into the input (skipped for visitors who prefer reduced motion).
+ * 5. Cancel on the guide page comes back here as ./?q=…#generate, and the
+ *    input starts with that query in it, ready to edit.
  *
  * Without JavaScript the form still works: the browser checks that the
  * field is not empty and submits it to guide.html on its own.
  */
 
-import { parseQuery, createIcon } from './utils.js';
+import { parseQuery, createIcon, MAX_QUERY_LENGTH } from './utils.js';
 
 /** Examples the placeholder types out, one after another. */
 const PLACEHOLDER_EXAMPLES = ['Duolingo', 'stripe.com', 'patagonia.com'];
@@ -39,6 +41,10 @@ function setUpGenerateForm(form) {
 
   // From here on our own checks and messages replace the browser's pop-ups.
   form.noValidate = true;
+
+  // Back from Cancel on the guide page: put the query back in the box.
+  const previous = new URLSearchParams(window.location.search).get('q');
+  if (previous) input.value = previous.trim().slice(0, MAX_QUERY_LENGTH);
 
   /** Shows a message under the field and marks the field as invalid. */
   const showError = (message) => {
@@ -127,7 +133,8 @@ function setUpGenerateForm(form) {
  * @param {HTMLInputElement} input
  */
 function typePlaceholderExamples(input) {
-  if (!document.documentElement.classList.contains('sf-motion')) return;
+  // Nothing to animate when the box already has text, or motion is off.
+  if (input.value || !document.documentElement.classList.contains('sf-motion')) return;
 
   const PREFIX = 'e.g. ';
   const TYPE_MS = 110; // per character typed

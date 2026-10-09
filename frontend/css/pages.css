@@ -550,9 +550,15 @@
 
 /* --------------------------------------------------------------------------
    Guide page (guide.html)
-   <main data-state="loading | ready | error">. guide.js sets the state.
-   Order on the page: sticky toolbar, notice, brand header, then a two-column
-   grid ("On this page" + sections) from 992px.
+   <main data-state="…">. guide.js sets the state (see its top comment):
+     loading  toolbar, header and sections as grey placeholders
+     running  header (query, step, elapsed time) + progress view
+     ready    toolbar, header, "On this page" and the sections
+     failed   error header + progress view (steps only)
+     error    error header only
+     empty    "No guide to show" header only
+   Order on the page: sticky toolbar, notice, brand header, progress view,
+   then a two-column grid ("On this page" + sections) from 992px.
    -------------------------------------------------------------------------- */
 
 /* ---- Page states ---- */
@@ -560,26 +566,44 @@
   color: var(--sf-color-text-muted);
 }
 
-/* Error: only the header stays, showing the message and its buttons
-   (static HTML, so they work even if the scripts failed). */
-.sf-guide-page[data-state="error"] :is(.sf-guidebar, .sf-guide, .sf-guide-header__details, .sf-guide-header__logo .sf-skeleton__block) {
+/* Toolbar and sections only exist while loading (as placeholders) and when ready. */
+.sf-guide-page:is([data-state="running"], [data-state="failed"], [data-state="error"], [data-state="empty"]) :is(.sf-guidebar, .sf-guide) {
   display: none;
 }
 
+/* Details under the title (domain, facts): placeholders, progress facts or the guide's facts. */
+.sf-guide-page:is([data-state="failed"], [data-state="error"], [data-state="empty"]) .sf-guide-header__details {
+  display: none;
+}
+
+/* The logo tile shows one thing per state; the placeholder block only while loading. */
+.sf-guide-page:not([data-state="loading"]) .sf-guide-header__logo .sf-skeleton__block,
+.sf-guide-header__mark,
+.sf-guide-header__error-icon,
+.sf-guide-header__empty-icon,
 .sf-guide-header__error,
-.sf-guide-header__error-icon {
+.sf-guide-header__empty {
   display: none;
 }
 
-.sf-guide-page[data-state="error"] .sf-guide-header__error {
+.sf-guide-page[data-state="running"] .sf-guide-header__mark {
   display: block;
 }
 
-.sf-guide-page[data-state="error"] .sf-guide-header__error-icon {
+.sf-guide-page:is([data-state="error"], [data-state="failed"]) .sf-guide-header__error-icon,
+.sf-guide-page[data-state="empty"] .sf-guide-header__empty-icon {
   display: inline-block;
 }
 
-.sf-guide-page[data-state="error"] .sf-guide-header {
+/* Error and empty: the message and its buttons (static HTML, so they work
+   even if the scripts failed). */
+.sf-guide-page:is([data-state="error"], [data-state="failed"]) .sf-guide-header__error,
+.sf-guide-page[data-state="empty"] .sf-guide-header__empty {
+  display: block;
+}
+
+/* With nothing below it, the header gets the room of a full section. */
+.sf-guide-page:is([data-state="error"], [data-state="empty"]) .sf-guide-header {
   padding-block: var(--sf-section-space);
   border-bottom: 0;
 }
@@ -864,11 +888,22 @@
   color: var(--sf-grey-500);
 }
 
-/* Error state: the tile becomes a red icon tile. */
-.sf-guide-page[data-state="error"] .sf-guide-header__logo {
+/* Error states: the tile becomes a red icon tile. Empty: a quiet grey one. */
+.sf-guide-page:is([data-state="error"], [data-state="failed"]) .sf-guide-header__logo {
   color: var(--sf-color-danger);
   background-color: var(--sf-color-danger-subtle);
   border-color: transparent;
+}
+
+.sf-guide-page[data-state="empty"] .sf-guide-header__logo {
+  color: var(--sf-color-text-muted);
+  background-color: var(--sf-color-surface-subtle);
+}
+
+/* Running: the Swatchfin mark (64 x 64 file) at 40px, with a 16px clear space. */
+.sf-guide-header__mark {
+  width: 2.5rem;
+  height: 2.5rem;
 }
 
 .sf-guide-header__text {
@@ -929,11 +964,302 @@
   gap: var(--sf-space-2);
 }
 
+/* Running: "Step 3 of 7 · 0:42 elapsed" sits right under the title.
+   Tabular figures keep the clock from shifting the text as it counts. */
+.sf-guide-header__facts--progress {
+  margin-top: 0;
+  font-variant-numeric: tabular-nums;
+}
+
 .sf-guide-header__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--sf-space-3);
   margin-top: var(--sf-space-6);
+}
+
+/* ---- Progress view (data-state="running" or "failed") ----
+   The steps on the left; "TinyFish calls so far" on the right from 992px.
+   progress.js sets data-status on each step:
+   pending | running | done | skipped | failed.
+   The steps are joined by a line, drawn like "How it works" on the start
+   page: a faint track with a coral line on top that reaches down to the
+   next step once this one is done. */
+.sf-progress {
+  display: none;
+  padding-block: var(--sf-space-10) var(--sf-section-space);
+}
+
+.sf-guide-page:is([data-state="running"], [data-state="failed"]) .sf-progress {
+  display: block;
+}
+
+.sf-progress__inner {
+  display: grid;
+  gap: var(--sf-space-10);
+}
+
+@media (min-width: 992px) {
+  .sf-progress__inner {
+    grid-template-columns: minmax(0, 1fr) 18rem;
+    align-items: start;
+    gap: var(--sf-space-16);
+  }
+}
+
+.sf-progress__main {
+  max-width: 42rem;
+}
+
+.sf-progress__title {
+  margin-bottom: var(--sf-space-6);
+  font-family: var(--sf-font-sans);
+  font-size: var(--sf-text-xs);
+  font-weight: var(--sf-weight-semibold);
+  letter-spacing: var(--sf-tracking-caps);
+  text-transform: uppercase;
+  color: var(--sf-color-text-muted);
+}
+
+.sf-progress__steps {
+  --sf-step-marker: 2.5rem;
+  --sf-step-gap: var(--sf-space-8);
+
+  display: grid;
+  gap: var(--sf-step-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sf-progress-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--sf-space-4);
+}
+
+/* Marker: the step's own icon while it waits, then a spinner, a tick,
+   a dash (skipped) or a cross (failed). */
+.sf-progress-step__marker {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--sf-step-marker);
+  height: var(--sf-step-marker);
+  color: var(--sf-color-text-muted);
+  background-color: var(--sf-color-surface);
+  border: var(--sf-border-width) solid var(--sf-color-border-strong);
+  border-radius: var(--sf-radius-md);
+}
+
+.sf-progress-step:is([data-status="running"], [data-status="done"]) .sf-progress-step__marker {
+  color: var(--sf-color-accent-text);
+  background-color: var(--sf-color-accent-subtle);
+  border-color: var(--sf-color-accent-subtle);
+}
+
+.sf-progress-step[data-status="skipped"] .sf-progress-step__marker {
+  background-color: var(--sf-color-surface-subtle);
+  border-color: var(--sf-color-border);
+}
+
+.sf-progress-step[data-status="failed"] .sf-progress-step__marker {
+  color: var(--sf-color-danger);
+  background-color: var(--sf-color-danger-subtle);
+  border-color: var(--sf-color-danger-subtle);
+}
+
+/* Body: API label and status word on the first line, then the title,
+   what the step does, and the live detail from the backend. */
+.sf-progress-step__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--sf-space-3);
+  align-content: start;
+}
+
+.sf-progress-step__api {
+  grid-row: 1;
+  grid-column: 1;
+  margin: 0 0 var(--sf-space-1);
+  font-size: var(--sf-text-xs);
+  font-weight: var(--sf-weight-semibold);
+  letter-spacing: var(--sf-tracking-caps);
+  text-transform: uppercase;
+  color: var(--sf-color-accent-text);
+}
+
+/* Swatchfin's own steps, not a TinyFish API (as on the start page). */
+.sf-progress-step__api--own {
+  color: var(--sf-color-text-muted);
+}
+
+.sf-progress-step__status {
+  grid-row: 1;
+  grid-column: 2;
+  margin: 0;
+  font-size: var(--sf-text-xs);
+  font-weight: var(--sf-weight-medium);
+  font-variant-numeric: tabular-nums;
+  color: var(--sf-color-text-muted);
+  white-space: nowrap;
+}
+
+.sf-progress-step[data-status="running"] .sf-progress-step__status {
+  color: var(--sf-color-accent-text);
+}
+
+.sf-progress-step[data-status="failed"] .sf-progress-step__status {
+  color: var(--sf-color-danger);
+}
+
+.sf-progress-step__title {
+  grid-column: 1 / -1;
+  margin: 0 0 var(--sf-space-1);
+  font-size: var(--sf-text-md);
+}
+
+/* Steps that haven't started yet are quieter than the ones in play. */
+.sf-progress-step[data-status="pending"] .sf-progress-step__title {
+  color: var(--sf-color-text-muted);
+}
+
+.sf-progress-step__text {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--sf-text-sm);
+  color: var(--sf-color-text-muted);
+}
+
+.sf-progress-step__detail {
+  grid-column: 1 / -1;
+  margin: var(--sf-space-2) 0 0;
+  font-size: var(--sf-text-sm);
+  font-weight: var(--sf-weight-medium);
+  color: var(--sf-color-text);
+}
+
+.sf-progress-step__detail[hidden] {
+  display: none;
+}
+
+/* The line from each marker down to the next one. */
+.sf-progress-step:not(:last-child)::before,
+.sf-progress-step:not(:last-child)::after {
+  position: absolute;
+  top: calc(var(--sf-step-marker) + var(--sf-space-2));
+  bottom: calc(var(--sf-space-2) - var(--sf-step-gap));
+  left: calc(var(--sf-step-marker) / 2 - 0.5px);
+  width: 1px;
+  content: "";
+}
+
+.sf-progress-step:not(:last-child)::before {
+  background-color: var(--sf-color-border-strong);
+}
+
+.sf-progress-step:not(:last-child)::after {
+  background-color: var(--sf-color-accent);
+  transform: scaleY(0);
+  transform-origin: top;
+}
+
+.sf-progress-step:is([data-status="done"], [data-status="skipped"])::after {
+  transform: none;
+}
+
+/* "TinyFish calls so far" card. It stays in view on wide screens while
+   the steps move along, and is hidden once a job has failed. */
+.sf-guide-page[data-state="failed"] .sf-progress__aside {
+  display: none;
+}
+
+@media (min-width: 992px) {
+  .sf-progress__aside {
+    position: sticky;
+    top: var(--sf-space-8);
+  }
+}
+
+.sf-progress-card {
+  padding: var(--sf-space-6);
+  background-color: var(--sf-color-surface);
+  border: var(--sf-border-width) solid var(--sf-color-border);
+  border-radius: var(--sf-radius-lg);
+}
+
+.sf-progress-card__title {
+  margin-bottom: var(--sf-space-3);
+  font-family: var(--sf-font-sans);
+  font-size: var(--sf-text-xs);
+  font-weight: var(--sf-weight-semibold);
+  letter-spacing: var(--sf-tracking-caps);
+  text-transform: uppercase;
+  color: var(--sf-color-text-muted);
+}
+
+.sf-calls {
+  margin: 0;
+}
+
+.sf-calls__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sf-space-4);
+  padding-block: var(--sf-space-2);
+  font-size: var(--sf-text-sm);
+  border-bottom: var(--sf-border-width) solid var(--sf-color-border);
+}
+
+.sf-calls dt {
+  font-weight: var(--sf-weight-medium);
+}
+
+.sf-calls dd {
+  margin: 0;
+  font-family: var(--sf-font-mono);
+  font-variant-ligatures: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--sf-color-text-muted);
+}
+
+.sf-progress-card__note {
+  margin: var(--sf-space-4) 0 var(--sf-space-5);
+  font-size: var(--sf-text-xs);
+  color: var(--sf-color-text-muted);
+}
+
+.sf-progress-card__cancel {
+  width: 100%;
+}
+
+/* Motion: markers change colour and the line draws down to the next step
+   (the same timings as "How it works"); the running step's marker spins.
+   With reduced motion, everything changes at once and nothing spins: the
+   status word ("In progress") still says which step is running. */
+@media (prefers-reduced-motion: no-preference) {
+  .sf-progress-step__marker {
+    transition:
+      color 300ms var(--sf-ease-out),
+      background-color 300ms var(--sf-ease-out),
+      border-color 300ms var(--sf-ease-out);
+  }
+
+  .sf-progress-step::after {
+    transition: transform 450ms var(--sf-ease-out);
+  }
+
+  .sf-progress-step[data-status="running"] .sf-progress-step__marker .sf-icon {
+    animation: sf-spin 0.8s linear infinite;
+  }
+
+  .sf-guide-page[data-state="running"] .sf-progress {
+    animation: sf-fade-in var(--sf-duration-slow) var(--sf-ease-out);
+  }
 }
 
 /* ---- Layout: "On this page" + sections ---- */

@@ -76,7 +76,19 @@ python3 tools/serve.py
 
 Then open [http://localhost:8000](http://localhost:8000) (pass another port as an argument, e.g. `python3 tools/serve.py 8001`). This is the standard Python file server plus one header, `Cache-Control: no-cache`, so the browser re-checks every file on every load. Avoid plain `python3 -m http.server`: it sends no caching rules, the browser keeps old copies of edited files, and an old cached module mixed with a new one stops the guide page from loading. If a page ever looks out of date, do a hard refresh (Cmd+Shift+R / Ctrl+Shift+R).
 
-**The guide page runs on mock data for now.** The backend that generates real guides is in progress, so [`guide.html?id=mock`](http://localhost:8000/guide.html?id=mock) shows a complete sample guide for *Northwind Roasters*, a fictional brand (`frontend/mock/MOCK_northwind-roasters.json`). Submitting the form on the landing page shows the same sample, with a notice saying that live generation isn't connected yet. Any other `?id=` shows the "guide not found" state. The mock is only for building the frontend: it follows the exact BrandGuide schema, and every part of it is labelled as mock.
+**The guide page runs on mock data for now.** The backend that generates real guides is in progress, so the guide page uses a stand-in (`frontend/js/mock-job.js`) built around *Northwind Roasters*, a fictional brand. Submitting the form on the landing page plays a 10-second simulated run of the seven steps, labelled as a simulation, and then shows the sample guide. No website is read. These addresses show every state of the page:
+
+| Address | What it shows |
+|---|---|
+| [`guide.html?q=Duolingo`](http://localhost:8000/guide.html?q=Duolingo) | A simulated run from a company name, then the sample guide |
+| [`guide.html?q=stripe.com`](http://localhost:8000/guide.html?q=stripe.com) | The same from a URL (the search step is skipped) |
+| [`guide.html?id=mock`](http://localhost:8000/guide.html?id=mock) | The finished sample guide (`frontend/mock/MOCK_northwind-roasters.json`) |
+| [`guide.html?id=mock-partial`](http://localhost:8000/guide.html?id=mock-partial) | A partial guide: the browser step "timed out", so colours and fonts are missing |
+| [`guide.html?id=mock-failed`](http://localhost:8000/guide.html?id=mock-failed) | A run that fails at "Reading the homepage" |
+| [`guide.html`](http://localhost:8000/guide.html) | The empty state ("No guide to show") |
+| [`guide.html?id=nope`](http://localhost:8000/guide.html?id=nope) | The "Guide not found" error |
+
+The mock is only for building the frontend: it follows the exact BrandGuide and job status shapes in `CLAUDE.md`, and every part of it is labelled as mock.
 
 ### Development tools
 

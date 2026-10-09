@@ -166,6 +166,19 @@ Generation takes 30–90 s, so it is an async job with polling.
 
 - `tokens` = W3C Design Tokens (DTCG) JSON. `voice` = a ready-to-paste "write in this brand's voice" prompt (markdown). PDF = the guide page's print stylesheet (browser "Save as PDF").
 - Progress steps (shown live in the UI): `resolving → reading_homepage → discovering_pages → reading_pages → reading_styles → analysing_voice → verifying → complete | failed`.
+- **Job status** returned by `GET /api/v1/guides/{id}`. The progress view on `guide.html` is built against this shape:
+  ```json
+  {
+    "id": "bg_7f3a9c", "status": "queued|running|complete|failed", "query": "duolingo",
+    "started_at": "2026-10-10T12:00:00Z",
+    "steps": [ { "name": "resolving", "status": "pending|running|done|skipped|failed",
+                 "detail": "Found duolingo.com", "started_at": "", "finished_at": "" } ],
+    "tinyfish_usage": { "search_calls": 1, "fetch_urls": 0, "browser_sessions": 0 },
+    "error": null,
+    "guide": null
+  }
+  ```
+  `steps` always lists the seven steps in order (`resolving` is `skipped` when a URL was given). `detail` is one short line for people, shown as plain text. `tinyfish_usage` counts the calls made so far. `error` is `{ "title", "message" }` when `failed`; `guide` is the full BrandGuide when `complete`.
 - Validate input (length, URL format), rate-limit per IP, CORS restricted to our own origin, timeouts on every outbound call.
 - Storage: in-memory + JSON files in `backend/data/guides/` is fine (git-ignored).
 

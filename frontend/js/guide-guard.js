@@ -11,11 +11,15 @@
  * cached file with a new one), a timer inside it would never start either.
  * This file has no imports, so nothing else can stop it from running.
  *
+ * Only the first wait is limited. Once a job is running (data-state is
+ * "running"), its progress shows instead, and api.js decides how long to
+ * keep waiting (3 minutes).
+ *
  * guide.js checks the state before it draws, so a guide that arrives after
  * the time limit doesn't replace this message.
  */
 (() => {
-  const LIMIT_MS = 15000; // keep in step with LOAD_TIMEOUT_MS in api.js
+  const LIMIT_MS = 15000; // keep in step with REQUEST_TIMEOUT_MS in api.js
   const page = document.querySelector('[data-guide]');
   if (!page) return;
 
