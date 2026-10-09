@@ -28,6 +28,8 @@ export function renderBrandHeader(page, guide, { mock }) {
   const name = brandName(guide);
   const brand = guide.brand ?? {};
 
+  // data-filled: the header shows the real guide now (pages.css fades it in).
+  page.querySelector('.sf-guide-header')?.setAttribute('data-filled', '');
   page.querySelector('[data-brand-eyebrow]').textContent = 'Brand guide';
   page.querySelector('[data-brand-name]').textContent = name;
   page.querySelector('[data-brand-logo]').replaceChildren(headerLogo(guide.logo?.primary?.url));

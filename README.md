@@ -48,7 +48,7 @@ name or URL → Search (resolve) → Fetch (homepage + sub-pages) → Browser (c
 
 | Layer | Tools |
 |---|---|
-| Frontend | Semantic HTML, CSS custom-property design system, Bootstrap 5.3 (heavily customised), vanilla JavaScript (ES modules), Lucide icons |
+| Frontend | Semantic HTML, CSS custom-property design system, Bootstrap 5.3 grid and reboot (heavily customised), vanilla JavaScript (ES modules), Lucide icons, self-hosted Inter, Inter Tight and JetBrains Mono |
 | Backend | Python 3.11+, FastAPI, Uvicorn, Pydantic v2 |
 | Web data | TinyFish Search, Fetch and Browser; Playwright over CDP; selectolax |
 | Voice analysis | Anthropic Claude API, via a provider-agnostic wrapper |
@@ -95,12 +95,16 @@ The mock is only for building the frontend: it follows the exact BrandGuide and 
 Node.js is only used for small dev scripts. Nothing from `node_modules` is shipped to the browser.
 
 ```bash
-npm install          # installs the pinned lucide-static package
+npm install          # installs the pinned dev packages (Lucide, fonts, Bootstrap, Lighthouse)
 npm run icons        # rebuilds frontend/assets/icons/icons.svg from the icon list in tools/build-icons.mjs
+npm run vendor       # copies the fonts and Bootstrap's reboot + grid into frontend/, with their licences (needs Python fontTools for the Fraunces sample)
 npm run logo         # rebuilds the animated header logos from the original logo files
 npm run contrast     # checks every colour pair in frontend/css/tokens.css against WCAG 2.2 AA
 npm run fonts        # rebuilds frontend/assets/data/google-fonts.json (Google Fonts family names and weights)
+npm run lighthouse   # audits every page and guide state on mobile and desktop (dev server must be running)
 ```
+
+The site serves everything from its own origin: no CDN or font service is needed to show a page. The only exception is below.
 
 The guide page shows each detected font in that font when it can. It only asks Google Fonts for a family and weight that exist there, which it checks against `google-fonts.json`. A brand's self-hosted font is never requested; the specimen uses the fallback fonts and says so.
 
@@ -109,7 +113,8 @@ The social preview image (`frontend/assets/og-image.png`) is built from `tools/o
 ## Credits
 
 - Icons: [Lucide](https://lucide.dev) (ISC licence, see `frontend/assets/icons/LICENSE.txt`)
-- Fonts: [Inter, Inter Tight](https://rsms.me/inter/) and [JetBrains Mono](https://www.jetbrains.com/lp/mono/) via Google Fonts (SIL Open Font License)
+- Fonts: [Inter](https://rsms.me/inter/), [Inter Tight](https://github.com/rsms/inter-tight), [JetBrains Mono](https://www.jetbrains.com/lp/mono/) and three letters of [Fraunces](https://github.com/undercasetype/Fraunces) (for the example card), served from this site via [Fontsource](https://fontsource.org). SIL Open Font License 1.1: see `OFL.txt` in each folder under `frontend/assets/fonts/`.
+- Layout: [Bootstrap](https://getbootstrap.com) 5.3.3 reboot and grid (MIT licence, see `frontend/vendor/bootstrap/LICENSE`)
 
 ## License
 

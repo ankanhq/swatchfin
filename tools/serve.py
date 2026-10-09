@@ -2,9 +2,10 @@
 
 Run from the repo root:  python3 tools/serve.py [port]   (default port 8000)
 
-It works like `python3 -m http.server --directory frontend`, with three
+It works like `python3 -m http.server --directory frontend`, with four
 differences, each one matching what the real server will do:
 - every response says `Cache-Control: no-cache` (see "Why" below);
+- connections are kept open between files (HTTP/1.1);
 - text files (HTML, CSS, JavaScript, JSON, SVG) are sent gzip-compressed,
   so pages load, and Lighthouse measures them, as they will in production;
 - a missing page gets Swatchfin's own 404 page (frontend/404.html) instead
@@ -34,6 +35,12 @@ COMPRESSIBLE = {".html", ".css", ".js", ".mjs", ".json", ".svg", ".webmanifest",
 
 class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
     """Serves files from /frontend and tells the browser to re-check them."""
+
+    # HTTP/1.1 lets the browser reuse one connection for many files, as any
+    # real server does. (Python's default, HTTP/1.0, opens a new connection
+    # per file, which makes pages with several CSS files look slower than
+    # they are.)
+    protocol_version = "HTTP/1.1"
 
     def end_headers(self) -> None:
         self.send_header("Cache-Control", "no-cache")

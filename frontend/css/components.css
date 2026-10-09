@@ -1,6 +1,6 @@
 /* ==========================================================================
    Swatchfin components
-   1. Bootstrap overrides (all of them live here)
+   1. Bootstrap overrides (all of them live here) and the visually-hidden helper
    2. Theme helpers
    3. Layout container
    4. Icons
@@ -50,6 +50,24 @@
   --bs-border-radius-xl: var(--sf-radius-xl);
   --bs-border-radius-pill: var(--sf-radius-pill);
   --bs-focus-ring-color: var(--sf-color-focus);
+}
+
+/* Text only screen readers read out. Bootstrap's helper of the same name,
+   which isn't in the two Bootstrap files the site loads. */
+.visually-hidden {
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* A table caption stays in the table's layout, as in Bootstrap. */
+.visually-hidden:not(caption) {
+  position: absolute;
 }
 
 /* --------------------------------------------------------------------------
