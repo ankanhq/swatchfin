@@ -5,8 +5,12 @@
    3. Layout container
    4. Icons
    5. Buttons
-   6. Site header and navigation
+   6. Site header, navigation and mobile menu
    7. Site footer
+   8. Sections (eyebrow, heading, lead)
+   9. Cards, icon tiles and badges
+   10. Chips
+   11. Generate form ("Company name or URL")
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
@@ -199,9 +203,11 @@
 }
 
 /* --------------------------------------------------------------------------
-   6. Site header and navigation
-   Sticky, slightly see-through bar. On phones (< 576px) the in-page links
-   ("How it works", "Features") hide; About, GitHub and the toggle stay.
+   6. Site header, navigation and mobile menu
+   Sticky bar. Once the page scrolls it gets a see-through background, a
+   blur and a bottom border. header.js adds .sf-header--top while the page
+   is at the very top; without JavaScript the bar simply stays blurred.
+   Below 768px the links move into a menu opened by the menu button.
    -------------------------------------------------------------------------- */
 .sf-header {
   position: sticky;
@@ -211,6 +217,22 @@
   border-bottom: var(--sf-border-width) solid var(--sf-color-border);
   -webkit-backdrop-filter: saturate(180%) blur(12px);
   backdrop-filter: saturate(180%) blur(12px);
+  transition:
+    background-color var(--sf-duration-base) var(--sf-ease-out),
+    border-color var(--sf-duration-base) var(--sf-ease-out);
+}
+
+.sf-header--top {
+  background-color: transparent;
+  border-bottom-color: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Menu open: a solid bar, so the bar and the menu panel read as one piece. */
+.sf-header--menu-open {
+  background-color: var(--sf-color-bg);
+  border-bottom-color: var(--sf-color-border);
 }
 
 .sf-header__inner {
@@ -274,13 +296,47 @@
   background-color: var(--sf-color-surface-subtle);
 }
 
-@media (max-width: 575.98px) {
-  .sf-nav__item--secondary {
+/* Menu button: shows "menu" when closed and "x" when open. */
+.sf-menu-toggle__close,
+.sf-menu-toggle[aria-expanded="true"] .sf-menu-toggle__open {
+  display: none;
+}
+
+.sf-menu-toggle[aria-expanded="true"] .sf-menu-toggle__close {
+  display: inline-block;
+}
+
+@media (min-width: 768px) {
+  .sf-menu-toggle {
     display: none;
+  }
+}
+
+/* Phones and small tablets: the link list becomes a panel under the bar. */
+@media (max-width: 767.98px) {
+  .sf-nav__list {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: var(--sf-space-2) var(--sf-gutter) var(--sf-space-4);
+    background-color: var(--sf-color-bg);
+    border-bottom: var(--sf-border-width) solid var(--sf-color-border);
+    box-shadow: var(--sf-shadow-md);
+  }
+
+  .sf-header--menu-open .sf-nav__list {
+    display: flex;
   }
 
   .sf-nav__link {
-    padding: 0 var(--sf-space-2);
+    display: flex;
+    min-height: 2.75rem;
+    font-size: var(--sf-text-base);
   }
 }
 
@@ -318,6 +374,11 @@
 
 .sf-footer__tagline {
   margin-bottom: var(--sf-space-5);
+}
+
+.sf-footer__note {
+  margin: var(--sf-space-4) 0 0;
+  font-size: var(--sf-text-xs);
 }
 
 /* "Powered by TinyFish" pill */
@@ -407,4 +468,313 @@
 
 .sf-footer__bottom a:hover {
   color: var(--sf-color-text);
+}
+
+/* --------------------------------------------------------------------------
+   8. Sections
+   <section class="sf-section">
+     <div class="sf-section__header">
+       <p class="sf-eyebrow">Label</p> <h2>Title</h2> <p class="sf-section__lead">…</p>
+   -------------------------------------------------------------------------- */
+.sf-section {
+  padding-block: var(--sf-section-space);
+}
+
+/* A tinted band with hairlines, to separate a section from its neighbours. */
+.sf-section--subtle {
+  background-color: var(--sf-color-surface-subtle);
+  border-block: var(--sf-border-width) solid var(--sf-color-border);
+}
+
+.sf-section--divided {
+  border-top: var(--sf-border-width) solid var(--sf-color-border);
+}
+
+.sf-section__header {
+  max-width: 42rem;
+  margin-bottom: var(--sf-space-12);
+}
+
+.sf-section__lead {
+  margin: 0;
+  font-size: var(--sf-text-md);
+  color: var(--sf-color-text-muted);
+}
+
+.sf-eyebrow {
+  margin-bottom: var(--sf-space-3);
+  font-size: var(--sf-text-xs);
+  font-weight: var(--sf-weight-semibold);
+  letter-spacing: var(--sf-tracking-caps);
+  text-transform: uppercase;
+  color: var(--sf-color-accent-text);
+}
+
+/* --------------------------------------------------------------------------
+   9. Cards, icon tiles and badges
+   -------------------------------------------------------------------------- */
+.sf-card {
+  height: 100%;
+  padding: var(--sf-space-6);
+  background-color: var(--sf-color-surface);
+  border: var(--sf-border-width) solid var(--sf-color-border);
+  border-radius: var(--sf-radius-lg);
+}
+
+/* Icon on the left, text on the right. */
+.sf-card--row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sf-space-4);
+}
+
+.sf-card__title {
+  margin: var(--sf-space-4) 0 var(--sf-space-2);
+  font-size: var(--sf-text-md);
+}
+
+.sf-card--row .sf-card__title {
+  margin-top: 0;
+}
+
+.sf-card__text {
+  margin: 0;
+  font-size: var(--sf-text-sm);
+  color: var(--sf-color-text-muted);
+}
+
+.sf-icon-tile {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--sf-color-accent-text);
+  background-color: var(--sf-color-accent-subtle);
+  border-radius: var(--sf-radius-md);
+}
+
+.sf-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sf-space-1);
+  min-height: 1.5rem;
+  padding: 0 var(--sf-space-2);
+  font-size: var(--sf-text-xs);
+  font-weight: var(--sf-weight-semibold);
+  line-height: 1;
+  color: var(--sf-color-text-muted);
+  background-color: var(--sf-color-surface-subtle);
+  border-radius: var(--sf-radius-pill);
+}
+
+.sf-badge--accent {
+  color: var(--sf-color-accent-text);
+  background-color: var(--sf-color-accent-subtle);
+}
+
+/* --------------------------------------------------------------------------
+   10. Chips (small buttons that fill in an example value)
+   -------------------------------------------------------------------------- */
+.sf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sf-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sf-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0 var(--sf-space-3);
+  font-family: var(--sf-font-mono);
+  font-size: var(--sf-text-sm);
+  font-variant-ligatures: none;
+  color: var(--sf-color-text-muted);
+  background-color: var(--sf-color-surface);
+  border: var(--sf-border-width) solid var(--sf-color-border);
+  border-radius: var(--sf-radius-pill);
+  transition:
+    color var(--sf-duration-fast) var(--sf-ease-out),
+    background-color var(--sf-duration-fast) var(--sf-ease-out),
+    border-color var(--sf-duration-fast) var(--sf-ease-out);
+}
+
+.sf-chip:hover {
+  color: var(--sf-color-text);
+  border-color: var(--sf-color-border-input);
+}
+
+.sf-chip:active {
+  background-color: var(--sf-color-surface-subtle);
+}
+
+/* --------------------------------------------------------------------------
+   11. Generate form
+   Label, a search field with a Generate button, an error line, a hint and
+   example chips. States:
+   hover    darker field border
+   focus    coral ring around the whole field
+   invalid  red field border + message under it (set by app.js)
+   busy     form[aria-busy="true"]: button disabled with a spinner
+   -------------------------------------------------------------------------- */
+.sf-generate {
+  max-width: 36rem;
+}
+
+.sf-generate__label {
+  display: block;
+  margin-bottom: var(--sf-space-2);
+  font-size: var(--sf-text-sm);
+  font-weight: var(--sf-weight-semibold);
+}
+
+.sf-generate__control {
+  display: flex;
+  gap: var(--sf-space-2);
+}
+
+.sf-generate__field {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  background-color: var(--sf-color-surface);
+  border: var(--sf-border-width) solid var(--sf-color-border-input);
+  border-radius: var(--sf-radius-md);
+  box-shadow: var(--sf-shadow-sm);
+  transition: border-color var(--sf-duration-fast) var(--sf-ease-out);
+}
+
+.sf-generate__field:hover {
+  border-color: var(--sf-color-text-muted);
+}
+
+/* The search icon sits on top of the input, so clicks pass through to it. */
+.sf-generate__icon {
+  position: absolute;
+  top: 50%;
+  left: var(--sf-space-4);
+  color: var(--sf-color-text-muted);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.sf-generate__input {
+  display: block;
+  width: 100%;
+  min-height: calc(3rem - 2px);
+  padding: 0 var(--sf-space-4) 0 var(--sf-space-12);
+  font-size: var(--sf-text-base); /* 16px, so iOS does not zoom in on focus */
+  color: var(--sf-color-text);
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
+}
+
+.sf-generate__input::placeholder {
+  color: var(--sf-color-text-muted);
+  opacity: 1;
+}
+
+/* Move the focus ring from the bare input to the whole field box, where
+   browsers support :has(). Older browsers keep the ring on the input. */
+@supports selector(:has(*)) {
+  .sf-generate__input:focus-visible {
+    outline: none;
+  }
+
+  .sf-generate__field:has(.sf-generate__input:focus-visible) {
+    outline: var(--sf-focus-width) solid var(--sf-color-focus);
+    outline-offset: var(--sf-focus-offset);
+  }
+
+  .sf-generate__field:has(.sf-generate__input[aria-invalid="true"]) {
+    border-color: var(--sf-color-danger);
+  }
+}
+
+.sf-generate__spinner {
+  display: none;
+}
+
+.sf-generate[aria-busy="true"] .sf-generate__field {
+  opacity: 0.7;
+}
+
+/* Busy is a "working" state, not a "not allowed" one: keep full colour. */
+.sf-generate[aria-busy="true"] .sf-generate__submit:disabled {
+  opacity: 1;
+  cursor: progress;
+}
+
+.sf-generate[aria-busy="true"] .sf-generate__spinner {
+  display: inline-block;
+}
+
+.sf-generate[aria-busy="true"] .sf-generate__arrow {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sf-generate__spinner {
+    animation: sf-spin 0.8s linear infinite;
+  }
+}
+
+@keyframes sf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error line: empty (and zero height) until app.js puts a message in it. */
+.sf-generate__error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sf-space-2);
+  font-size: var(--sf-text-sm);
+  font-weight: var(--sf-weight-medium);
+  color: var(--sf-color-danger);
+}
+
+.sf-generate__error:not(:empty) {
+  margin-top: var(--sf-space-3);
+}
+
+.sf-generate__error .sf-icon {
+  margin-top: 0.125rem;
+}
+
+.sf-generate__hint {
+  margin: var(--sf-space-3) 0 0;
+  font-size: var(--sf-text-sm);
+  color: var(--sf-color-text-muted);
+}
+
+.sf-generate__examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sf-space-2) var(--sf-space-3);
+  margin-top: var(--sf-space-6);
+}
+
+.sf-generate__examples-label {
+  font-size: var(--sf-text-sm);
+  color: var(--sf-color-text-muted);
+}
+
+/* Phones: the button drops below the field and fills the width. */
+@media (max-width: 575.98px) {
+  .sf-generate__control {
+    flex-direction: column;
+  }
+
+  .sf-generate__submit {
+    width: 100%;
+  }
 }

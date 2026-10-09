@@ -9,16 +9,32 @@
   <meta name="theme-color" content="#fafaf7" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0b0f19" media="(prefers-color-scheme: dark)">
 
+  <!-- Social previews. og:image must become an absolute URL once the site has its public domain (Phase 10). -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Swatchfin">
+  <meta property="og:title" content="Swatchfin · Brand guides from any URL">
+  <meta property="og:description" content="Logo, colours, fonts, tone of voice and key messaging from any website, read live with TinyFish and checked against the source.">
+  <meta property="og:image" content="assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Swatchfin logo with the tagline: Brand guides from any URL, powered by TinyFish.">
+  <meta name="twitter:card" content="summary_large_image">
+
   <!-- Applies the saved theme before the first paint (see the comment in theme.js). -->
   <script src="js/theme.js"></script>
+  <script type="module" src="js/header.js"></script>
+  <script type="module" src="js/app.js"></script>
 
   <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="assets/brand/favicon-32.png" sizes="32x32" type="image/png">
   <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="site.webmanifest">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..600&family=Inter+Tight:wght@500..700&family=JetBrains+Mono:wght@400..500&display=swap">
+  <!-- Fraunces is only for the example card, so only the three glyphs it shows (A, a, N) are loaded: about 1 KB. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@72,600&text=AaN&display=swap">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/base.css">
@@ -28,7 +44,7 @@
 <body>
   <a class="sf-skip-link" href="#main">Skip to content</a>
 
-  <header class="sf-header">
+  <header class="sf-header" data-site-header>
     <div class="sf-container sf-header__inner">
       <a class="sf-header__brand" href="./">
         <img class="sf-logo sf-only-light" src="assets/brand/swatchfin-logo.svg" alt="Swatchfin" width="106" height="32">
@@ -36,11 +52,18 @@
       </a>
 
       <nav class="sf-nav" aria-label="Main">
-        <ul class="sf-nav__list">
-          <li class="sf-nav__item sf-nav__item--secondary"><a class="sf-nav__link" href="#how-it-works">How it works</a></li>
-          <li class="sf-nav__item sf-nav__item--secondary"><a class="sf-nav__link" href="#features">Features</a></li>
-          <li class="sf-nav__item"><a class="sf-nav__link" href="about.html">About</a></li>
-          <li class="sf-nav__item">
+        <button class="sf-btn sf-btn--ghost sf-btn--icon sf-menu-toggle" type="button" aria-expanded="false" aria-controls="site-menu" data-menu-toggle>
+          <svg class="sf-icon sf-menu-toggle__open" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#menu"></use></svg>
+          <svg class="sf-icon sf-menu-toggle__close" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#x"></use></svg>
+          <span class="visually-hidden">Menu</span>
+        </button>
+
+        <ul class="sf-nav__list" id="site-menu">
+          <li><a class="sf-nav__link" href="#how-it-works">How it works</a></li>
+          <li><a class="sf-nav__link" href="#features">Features</a></li>
+          <li><a class="sf-nav__link" href="#exports">Exports</a></li>
+          <li><a class="sf-nav__link" href="about.html">About</a></li>
+          <li>
             <a class="sf-nav__link" href="https://github.com/ankanhq/swatchfin">
               GitHub
               <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#arrow-up-right"></use></svg>
@@ -58,11 +81,320 @@
   </header>
 
   <main id="main">
+    <!-- ============ Hero ============ -->
     <section class="sf-hero" aria-labelledby="hero-title">
       <div class="sf-container">
-        <p class="sf-hero__eyebrow">Built on TinyFish Search, Fetch and Browser</p>
-        <h1 class="sf-hero__title" id="hero-title">Turn any website into a brand guide.</h1>
-        <p class="sf-hero__lead">Type a company name or paste a URL. Swatchfin reads the live site with TinyFish and returns its logo, colours, fonts, tone of voice and key messages, each traced back to its source.</p>
+        <div class="row align-items-center gy-5">
+          <div class="col-lg-6">
+            <p class="sf-hero__eyebrow">Built on TinyFish Search, Fetch and Browser</p>
+            <h1 class="sf-hero__title" id="hero-title">Turn any website into a brand guide.</h1>
+            <p class="sf-hero__lead">Type a company name or paste a URL. Swatchfin reads the live site with TinyFish and returns its logo, colours, fonts, tone of voice and key messages, each traced back to its source.</p>
+
+            <form class="sf-generate" id="generate" action="guide.html" method="get" data-generate-form>
+              <label class="sf-generate__label" for="query">Company name or URL</label>
+              <div class="sf-generate__control">
+                <div class="sf-generate__field">
+                  <svg class="sf-icon sf-generate__icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#search"></use></svg>
+                  <input class="sf-generate__input" id="query" name="q" type="text" required maxlength="200"
+                         placeholder="e.g. Duolingo or stripe.com" autocomplete="off" autocapitalize="off"
+                         spellcheck="false" enterkeyhint="go" aria-describedby="query-error query-hint" data-generate-input>
+                </div>
+                <button class="sf-btn sf-btn--primary sf-btn--lg sf-generate__submit" type="submit" data-generate-submit>
+                  <svg class="sf-icon sf-generate__spinner" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#loader-circle"></use></svg>
+                  <span data-generate-label>Generate</span>
+                  <svg class="sf-icon sf-generate__arrow" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#arrow-right"></use></svg>
+                </button>
+              </div>
+              <div class="sf-generate__error" id="query-error" aria-live="polite" data-generate-error></div>
+              <p class="sf-generate__hint" id="query-hint">Only public pages are read. A guide takes about a minute.</p>
+
+              <div class="sf-generate__examples">
+                <span class="sf-generate__examples-label" id="examples-label">Try an example:</span>
+                <ul class="sf-chips" aria-labelledby="examples-label">
+                  <li><button class="sf-chip" type="button" data-example="Duolingo">Duolingo</button></li>
+                  <li><button class="sf-chip" type="button" data-example="stripe.com">stripe.com</button></li>
+                  <li><button class="sf-chip" type="button" data-example="https://www.patagonia.com">https://www.patagonia.com</button></li>
+                </ul>
+              </div>
+            </form>
+          </div>
+
+          <div class="col-lg-6 col-xl-5 offset-xl-1">
+            <figure class="sf-example">
+              <div class="sf-example__card">
+                <div class="sf-example__topbar">
+                  <span class="sf-badge sf-badge--accent">Example</span>
+                  <span class="sf-example__topbar-note">Fictional brand · not real data</span>
+                </div>
+
+                <div class="sf-example__brand">
+                  <div class="sf-example__logo" role="img" aria-label="Logo placeholder">N</div>
+                  <div>
+                    <p class="sf-example__name">Northwind Roasters</p>
+                    <p class="sf-example__domain">northwind-roasters.example</p>
+                  </div>
+                </div>
+
+                <div class="sf-example__group">
+                  <p class="sf-example__label">Colour palette</p>
+                  <ul class="sf-example__swatches">
+                    <li>
+                      <span class="sf-example__color sf-example__color--kiln"></span>
+                      <span class="sf-example__role">Primary</span>
+                      <span class="sf-example__hex">#B5532A</span>
+                    </li>
+                    <li>
+                      <span class="sf-example__color sf-example__color--espresso"></span>
+                      <span class="sf-example__role">Text</span>
+                      <span class="sf-example__hex">#2B1D16</span>
+                    </li>
+                    <li>
+                      <span class="sf-example__color sf-example__color--oat"></span>
+                      <span class="sf-example__role">Surface</span>
+                      <span class="sf-example__hex">#F3ECE2</span>
+                    </li>
+                    <li>
+                      <span class="sf-example__color sf-example__color--sage"></span>
+                      <span class="sf-example__role">Accent</span>
+                      <span class="sf-example__hex">#5F7A63</span>
+                    </li>
+                    <li>
+                      <span class="sf-example__color sf-example__color--slate"></span>
+                      <span class="sf-example__role">Muted</span>
+                      <span class="sf-example__hex">#6B6259</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="sf-example__group">
+                  <p class="sf-example__label">Typography</p>
+                  <div class="sf-example__fonts">
+                    <div class="sf-example__font">
+                      <span class="sf-example__aa sf-example__aa--heading" aria-hidden="true">Aa</span>
+                      <div>
+                        <p class="sf-example__font-name">Fraunces</p>
+                        <p class="sf-example__font-meta">Headings · 600</p>
+                      </div>
+                    </div>
+                    <div class="sf-example__font">
+                      <span class="sf-example__aa sf-example__aa--body" aria-hidden="true">Aa</span>
+                      <div>
+                        <p class="sf-example__font-name">Inter</p>
+                        <p class="sf-example__font-meta">Body · 400</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="sf-example__group">
+                  <p class="sf-example__label">Tone of voice</p>
+                  <ul class="sf-example__traits">
+                    <li><span class="sf-example__trait-name">Warm</span> <span class="sf-example__trait-text">Talks like the person behind the counter.</span></li>
+                    <li><span class="sf-example__trait-name">Unhurried</span> <span class="sf-example__trait-text">Short sentences with room to breathe.</span></li>
+                    <li><span class="sf-example__trait-name">Craft-minded</span> <span class="sf-example__trait-text">Names origins, roast dates and brew methods.</span></li>
+                  </ul>
+                </div>
+              </div>
+              <figcaption class="sf-example__caption">An example guide for Northwind Roasters, a made-up coffee brand. Real guides also include contrast checks, key messaging, sources and exports.</figcaption>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ How it works ============ -->
+    <section class="sf-section sf-section--subtle" id="how-it-works" aria-labelledby="how-title">
+      <div class="sf-container">
+        <div class="sf-section__header">
+          <p class="sf-eyebrow">How it works</p>
+          <h2 id="how-title">Three TinyFish APIs read the site. Swatchfin checks the result.</h2>
+          <p class="sf-section__lead">Every guide is built from the live website, not from a saved screenshot or a guess. Each step has one job.</p>
+        </div>
+
+        <ol class="sf-steps">
+          <li class="sf-step">
+            <span class="sf-step__marker"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#search"></use></svg></span>
+            <div>
+              <p class="sf-step__api">TinyFish Search</p>
+              <h3 class="sf-step__title">Find the official site</h3>
+              <p class="sf-step__text">Give it a company name and Search finds the brand’s own domain, skipping Wikipedia, social profiles and news. Paste a URL and this step is skipped.</p>
+            </div>
+          </li>
+          <li class="sf-step">
+            <span class="sf-step__marker"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#file-text"></use></svg></span>
+            <div>
+              <p class="sf-step__api">TinyFish Fetch</p>
+              <h3 class="sf-step__title">Read the live pages</h3>
+              <p class="sf-step__text">Fetch reads the homepage HTML for the logo, meta tags and links, then up to nine pages such as About, Careers and Press as clean text.</p>
+            </div>
+          </li>
+          <li class="sf-step">
+            <span class="sf-step__marker"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#app-window"></use></svg></span>
+            <div>
+              <p class="sf-step__api">TinyFish Browser</p>
+              <h3 class="sf-step__title">Measure the real styles</h3>
+              <p class="sf-step__text">A real browser session opens the homepage and reads the computed colours and fonts of buttons, headings, links and body text.</p>
+            </div>
+          </li>
+          <li class="sf-step">
+            <span class="sf-step__marker"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#shield-check"></use></svg></span>
+            <div>
+              <p class="sf-step__api sf-step__api--own">Swatchfin</p>
+              <h3 class="sf-step__title">Check every claim</h3>
+              <p class="sf-step__text">A language model drafts the tone of voice and messaging. Swatchfin keeps a quote only if it appears word for word in the fetched text.</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ============ Features ============ -->
+    <section class="sf-section" id="features" aria-labelledby="features-title">
+      <div class="sf-container">
+        <div class="sf-section__header">
+          <p class="sf-eyebrow">What you get</p>
+          <h2 id="features-title">A complete brand guide, not a homepage summary.</h2>
+          <p class="sf-section__lead">Swatchfin reads several pages and the rendered styles, so the guide covers the whole identity.</p>
+        </div>
+
+        <div class="row g-3 g-lg-4">
+          <div class="col-sm-6 col-lg-4">
+            <article class="sf-card">
+              <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#image"></use></svg></span>
+              <h3 class="sf-card__title">Logo</h3>
+              <p class="sf-card__text">Found in the header, an inline SVG, the Open Graph image or the favicon, with its source and a download link.</p>
+            </article>
+          </div>
+          <div class="col-sm-6 col-lg-4">
+            <article class="sf-card">
+              <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#palette"></use></svg></span>
+              <h3 class="sf-card__title">Colour palette with roles</h3>
+              <p class="sf-card__text">Primary, accent, background, text and link colours, measured from real elements. Every pair gets a WCAG contrast score.</p>
+            </article>
+          </div>
+          <div class="col-sm-6 col-lg-4">
+            <article class="sf-card">
+              <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#type"></use></svg></span>
+              <h3 class="sf-card__title">Typography</h3>
+              <p class="sf-card__text">Heading, body and UI fonts with their weights and sizes, taken from the fonts the page actually loaded.</p>
+            </article>
+          </div>
+          <div class="col-sm-6 col-lg-4">
+            <article class="sf-card">
+              <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#message-square-quote"></use></svg></span>
+              <h3 class="sf-card__title">Tone of voice</h3>
+              <p class="sf-card__text">Traits, four tone scales and do and don’t lists, each backed by quotes from the site and links to where they appear.</p>
+            </article>
+          </div>
+          <div class="col-sm-6 col-lg-4">
+            <article class="sf-card">
+              <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#megaphone"></use></svg></span>
+              <h3 class="sf-card__title">Key messaging</h3>
+              <p class="sf-card__text">Tagline, mission, value propositions and audience, each linked to the page it came from.</p>
+            </article>
+          </div>
+          <div class="col-sm-6 col-lg-4">
+            <article class="sf-card">
+              <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#badge-check"></use></svg></span>
+              <h3 class="sf-card__title">Verified, never invented</h3>
+              <p class="sf-card__text">Every quote is checked against the fetched text. If something can’t be found, the guide says so instead of filling the gap.</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Exports ============ -->
+    <section class="sf-section sf-section--divided" id="exports" aria-labelledby="exports-title">
+      <div class="sf-container">
+        <div class="sf-section__header">
+          <p class="sf-eyebrow">Exports</p>
+          <h2 id="exports-title">Take the guide into the tools you already use.</h2>
+          <p class="sf-section__lead">Every guide downloads in open formats, so designers, developers and other AI tools can reuse it.</p>
+        </div>
+
+        <div class="row g-3 g-lg-4">
+          <div class="col-sm-6 col-lg-4">
+            <article class="sf-card sf-card--row">
+              <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#braces"></use></svg></span>
+              <div>
+                <h3 class="sf-card__title">JSON</h3>
+                <code class="sf-export__format">brand-guide.json</code>
+                <p class="sf-card__text">The full guide in a stable, versioned schema.</p>
+              </div>
+            </article>
+          </div>
+          <div class="col-sm-6 col-lg-4">
+            <article class="sf-card sf-card--row">
+              <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#code"></use></svg></span>
+              <div>
+                <h3 class="sf-card__title">CSS</h3>
+                <code class="sf-export__format">brand.css</code>
+                <p class="sf-card__text">Colours and fonts as CSS custom properties.</p>
+              </div>
+            </article>
+          </div>
+          <div class="col-sm-6 col-lg-4">
+            <article class="sf-card sf-card--row">
+              <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#wind"></use></svg></span>
+              <div>
+                <h3 class="sf-card__title">Tailwind</h3>
+                <code class="sf-export__format">tailwind.config.js</code>
+                <p class="sf-card__text">A theme extension with the brand’s colours and fonts.</p>
+              </div>
+            </article>
+          </div>
+          <div class="col-sm-6 col-lg-4">
+            <article class="sf-card sf-card--row">
+              <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#swatch-book"></use></svg></span>
+              <div>
+                <h3 class="sf-card__title">Design Tokens</h3>
+                <code class="sf-export__format">tokens.json</code>
+                <p class="sf-card__text">The W3C Design Tokens format, read by tools such as Style Dictionary.</p>
+              </div>
+            </article>
+          </div>
+          <div class="col-sm-6 col-lg-4">
+            <article class="sf-card sf-card--row">
+              <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#printer"></use></svg></span>
+              <div>
+                <h3 class="sf-card__title">PDF</h3>
+                <code class="sf-export__format">Print → Save as PDF</code>
+                <p class="sf-card__text">A clean, print-ready layout with one section per page.</p>
+              </div>
+            </article>
+          </div>
+          <div class="col-sm-6 col-lg-4">
+            <article class="sf-card sf-card--row">
+              <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#message-square-text"></use></svg></span>
+              <div>
+                <h3 class="sf-card__title">Voice prompt</h3>
+                <code class="sf-export__format">voice-prompt.md</code>
+                <p class="sf-card__text">A ready-to-paste prompt for writing in the brand’s voice.</p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Final call to action ============ -->
+    <section class="sf-cta" aria-labelledby="cta-title">
+      <div class="sf-container sf-cta__inner">
+        <div>
+          <h2 class="sf-cta__title" id="cta-title">See any brand the way its website shows it.</h2>
+          <p class="sf-cta__text">Type a company name or URL and get a verified brand guide in about a minute.</p>
+        </div>
+        <div class="sf-cta__actions">
+          <a class="sf-btn sf-btn--primary sf-btn--lg" href="#generate" data-focus-query>
+            Generate a guide
+            <svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#arrow-right"></use></svg>
+          </a>
+          <a class="sf-cta__link" href="about.html">
+            How Swatchfin uses TinyFish
+            <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#arrow-right"></use></svg>
+          </a>
+        </div>
       </div>
     </section>
   </main>
@@ -80,6 +412,7 @@
             Powered by TinyFish
             <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#arrow-up-right"></use></svg>
           </a>
+          <p class="sf-footer__note">Built for the TinyFish Student Bounty Drop 001.</p>
         </div>
 
         <nav class="sf-footer__nav" aria-label="Footer">
@@ -88,6 +421,7 @@
             <ul class="sf-footer__list">
               <li><a class="sf-footer__link" href="#how-it-works">How it works</a></li>
               <li><a class="sf-footer__link" href="#features">Features</a></li>
+              <li><a class="sf-footer__link" href="#exports">Exports</a></li>
               <li><a class="sf-footer__link" href="about.html">About</a></li>
             </ul>
           </div>
@@ -102,8 +436,8 @@
       </div>
 
       <div class="sf-footer__bottom">
-        <p>© 2026 Ankan Chowdhury. Code released under the <a href="https://github.com/ankanhq/swatchfin/blob/main/LICENSE">MIT licence</a>.</p>
-        <p>Built for the TinyFish Student Bounty Drop 001.</p>
+        <p>© 2026 Ankan Chowdhury · <a href="https://github.com/ankanhq/swatchfin/blob/main/LICENSE">MIT</a></p>
+        <p>Independent project built with TinyFish APIs. Not an official TinyFish product.</p>
       </div>
     </div>
   </footer>

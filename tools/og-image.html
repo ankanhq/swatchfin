@@ -1,0 +1,104 @@
+<!doctype html>
+<!--
+  Source for frontend/assets/og-image.png (the 1200 x 630 social preview).
+  Not shipped with the site. To rebuild the PNG on macOS, run from the repo root:
+
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
+    --user-data-dir="$(mktemp -d)" --hide-scrollbars --force-device-scale-factor=1 \
+    --window-size=1200,630 --virtual-time-budget=5000 \
+    --screenshot="$PWD/frontend/assets/og-image.png" "file://$PWD/tools/og-image.html"
+
+  Headless Chrome sometimes stays open after writing the file. Once
+  og-image.png has been updated, stop it with Ctrl+C.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Swatchfin OG image</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..500&family=Inter+Tight:wght@600&display=block">
+  <style>
+    /* Values copied from frontend/css/tokens.css (ink, paper, grey-400, coral, amber). */
+    :root {
+      --ink: #0b0f19;
+      --paper: #fafaf7;
+      --muted: #9fa1a3;
+      --coral: #ff5a1f;
+      --amber: #ffb020;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 1200px;
+      height: 630px;
+      margin: 0;
+      overflow: hidden;
+      background: var(--ink);
+    }
+
+    .og {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+      padding: 88px 96px 80px;
+      color: var(--paper);
+      font-family: "Inter", system-ui, sans-serif;
+    }
+
+    /* The lockup is used exactly as supplied (212 x 64 viewBox), only scaled. */
+    .og__logo {
+      display: block;
+      width: 318px;
+      height: 96px;
+      margin-left: -6px;
+    }
+
+    .og__title {
+      margin: 0 0 20px;
+      max-width: 15ch;
+      font-family: "Inter Tight", "Inter", system-ui, sans-serif;
+      font-size: 72px;
+      font-weight: 600;
+      line-height: 1.04;
+      letter-spacing: -0.03em;
+    }
+
+    .og__tagline {
+      margin: 0;
+      font-size: 28px;
+      color: var(--muted);
+    }
+
+    /* Three thin bars in the logo's colours, bottom right. */
+    .og__swatches {
+      position: absolute;
+      right: 96px;
+      bottom: 88px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .og__swatches span {
+      width: 56px;
+      height: 10px;
+      border-radius: 5px;
+    }
+
+    .og__swatches span:nth-child(1) { background: var(--paper); }
+    .og__swatches span:nth-child(2) { background: var(--coral); }
+    .og__swatches span:nth-child(3) { background: var(--amber); }
+  </style>
+</head>
+<body>
+  <div class="og">
+    <img class="og__logo" src="../frontend/assets/brand/swatchfin-logo-dark.svg" alt="Swatchfin" width="318" height="96">
+    <div>
+      <p class="og__title">Turn any website into a brand guide.</p>
+      <p class="og__tagline">Brand guides from any URL, powered by TinyFish.</p>
+    </div>
+  </div>
+  <div class="og__swatches" aria-hidden="true"><span></span><span></span><span></span></div>
+</body>
+</html>

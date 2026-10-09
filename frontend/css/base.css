@@ -110,6 +110,9 @@ samp,
 pre {
   font-family: var(--sf-font-mono);
   font-size: 0.9em;
+  /* JetBrains Mono joins characters such as "://" into ligatures. URLs and
+     hex codes must show every character exactly as typed. */
+  font-variant-ligatures: none;
 }
 
 /* Bootstrap colours inline code pink; ours follows the text colour. */

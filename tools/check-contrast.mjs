@@ -45,11 +45,15 @@ const PAIRS = [
   ['warning', 'warning-subtle', TEXT],
   ['danger', 'bg', TEXT],
   ['danger', 'danger-subtle', TEXT],
+  ['on-band', 'band', TEXT],
+  ['on-band-muted', 'band', TEXT],
   ['border-input', 'bg', UI],
   ['border-input', 'surface', UI],
   ['focus', 'bg', UI],
   ['focus', 'surface', UI],
   ['focus', 'surface-subtle', UI],
+  ['band-focus', 'band', UI],
+  ['accent', 'band', UI],
 ];
 
 /**
