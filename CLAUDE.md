@@ -52,10 +52,10 @@ This is a real portfolio-grade product, not a demo hack. Code quality, design qu
 
 **Frontend** (`/frontend`), plain static site, no build step:
 - HTML5 (semantic), CSS3 with a custom design system built on CSS custom properties
-- **Bootstrap 5.3.3** (CDN, pinned, with SRI `integrity` hash) for grid, utilities and a few components. Customise it heavily so it does not look like default Bootstrap.
+- **Bootstrap 5.3.3**, served from our own site: only its reboot and grid CSS, joined into `frontend/vendor/bootstrap/bootstrap-slim.min.css` (with its MIT `LICENSE` beside it) by `npm run vendor` from the pinned npm package. Customise it heavily so it does not look like default Bootstrap. (Phase 3 moved it off the CDN for mobile performance; the owner approved.)
 - **Icons: Lucide** (ISC licence, free for any use; the clean 24px stroke style used by many modern apps). Do **not** load a whole icon font or runtime JS. Download only the icons we use from the `lucide-static` npm package (pin one version) into `frontend/assets/icons/`, build one SVG sprite (`icons.svg`), and use `<svg class="sf-icon"><use href="assets/icons/icons.svg#search"/></svg>`. Icons inherit `currentColor`, use one stroke width (1.75) and sizes 16/20/24 only. No emoji as icons, no Font Awesome.
 - **Vanilla JavaScript** (ES modules, no frameworks, no jQuery). Keep JS small, readable and commented.
-- Google Fonts: **Inter** (UI/body), **Inter Tight** (headings), **JetBrains Mono** (hex codes, code, JSON)
+- Fonts, served from our own site: **Inter** (UI/body), **Inter Tight** (headings), **JetBrains Mono** (hex codes, code, JSON). `npm run vendor` copies them from pinned `@fontsource-variable` packages into `frontend/assets/fonts/<family>/` with each family's `OFL.txt`, and writes `css/fonts.css`. Google Fonts is only used on the guide page, at runtime, to show a brand's detected font in its typography specimen.
 
 **Backend** (`/backend`):
 - Python 3.11+, **FastAPI**, **Uvicorn**, **Pydantic v2**
@@ -233,9 +233,10 @@ swatchfin/
 ├── .env.example
 ├── frontend/
 │   ├── index.html  guide.html  about.html  404.html
-│   ├── css/      tokens.css  base.css  components.css  pages.css  print.css
+│   ├── css/      fonts.css (generated)  tokens.css  base.css  components.css  pages.css  print.css
 │   ├── js/       api.js  app.js  guide.js  render/*.js  utils.js  theme.js
-│   ├── assets/   brand/ (logo files, provided)  icons/icons.svg (Lucide sprite)  og-image.png
+│   ├── assets/   brand/ (logo files, provided)  icons/icons.svg (Lucide sprite)  fonts/ (self-hosted, OFL)  og-image.png
+│   ├── vendor/   bootstrap/ (reboot + grid, MIT; copied by npm run vendor)
 │   └── mock/     MOCK_northwind-roasters.json   (fictional brand, dev only)
 ├── backend/
 │   ├── app/

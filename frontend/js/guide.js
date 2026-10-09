@@ -117,7 +117,7 @@ async function start(page) {
     return;
   }
   if (page.dataset.state === 'running') await progress.finish();
-  showGuide(page, job);
+  await showGuide(page, job);
 }
 
 /**
@@ -169,8 +169,9 @@ function showRunning(page, job, progress) {
  * Draws the finished guide.
  * @param {HTMLElement} page
  * @param {Record<string, any>} job A complete job, with its guide.
+ * @returns {Promise<void>}
  */
-function showGuide(page, job) {
+async function showGuide(page, job) {
   // guide-guard.js may already have ended the wait ("This is taking too
   // long"). Keep that message rather than swapping the page under the reader.
   if (!isWaiting(page)) return;
@@ -187,7 +188,16 @@ function showGuide(page, job) {
   const focused = document.activeElement;
   renderBrandHeader(page, guide, { mock });
   renderToolbar(page, guide);
-  renderSections(page, guide);
+
+  // On first load, let the browser draw the header (the brand's name and
+  // description) before building the eight sections, so something useful
+  // shows sooner. The sections stay hidden until the state is "ready".
+  if (!fromProgress) {
+    await afterNextPaint();
+    if (!isWaiting(page)) return;
+  }
+  await renderSections(page, guide);
+  if (!isWaiting(page)) return;
 
   // The printed guide shows where to find it again.
   const printUrl = page.querySelector('[data-print-url]');
@@ -272,6 +282,39 @@ function showError(page, error, { retryHref } = {}) {
 }
 
 /**
+ * Lets the browser handle anything waiting (a click, a scroll) and then
+ * carries on. scheduler.yield() is the modern way; older browsers get a
+ * message to themselves, which, unlike a timer, isn't slowed down in a
+ * background tab.
+ * @returns {Promise<void>}
+ */
+function yieldToBrowser() {
+  if (typeof globalThis.scheduler?.yield === 'function') return globalThis.scheduler.yield();
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => resolve();
+    channel.port2.postMessage(null);
+  });
+}
+
+/**
+ * Resolves just after the browser has drawn the next frame. In a hidden
+ * tab, where nothing is drawn, it resolves straight away.
+ * @returns {Promise<void>}
+ */
+function afterNextPaint() {
+  return new Promise((resolve) => {
+    if (document.hidden) {
+      resolve();
+      return;
+    }
+    // requestAnimationFrame runs just before the next frame is drawn; the
+    // timeout then runs just after it.
+    window.requestAnimationFrame(() => window.setTimeout(resolve, 0));
+  });
+}
+
+/**
  * True while the page is still waiting for a result (loading or running).
  * @param {HTMLElement} page
  * @returns {boolean}
@@ -283,11 +326,18 @@ function isWaiting(page) {
 /**
  * Draws every section. A section that throws shows a short message instead,
  * so one bad field never blanks the whole guide.
+ *
+ * Between sections it gives the browser a moment to handle clicks and
+ * scrolling, so building a long guide never freezes the page. The sections
+ * stay hidden until the state is "ready", so nobody sees them half built.
  * @param {HTMLElement} page
  * @param {Record<string, any>} guide
+ * @returns {Promise<void>}
  */
-function renderSections(page, guide) {
+async function renderSections(page, guide) {
   for (const [name, render] of Object.entries(SECTIONS)) {
+    await yieldToBrowser();
+
     const body = page.querySelector(`[data-render="${name}"]`);
     const section = body?.closest('section');
     if (!body || !section) continue;

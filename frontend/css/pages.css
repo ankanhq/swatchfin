@@ -53,7 +53,7 @@
   --nw-oat: #f3ece2;
   --nw-sage: #5f7a63;
   --nw-slate: #6b6259;
-  --nw-font-heading: "Fraunces", Georgia, "Times New Roman", serif;
+  --nw-font-heading: "Fraunces Sample", Georgia, "Times New Roman", serif; /* three letters only, see fonts.css */
 
   padding: var(--sf-space-4);
   background-color: var(--sf-color-surface);
@@ -563,7 +563,7 @@
    -------------------------------------------------------------------------- */
 
 /* ---- Page states ---- */
-.sf-guide-page[data-state="loading"] .sf-guide-header__title {
+.sf-guide-page[data-state="loading"] .sf-guide-header:not([data-filled]) .sf-guide-header__title {
   color: var(--sf-color-text-muted);
 }
 
@@ -623,9 +623,12 @@
   border-bottom: 0;
 }
 
-/* When the data arrives, the new content fades in over the placeholders. */
+/* When the data arrives, the new content fades in over the placeholders:
+   the header as soon as it is filled in (data-filled, set by brand.js),
+   the sections once the page is ready. */
 @media (prefers-reduced-motion: no-preference) {
-  .sf-guide-page[data-state="ready"] :is(.sf-guide-header__logo, .sf-guide-header__details, .sf-guide-section__body) {
+  .sf-guide-header[data-filled] :is(.sf-guide-header__logo, .sf-guide-header__details),
+  .sf-guide-page[data-state="ready"] .sf-guide-section__body {
     animation: sf-fade-in var(--sf-duration-slow) var(--sf-ease-out);
   }
 }
