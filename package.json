@@ -1,12 +1,13 @@
 {
   "name": "swatchfin-tools",
   "private": true,
-  "description": "Dev-only tooling for Swatchfin (icon sprite, contrast check). Nothing here is shipped to the browser.",
+  "description": "Dev-only tooling for Swatchfin (icon sprite, animated logo, contrast check). Nothing here is shipped to the browser.",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "icons": "node tools/build-icons.mjs",
-    "contrast": "node tools/check-contrast.mjs"
+    "contrast": "node tools/check-contrast.mjs",
+    "logo": "node tools/build-animated-logo.mjs"
   },
   "devDependencies": {
     "lucide-static": "1.52.0"

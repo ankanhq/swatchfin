@@ -11,6 +11,7 @@
    9. Cards, icon tiles and badges
    10. Chips
    11. Generate form ("Company name or URL")
+   12. Motion: scroll reveals
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
@@ -492,7 +493,7 @@
 
 .sf-section__header {
   max-width: 42rem;
-  margin-bottom: var(--sf-space-12);
+  margin-bottom: var(--sf-space-10);
 }
 
 .sf-section__lead {
@@ -519,6 +520,25 @@
   background-color: var(--sf-color-surface);
   border: var(--sf-border-width) solid var(--sf-color-border);
   border-radius: var(--sf-radius-lg);
+  transition:
+    border-color var(--sf-duration-base) var(--sf-ease-out),
+    box-shadow var(--sf-duration-base) var(--sf-ease-out),
+    transform var(--sf-duration-base) var(--sf-ease-out);
+}
+
+/* Hover only on devices with a real pointer (not on touch screens).
+   Reduced motion keeps the border and shadow change but not the lift. */
+@media (hover: hover) {
+  .sf-card:hover {
+    border-color: var(--sf-color-border-strong);
+    box-shadow: var(--sf-shadow-md);
+  }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .sf-card:hover {
+    transform: translateY(-2px);
+  }
 }
 
 /* Icon on the left, text on the right. */
@@ -776,5 +796,44 @@
 
   .sf-generate__submit {
     width: 100%;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   12. Motion: scroll reveals
+   <div data-reveal> fades up 12px the first time it scrolls into view
+   (motion.js adds .is-visible). The hidden starting state only applies
+   while <html> has .sf-motion (set by theme.js when reduced motion is off),
+   so without JavaScript, or with reduced motion, everything simply shows.
+   Only opacity and transform change: nothing around it moves.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  .sf-motion [data-reveal] {
+    transition:
+      opacity var(--sf-duration-reveal) var(--sf-ease-out),
+      transform var(--sf-duration-reveal) var(--sf-ease-out);
+  }
+
+  .sf-motion [data-reveal]:not(.is-visible) {
+    opacity: 0;
+    transform: translateY(var(--sf-reveal-distance));
+  }
+
+  /* Cards side by side in a grid reveal one after another (60ms apart).
+     On phones there is one card per row, so each simply reveals on its own. */
+  @media (min-width: 576px) and (max-width: 991.98px) {
+    .sf-motion .row > [data-reveal]:nth-child(2n) {
+      transition-delay: 60ms;
+    }
+  }
+
+  @media (min-width: 992px) {
+    .sf-motion .row > [data-reveal]:nth-child(3n + 2) {
+      transition-delay: 60ms;
+    }
+
+    .sf-motion .row > [data-reveal]:nth-child(3n) {
+      transition-delay: 120ms;
+    }
   }
 }

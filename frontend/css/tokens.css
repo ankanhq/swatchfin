@@ -89,7 +89,7 @@
   --sf-container-max: 75rem;                 /* 1200px of content */
   --sf-gutter: clamp(1rem, 0.6rem + 1.8vw, 2rem); /* 16px → 32px side padding */
   --sf-header-height: 4rem;                  /* 64px */
-  --sf-section-space: clamp(4rem, 2.8rem + 5vw, 7.5rem); /* 64 → 120px between sections */
+  --sf-section-space: clamp(3rem, 2.2rem + 3.5vw, 5.5rem); /* 48 → 88px between sections */
 
   /* ---- Radii ---- */
   --sf-radius-xs: 4px;
@@ -119,6 +119,9 @@
   --sf-duration-slow: 320ms;
   --sf-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --sf-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  /* Scroll reveals: how long a fade-up takes and how far it travels. */
+  --sf-duration-reveal: 500ms;
+  --sf-reveal-distance: 12px;
 
   /* ---- Semantic colours: light theme (default) ---- */
   color-scheme: light;
@@ -149,9 +152,10 @@
   --sf-color-danger: #bd1f34;
   --sf-color-danger-subtle: #ffebed;
 
-  /* Inverted band (the call-to-action strip): ink in light mode, a lifted
-     dark surface in dark mode. Text, muted text and focus are the same in
-     both themes, so only --sf-color-band changes below. */
+  /* Inverted band (the call-to-action strip): ink in light mode, grey-800
+     in dark mode (lighter than both the page and the footer). Text, muted
+     text and focus are the same in both themes, so only --sf-color-band
+     changes below. */
   --sf-color-band: var(--sf-ink);
   --sf-color-on-band: var(--sf-paper);
   --sf-color-on-band-muted: var(--sf-grey-400);
@@ -194,7 +198,7 @@
   --sf-color-warning-subtle: #2d281e;
   --sf-color-danger: #fb7486;
   --sf-color-danger-subtle: #2d1d28;
-  --sf-color-band: var(--sf-grey-950);
+  --sf-color-band: var(--sf-grey-800);
 
   --sf-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
   --sf-shadow-md: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.25);
@@ -230,7 +234,7 @@
     --sf-color-warning-subtle: #2d281e;
     --sf-color-danger: #fb7486;
     --sf-color-danger-subtle: #2d1d28;
-  --sf-color-band: var(--sf-grey-950);
+  --sf-color-band: var(--sf-grey-800);
 
     --sf-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
     --sf-shadow-md: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.25);
@@ -245,5 +249,7 @@
     --sf-duration-fast: 0ms;
     --sf-duration-base: 0ms;
     --sf-duration-slow: 0ms;
+    --sf-duration-reveal: 0ms;
+    --sf-reveal-distance: 0px;
   }
 }
