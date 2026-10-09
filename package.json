@@ -1,16 +1,18 @@
 {
   "name": "swatchfin-tools",
   "private": true,
-  "description": "Dev-only tooling for Swatchfin (icon sprite, animated logo, contrast check, Google Fonts list). Nothing here is shipped to the browser.",
+  "description": "Dev-only tooling for Swatchfin (icon sprite, animated logo, contrast check, Google Fonts list, Lighthouse audits). Nothing here is shipped to the browser.",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "icons": "node tools/build-icons.mjs",
     "contrast": "node tools/check-contrast.mjs",
     "logo": "node tools/build-animated-logo.mjs",
-    "fonts": "node tools/build-google-fonts.mjs"
+    "fonts": "node tools/build-google-fonts.mjs",
+    "lighthouse": "node tools/lighthouse.mjs"
   },
   "devDependencies": {
+    "lighthouse": "13.5.0",
     "lucide-static": "1.52.0"
   }
 }

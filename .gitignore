@@ -17,8 +17,11 @@ venv/
 htmlcov/
 *.egg-info/
 
-# Node (only used to pull Lucide icons, never shipped)
+# Node (dev tools only, never shipped)
 node_modules/
+
+# Lighthouse reports (npm run lighthouse)
+reports/
 
 # OS and editors
 .DS_Store

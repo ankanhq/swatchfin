@@ -28,6 +28,25 @@
   <script type="module" src="js/print.js"></script>
   <script type="module" src="js/motion.js"></script>
   <script type="module" src="js/guide.js"></script>
+  <!-- Every module guide.js imports. Listing them lets the browser download them all at
+       once, instead of discovering them one level of imports at a time. A module missing
+       from this list still loads, just a little later. -->
+  <link rel="modulepreload" href="js/api.js">
+  <link rel="modulepreload" href="js/mock-job.js">
+  <link rel="modulepreload" href="js/toast.js">
+  <link rel="modulepreload" href="js/utils.js">
+  <link rel="modulepreload" href="js/render/dom.js">
+  <link rel="modulepreload" href="js/render/brand.js">
+  <link rel="modulepreload" href="js/render/progress.js">
+  <link rel="modulepreload" href="js/render/warnings.js">
+  <link rel="modulepreload" href="js/render/logo.js">
+  <link rel="modulepreload" href="js/render/colors.js">
+  <link rel="modulepreload" href="js/render/contrast.js">
+  <link rel="modulepreload" href="js/render/typography.js">
+  <link rel="modulepreload" href="js/render/voice.js">
+  <link rel="modulepreload" href="js/render/messaging.js">
+  <link rel="modulepreload" href="js/render/sources.js">
+  <link rel="modulepreload" href="js/render/exports.js">
 
   <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="assets/brand/favicon-32.png" sizes="32x32" type="image/png">
@@ -191,9 +210,6 @@
       </div>
     </div>
 
-    <!-- Filled by guide.js: explains when the page shows sample data. -->
-    <div class="sf-container" data-guide-notice></div>
-
     <!-- ============ Brand header ============ -->
     <header class="sf-guide-header" id="overview">
       <div class="sf-container sf-guide-header__inner">
@@ -245,6 +261,10 @@
         </div>
       </div>
     </header>
+
+    <!-- Filled by guide.js: explains when the page shows sample data or a simulated run.
+         It sits below the header, so the header never moves when it appears. -->
+    <div class="sf-container" data-guide-notice></div>
 
     <!-- ============ Progress view (data-state="running" or "failed") ============
          The seven pipeline steps from CLAUDE.md, section 5. progress.js sets each

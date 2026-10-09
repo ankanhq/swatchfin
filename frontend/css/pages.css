@@ -435,6 +435,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--sf-space-1);
+  min-height: 1.5rem; /* WCAG 2.2 target size: at least 24px tall */
   font-size: var(--sf-text-sm);
   font-weight: var(--sf-weight-medium);
   color: var(--sf-color-text);
@@ -566,9 +567,24 @@
   color: var(--sf-color-text-muted);
 }
 
-/* Toolbar and sections only exist while loading (as placeholders) and when ready. */
-.sf-guide-page:is([data-state="running"], [data-state="failed"], [data-state="error"], [data-state="empty"]) :is(.sf-guidebar, .sf-guide) {
+/* Nothing on this page may jump while it loads (layout shift). So:
+   - the sections only appear once the guide is ready: while loading, the
+     header's placeholders are enough, and nothing below them can move
+     when the guide arrives;
+   - the toolbar keeps its place in every state, and is only visible while
+     loading and when ready, so the header under it never moves;
+   - until the guide is ready the page fills the screen, so the footer
+     waits below the fold instead of jumping down. */
+.sf-guide-page:not([data-state="ready"]) .sf-guide {
   display: none;
+}
+
+.sf-guide-page:is([data-state="running"], [data-state="failed"], [data-state="error"], [data-state="empty"]) .sf-guidebar {
+  visibility: hidden;
+}
+
+.sf-guide-page:not([data-state="ready"]) {
+  min-height: calc(100vh - var(--sf-header-height));
 }
 
 /* Details under the title (domain, facts): placeholders, progress facts or the guide's facts. */
@@ -602,9 +618,8 @@
   display: block;
 }
 
-/* With nothing below it, the header gets the room of a full section. */
+/* With nothing below it, the header needs no dividing line. */
 .sf-guide-page:is([data-state="error"], [data-state="empty"]) .sf-guide-header {
-  padding-block: var(--sf-section-space);
   border-bottom: 0;
 }
 
@@ -934,6 +949,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--sf-space-1);
+  min-height: 1.5rem; /* WCAG 2.2 target size: at least 24px tall */
   font-family: var(--sf-font-mono);
   font-size: var(--sf-text-sm);
   font-variant-ligatures: none;
@@ -1628,6 +1644,9 @@
 }
 
 .sf-logo-version__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem; /* WCAG 2.2 target size: at least 24px tall */
   font-size: var(--sf-text-xs);
   white-space: nowrap;
 }
@@ -3001,6 +3020,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--sf-space-1);
+  min-height: 1.5rem; /* WCAG 2.2 target size: at least 24px tall */
   margin-top: var(--sf-space-6);
   font-size: var(--sf-text-sm);
   font-weight: var(--sf-weight-medium);
