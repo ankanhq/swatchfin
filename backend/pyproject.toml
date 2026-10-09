@@ -1,0 +1,30 @@
+# Settings for the backend's tools (pytest and ruff).
+# The packages themselves are listed in requirements.txt and requirements-dev.txt.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Lets the tests "import app" from backend/app.
+pythonpath = ["."]
+# Show a one-line reason for every skipped or failed test.
+addopts = "-ra"
+filterwarnings = [
+    # Starlette 1.7 would rather its test client used httpx2, the successor
+    # to httpx. httpx still works; this hides only that one notice.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated:starlette.exceptions.StarletteDeprecationWarning",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+# E/W: style errors, F: real mistakes (unused names), I: sorted imports,
+# B: likely bugs, UP: modern Python, S: security, ASYNC: async pitfalls,
+# RUF: ruff's own checks.
+select = ["E", "W", "F", "I", "B", "UP", "S", "ASYNC", "RUF"]
+# Messages for people use real typographic punctuation, like the website does.
+allowed-confusables = ["’", "‘", "“", "”", "–"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests check results with plain assert.
+"tests/*" = ["S101"]
