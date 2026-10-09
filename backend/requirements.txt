@@ -1,0 +1,31 @@
+# Packages the Swatchfin backend needs to run, in development and in production.
+#
+# Every version is pinned, including the packages these ones depend on, so
+# every install gets exactly the same code. For tests and linting, install
+# requirements-dev.txt instead: it includes this file.
+#
+#   pip install -r backend/requirements.txt
+
+# What Swatchfin uses directly
+fastapi==0.141.1            # the web framework: routes, request checking, API docs
+starlette==1.7.0            # the toolkit under FastAPI: static files, gzip
+uvicorn[standard]==0.53.0   # the server that runs the app
+pydantic==2.13.5            # data models (the BrandGuide schema)
+pydantic-settings==2.15.0   # reads settings from .env
+
+# Needed by the packages above
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+click==8.5.0
+h11==0.16.0
+httptools==0.9.0
+idna==3.20
+pydantic_core==2.46.5
+python-dotenv==1.2.4
+PyYAML==6.0.3
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+uvloop==0.23.0; sys_platform != "win32"
+watchfiles==1.3.0
+websockets==17.2
