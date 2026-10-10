@@ -32,8 +32,8 @@ def test_start_then_follow_a_guide_to_the_end(client: TestClient, wait_for_job: 
     assert job["status"] == "complete"
     assert job["query"] == "Larkspur Tea"
     assert job["error"] is None
-    # Steps 1–4 read the (fake) site; 5–7 arrive in Phases 6 and 7.
-    assert [step["status"] for step in job["steps"]] == ["done"] * 4 + ["skipped"] * 3
+    # Steps 1–5 read the (fake) site; 6–7 arrive in Phase 7.
+    assert [step["status"] for step in job["steps"]] == ["done"] * 5 + ["skipped"] * 2
     assert job["guide"]["id"] == created["id"]
     assert job["guide"]["brand"]["domain"] == "larkspurtea.example"
     assert job["guide"]["tinyfish_usage"] == job["tinyfish_usage"]

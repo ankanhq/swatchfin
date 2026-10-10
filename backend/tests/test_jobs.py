@@ -27,7 +27,7 @@ def make_manager(
     if pipeline is None:
         fake = tinyfish or FakeTinyFish()
         tinyfish_client = TinyFishClient(settings.tinyfish_api_key, fake.http, pause_seconds=0)
-        pipeline = brand_pipeline(tinyfish_client, LogoStore(settings.data_dir / "logos"))
+        pipeline = brand_pipeline(tinyfish_client, LogoStore(settings.data_dir / "logos"), browser=fake.driver)
     options = {
         "store": GuideStore(settings.data_dir / "guides"),
         "max_running": settings.max_running_jobs,
@@ -67,7 +67,7 @@ async def test_a_company_name_goes_through_all_seven_steps(settings: Settings) -
         "reading_homepage": "done",
         "discovering_pages": "done",
         "reading_pages": "done",
-        "reading_styles": "skipped",
+        "reading_styles": "done",
         "analysing_voice": "skipped",
         "verifying": "skipped",
     }
@@ -76,11 +76,12 @@ async def test_a_company_name_goes_through_all_seven_steps(settings: Settings) -
         "Read larkspurtea.example: a logo, 2 icons and 6 links",
         "Chose 5 pages: Brand assets, About, Careers, Press, Blog (1 found by search)",
         "Read 4 of 5 pages",
+        "Measured 8 colours and 3 fonts · logo confirmed at 120 × 24 px · read 1 page Fetch couldn’t",
         *NOT_YET.values(),
     ]
     assert all(step.started_at and step.finished_at for step in job.steps)
-    # 1 search for the website, 1 for brand pages; the homepage twice, then 5 pages.
-    assert job.tinyfish_usage.model_dump() == {"search_calls": 2, "fetch_urls": 7, "browser_sessions": 0}
+    # 1 search for the website, 1 for brand pages; the homepage twice, then 5 pages; one browser.
+    assert job.tinyfish_usage.model_dump() == {"search_calls": 2, "fetch_urls": 7, "browser_sessions": 1}
     assert job.guide is not None
     assert job.guide.id == job.id
     assert job.query == "Larkspur Tea"

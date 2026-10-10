@@ -175,6 +175,22 @@ def test_links_keep_their_words_and_place() -> None:
 
 
 @pytest.mark.parametrize(
+    ("site_name", "name"),
+    [
+        ("Larkspur Tea", "Larkspur Tea"),
+        ("Larkspur United States", "Larkspur"),  # the region of the site that was read, not the brand
+        ("Larkspur (UK)", "Larkspur"),
+        ("Larkspur Official Site", "Larkspur"),
+        ("Canada Larkspur", "Canada Larkspur"),
+        ("Tea Shop UK", "Tea Shop UK"),  # what's left doesn't match the address, so it isn't trimmed
+    ],
+)
+def test_a_region_after_the_site_name_is_left_out(site_name: str, name: str) -> None:
+    homepage = build(f'<head><meta property="og:site_name" content="{site_name}"></head>')
+    assert homepage.site_name == name
+
+
+@pytest.mark.parametrize(
     ("title", "name"),
     [
         ("Larkspur Tea | Loose-leaf tea", "Larkspur Tea"),

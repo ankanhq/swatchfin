@@ -230,6 +230,13 @@ async def test_read_pages_keeps_good_pages_and_says_why_others_were_skipped() ->
         f"{SITE}/mission": "it had almost no text",
         f"{SITE}/press": "the site blocked automated reading",
     }
+    # Step 5's browser may read the empty and the blocked page; a redirect or a repeat it can't help.
+    assert {skipped.url: (skipped.kind, skipped.retry) for skipped in result.skipped} == {
+        f"{SITE}/careers": ("careers", False),
+        f"{SITE}/blog": ("blog", False),
+        f"{SITE}/mission": ("mission", True),
+        f"{SITE}/press": ("press", True),
+    }
 
 
 @pytest.mark.anyio

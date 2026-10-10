@@ -11,8 +11,9 @@ The websites it "reads" are fictional and all alike:
 - A .invalid site can't be reached (.invalid is reserved and never exists).
 - Browser starts a session for any address and ends it when asked.
   `sessions_opened` and `sessions_ended` record them, so tests can check
-  that every session was ended. FakeBrowserDriver (below) stands in for
-  Playwright: it "runs" scripts by asking a function for their result.
+  that every session was ended. `driver` (a FakeBrowserDriver, below)
+  stands in for Playwright: measuring a homepage gives browser_measurement(),
+  and any other page, even the blocked Press page, has text in a browser.
 
 `delay` makes every answer that many seconds slow, for tests that need a
 job to stay running. `requests` records every call made.
@@ -38,6 +39,7 @@ class FakeTinyFish:
         self.http = httpx2.AsyncClient(transport=httpx2.MockTransport(self.handle))
         self.sessions_opened: list[str] = []
         self.sessions_ended: list[str] = []
+        self.driver = FakeBrowserDriver(browser_page)
 
     async def handle(self, request: httpx2.Request) -> httpx2.Response:
         self.requests.append(request)
@@ -135,6 +137,72 @@ def homepage_structure(name: str) -> str:
 <svg viewBox="0 0 120 24" aria-label="{name} logo"><path d="M0 0h120v24H0z"/></svg></a>
 <nav><a href="/about">About</a><a href="/careers">Careers</a><a href="/press">Press</a></nav></header>
 <footer><a href="/journal">Journal</a><a href="/privacy">Privacy</a></footer>"""
+
+
+def browser_page(url: str, arg: Any) -> dict[str, Any]:
+    """What a script returns in the fake browser: the homepage measured, or another page's text."""
+    if isinstance(arg, dict) and "structureSelectors" in arg:
+        return browser_measurement(url)
+    host, path = urlsplit(url).hostname or "", urlsplit(url).path
+    return {"url": url, "title": f"{_name(host)} — {path.strip('/').title()}", "text": _page_text(host, path)}
+
+
+def browser_measurement(url: str) -> dict[str, Any]:
+    """measure_page.js's result on a fictional homepage (see visuals.py for what each part means).
+
+    Its colours have clear roles: green buttons (primary), a gold section
+    (secondary), terracotta links, near-black text with grey captions, a
+    cream footer (surface) and light borders. Headings are in a web font,
+    "Larkspur Serif"; everything else in Inter.
+    """
+    host = urlsplit(url).hostname or ""
+    name = _name(host)
+    serif, sans = '"Larkspur Serif", Georgia, serif', "Inter, Arial, sans-serif"
+
+    def element(tag: str, kind: str, region: str, y: float, w: float, h: float, **extra: Any) -> dict[str, Any]:
+        return {"tag": tag, "kind": kind, "region": region, "x": 120, "y": y, "w": w, "h": h, **extra}
+
+    def text(kind: str, y: float, chars: int, colour: str, font: str = sans, size: float = 17, **extra: Any):
+        return element(
+            "p", kind, extra.pop("region", "main"), y, 800, 60,
+            text=chars, color=colour, back=extra.pop("back", "#FFFFFF"), font=font, size=size, **extra,
+        )  # fmt: skip
+
+    return {
+        "url": f"https://{host}/",
+        "title": f"{name} | Loose-leaf tea",
+        "lang": "en-GB",
+        "viewport": {"width": 1440, "height": 900},
+        "page_height": 3200,
+        "default_background": False,
+        "page_background": "#FFFFFF",
+        "overlays_hidden": 1,
+        "elements": [
+            element("body", "box", "page", 0, 1440, 3200, bg="#FFFFFF"),
+            text("heading", 200, 30, "#1A1A1A", serif, 48, heading=1, weight=600),
+            text("heading", 1100, 24, "#1A1A1A", serif, 32, heading=2, weight=600),
+            *[text("text", 300 + 70 * n, 180, "#1A1A1A") for n in range(3)],
+            *[text("text", 520 + 40 * n, 90, "#6B6B6B", size=14) for n in range(3)],
+            *[text("link", 700 + 30 * n, 14, "#B5562B") for n in range(3)],
+            element("a", "button", "main", 400, 180, 48, bg="#2F5D50"),
+            element("a", "button", "header", 20, 140, 40, bg="#2F5D50"),
+            text("button-text", 412, 10, "#FFFFFF", back="#2F5D50", weight=600, size=16),
+            text("link", 30, 5, "#1A1A1A", region="nav", weight=500, size=15),
+            element("section", "box", "main", 1000, 1440, 500, bg="#C9A227"),
+            *[element("div", "box", "main", 1600, 400, 300, border="#E2DED5") for _ in range(3)],
+            element("footer", "box", "footer", 2800, 1440, 400, bg="#F4F1EA"),
+        ],
+        "samples": {"colors": {"#FFFFFF": 820, "#2F5D50": 30, "#F4F1EA": 50}, "images": 100, "total": 1000},
+        "fonts": [
+            {"family": "Larkspur Serif", "weight": "600", "style": "normal"},
+            {"family": "Inter", "weight": "400", "style": "normal"},
+        ],
+        # The same parts Fetch reads, with the browser's number on the logo.
+        "structure": homepage_structure(name).replace("<svg viewBox", '<svg data-sf-id="1" viewBox', 1),
+        "logos": [{"id": "1", "x": 24, "y": 18, "w": 120, "h": 24, "visible": True, "color": "#1A1A1A"}],
+        "text": f"{name}\n\nTea blended in small batches, shipped the week it is packed. " * 8,
+        "links": [f"https://{host}{path}" for path in ("/about", "/careers", "/press", "/journal")],
+    }
 
 
 def _page(url: str, title: str, text: str, **extra: Any) -> dict[str, Any]:
