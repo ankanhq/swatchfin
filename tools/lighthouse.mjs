@@ -1,7 +1,7 @@
 // Runs Lighthouse on every Swatchfin page, and on every state of the guide
 // page, for mobile and desktop, then prints a table of the four scores.
 // Run it with `npm run lighthouse` while the dev server is running
-// (python3 tools/serve.py). The full reports are saved in
+// (python tools/serve.py, with .venv turned on). The full reports are saved in
 // reports/lighthouse/ (git-ignored): open the .html files in a browser.
 //
 //   npm run lighthouse                       every page, mobile and desktop
@@ -22,14 +22,15 @@ import path from 'node:path';
 const TARGET = 95;
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:8000';
 
-// [name, address]. The guide states use the mock data until Phase 4.
+// [name, address]. The two ?q= addresses start a guide job on every run
+// (four per full run), which counts towards the 20-an-hour limit per visitor.
 const PAGES = [
   ['start', '/'],
   ['about', '/about.html'],
   ['guide', '/guide.html?id=mock'],
   ['guide-partial', '/guide.html?id=mock-partial'],
   ['guide-running', '/guide.html?q=Duolingo'],
-  ['guide-failed', '/guide.html?id=mock-failed'],
+  ['guide-failed', '/guide.html?q=fail.invalid'],
   ['guide-empty', '/guide.html'],
   ['guide-not-found', '/guide.html?id=nope'],
   // Lighthouse won't audit an answer with a 404 status, so it opens the
@@ -128,6 +129,6 @@ async function main() {
 
 main().catch((error) => {
   console.error(error.message);
-  console.error('Is the dev server running? Start it with: python3 tools/serve.py');
+  console.error('Is the dev server running? Start it with: source .venv/bin/activate && python tools/serve.py');
   process.exit(1);
 });
