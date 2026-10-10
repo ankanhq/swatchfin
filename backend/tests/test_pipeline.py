@@ -13,7 +13,7 @@ from pydantic import SecretStr
 
 from app.config import Settings
 from app.extract.resolve import parse_query
-from app.jobs import GuideStore, JobManager
+from app.jobs import GuideStore, JobManager, LogoStore
 from app.pipeline import NOT_YET_WARNINGS, brand_pipeline
 from app.schemas import Job
 from app.tinyfish.client import TinyFishClient
@@ -27,7 +27,7 @@ async def run(settings: Settings, query: str, fake: FakeTinyFish | None = None, 
     fake = fake or FakeTinyFish()
     tinyfish = TinyFishClient(SecretStr(key) if key is not None else None, fake.http, pause_seconds=0)
     manager = JobManager(
-        brand_pipeline(tinyfish),
+        brand_pipeline(tinyfish, LogoStore(settings.data_dir / "logos")),
         store=GuideStore(settings.data_dir / "guides"),
         max_running=1,
         max_waiting=1,

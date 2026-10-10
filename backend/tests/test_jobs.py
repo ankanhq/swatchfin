@@ -11,7 +11,7 @@ import pytest
 
 from app.config import Settings
 from app.extract.resolve import ParsedQuery, parse_query
-from app.jobs import GuideStore, JobManager, JobRun, JobsBusy, Pipeline, StepFailed
+from app.jobs import GuideStore, JobManager, JobRun, JobsBusy, LogoStore, Pipeline, StepFailed
 from app.pipeline import NOT_YET, SKIPPED_SEARCH_DETAIL, brand_pipeline, sample_job_finder
 from app.schemas import STEP_NAMES, BrandGuide, Job
 from app.tinyfish.client import TinyFishClient
@@ -26,7 +26,8 @@ def make_manager(
     """A job manager like the app's. Its pipeline reads from a fake TinyFish (slow with FakeTinyFish(delay=5))."""
     if pipeline is None:
         fake = tinyfish or FakeTinyFish()
-        pipeline = brand_pipeline(TinyFishClient(settings.tinyfish_api_key, fake.http, pause_seconds=0))
+        tinyfish_client = TinyFishClient(settings.tinyfish_api_key, fake.http, pause_seconds=0)
+        pipeline = brand_pipeline(tinyfish_client, LogoStore(settings.data_dir / "logos"))
     options = {
         "store": GuideStore(settings.data_dir / "guides"),
         "max_running": settings.max_running_jobs,

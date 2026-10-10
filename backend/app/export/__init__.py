@@ -10,6 +10,12 @@ import unicodedata
 from app.schemas import BrandGuide
 
 
+def logo_filename(guide: BrandGuide, number: int) -> str:
+    """A download name for a logo Swatchfin copied: "stripe-logo.svg", then "stripe-logo-2.svg"."""
+    base = export_filename(guide, "svg").removesuffix("-brand-guide.svg")
+    return f"{base}-logo.svg" if number == 1 else f"{base}-logo-{number}.svg"
+
+
 def export_filename(guide: BrandGuide, extension: str) -> str:
     """A safe download name, like "northwind-roasters-brand-guide.json".
 

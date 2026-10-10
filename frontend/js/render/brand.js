@@ -38,7 +38,7 @@ export function renderBrandHeader(page, guide, { mock }) {
   const domain = text(brand.domain) || (siteHref ? displayUrl(siteHref) : '');
   const description = text(brand.description);
 
-  page.querySelector('[data-brand-details]').replaceChildren(
+  const details = [
     domain && siteHref
       ? el('a', { className: 'sf-guide-header__domain', attrs: { href: siteHref, rel: 'noopener noreferrer' } }, [
           el('span', { text: domain }),
@@ -47,7 +47,9 @@ export function renderBrandHeader(page, guide, { mock }) {
       : null,
     description ? el('p', { className: 'sf-guide-header__description', text: description }) : null,
     headerFacts(guide, { mock }),
-  );
+  ];
+  // replaceChildren() would show a missing part as the word "null", so leave those out first.
+  page.querySelector('[data-brand-details]').replaceChildren(...details.filter(Boolean));
 }
 
 /**

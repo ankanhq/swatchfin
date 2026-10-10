@@ -36,7 +36,8 @@ from app.extract.discover import Discovery, discover_pages, kind_labels
 from app.extract.homepage import Homepage, HomepageUnreadable, LogoCandidate, read_homepage
 from app.extract.pages import PagesRead, read_pages
 from app.extract.resolve import OfficialSite, ParsedQuery, SiteNotFound, find_official_site, main_label, name_match
-from app.jobs import JobRun, Pipeline, StepFailed
+from app.extract.svg import clean_svg, uses_current_color
+from app.jobs import JobRun, LogoStore, Pipeline, StepFailed
 from app.schemas import (
     STEP_NAMES,
     Brand,
@@ -81,8 +82,11 @@ def now() -> datetime:
     return datetime.now(UTC)
 
 
-def brand_pipeline(tinyfish: TinyFishClient) -> Pipeline:
-    """The pipeline that reads a real website with TinyFish (see the top of this file)."""
+def brand_pipeline(tinyfish: TinyFishClient, logos: LogoStore) -> Pipeline:
+    """The pipeline that reads a real website with TinyFish (see the top of this file).
+
+    `logos` keeps the cleaned copies of logos drawn with SVG code in the page.
+    """
 
     async def run(job: JobRun, query: ParsedQuery) -> BrandGuide:
         sources: list[Source] = []
@@ -135,6 +139,8 @@ def brand_pipeline(tinyfish: TinyFishClient) -> Pipeline:
             job.skip(step_name, detail)
         warnings.extend(NOT_YET_WARNINGS)
 
+        logo = await _logo(homepage, job.job.id, logos, warnings)
+
         return BrandGuide(
             id=job.job.id,
             query=query.text,
@@ -146,7 +152,7 @@ def brand_pipeline(tinyfish: TinyFishClient) -> Pipeline:
                 description=homepage.description,
                 language=homepage.language,
             ),
-            logo=_logo(homepage),
+            logo=logo,
             voice=Voice(),
             messaging=Messaging(),
             sources=sources,
@@ -267,8 +273,6 @@ def _homepage_warnings(homepage: Homepage) -> list[str]:
         )
     if not homepage.logos:
         warnings.append(f"No logo or icon was found on the homepage of {host}.")
-    elif not any(logo.url for logo in homepage.logos):
-        warnings.append(f"The logo on {host} is drawn into the page itself, and Swatchfin can’t show it yet.")
     return warnings
 
 
@@ -294,16 +298,49 @@ def _brand_name(homepage: Homepage, query: ParsedQuery) -> str:
     return label.replace("-", " ").title()
 
 
-def _logo(homepage: Homepage) -> Logo:
-    """The logo section: the best candidate with an address, and up to four others."""
-    usable = [candidate for candidate in homepage.logos if candidate.url is not None]
-    assets = [_logo_asset(candidate, homepage.url) for candidate in usable]
+async def _logo(homepage: Homepage, job_id: str, logos: LogoStore, warnings: list[str]) -> Logo:
+    """The logo section: the best candidate first, then up to four others.
+
+    In plain English: an image file is used by its address. A logo drawn
+    with SVG code in the page has no address, so its code is cleaned
+    (extract/svg.py) and saved, and the guide points to Swatchfin's copy.
+    One that can't be cleaned into something safe and visible is left out.
+    """
+    host = _short_host(homepage.host)
+    assets: list[LogoAsset] = []
+    copies = 0
+    for candidate in homepage.logos:
+        if len(assets) == LogoStore.MAX_PER_GUIDE:
+            break
+        if candidate.url is not None:
+            assets.append(_logo_asset(candidate, candidate.url, homepage.url))
+            continue
+        svg = clean_svg(candidate.svg or "")
+        if svg is None:
+            if candidate is homepage.logos[0]:
+                warnings.append(
+                    f"The logo on {host} is drawn with code that Swatchfin couldn’t copy safely, so the next best "
+                    "image is shown instead."
+                )
+            continue
+        try:
+            await logos.save(job_id, copies + 1, svg)
+        except OSError:
+            log.warning("couldn't save a logo copy for job %s", job_id, exc_info=True)
+            continue
+        copies += 1
+        assets.append(_logo_asset(candidate, logos.url(job_id, copies), homepage.url))
+        if not assets[1:] and uses_current_color(svg):
+            warnings.append(
+                f"The logo on {host} takes its colour from the page around it, so Swatchfin’s copy is drawn in "
+                "black. Its real colour isn’t measured yet."
+            )
     return Logo(primary=assets[0] if assets else None, alternates=assets[1:], favicon=homepage.favicon)
 
 
-def _logo_asset(candidate: LogoCandidate, page_url: str) -> LogoAsset:
+def _logo_asset(candidate: LogoCandidate, url: str, page_url: str) -> LogoAsset:
     return LogoAsset(
-        url=candidate.url or "",
+        url=url,
         format=candidate.format,
         method=candidate.method,
         source_url=page_url,

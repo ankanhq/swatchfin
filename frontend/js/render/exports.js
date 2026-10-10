@@ -72,7 +72,7 @@ export function setUpExports(page, guide, { mock }) {
 }
 
 /**
- * Saves the guide exactly as loaded, as pretty-printed JSON.
+ * Saves the guide as pretty-printed JSON, the same as the API's JSON export.
  *
  * In plain English: turn the guide into text, wrap it in a temporary file
  * object in memory (a Blob), point a hidden link at it with a file name, and
@@ -83,7 +83,7 @@ export function setUpExports(page, guide, { mock }) {
  */
 function downloadJson(guide, { mock }) {
   const filename = `${mock ? 'MOCK_' : ''}${slugify(brandName(guide)) || 'brand'}-brand-guide.json`;
-  const blob = new Blob([`${JSON.stringify(guide, null, 2)}\n`], { type: 'application/json' });
+  const blob = new Blob([`${JSON.stringify(withFullAddresses(guide), null, 2)}\n`], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
 
   const link = document.createElement('a');
@@ -96,4 +96,21 @@ function downloadJson(guide, { mock }) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 
   showToast(`Downloading ${filename}`, { icon: 'download' });
+}
+
+/**
+ * A copy of the guide where logos Swatchfin copied from a page have their
+ * whole address ("/api/v1/guides/…/logos/1.svg" becomes
+ * "https://…/api/v1/guides/…/logos/1.svg"), so the file works outside Swatchfin.
+ * @param {Record<string, any>} guide
+ * @returns {Record<string, any>}
+ */
+function withFullAddresses(guide) {
+  const copy = structuredClone(guide);
+  for (const asset of [copy.logo?.primary, ...(copy.logo?.alternates ?? [])]) {
+    if (typeof asset?.url === 'string' && asset.url.startsWith('/')) {
+      asset.url = new URL(asset.url, window.location.origin).href;
+    }
+  }
+  return copy;
 }
