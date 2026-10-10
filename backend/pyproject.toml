@@ -7,11 +7,6 @@ testpaths = ["tests"]
 pythonpath = ["."]
 # Show a one-line reason for every skipped or failed test.
 addopts = "-ra"
-filterwarnings = [
-    # Starlette 1.7 would rather its test client used httpx2, the successor
-    # to httpx. httpx still works; this hides only that one notice.
-    "ignore:Using `httpx` with `starlette.testclient` is deprecated:starlette.exceptions.StarletteDeprecationWarning",
-]
 
 [tool.ruff]
 line-length = 120
