@@ -58,7 +58,8 @@ This is a real portfolio-grade product, not a demo hack. Code quality, design qu
 - Fonts, served from our own site: **Inter** (UI/body), **Inter Tight** (headings), **JetBrains Mono** (hex codes, code, JSON). `npm run vendor` copies them from pinned `@fontsource-variable` packages into `frontend/assets/fonts/<family>/` with each family's `OFL.txt`, and writes `css/fonts.css`. Google Fonts is only used on the guide page, at runtime, to show a brand's detected font in its typography specimen.
 
 **Backend** (`/backend`):
-- Python 3.11+, **FastAPI**, **Uvicorn**, **Pydantic v2**
+- Python 3.11+, **FastAPI**, **Uvicorn**, **Pydantic v2**, **pydantic-settings** (reads `.env`)
+- Pinned in `backend/requirements.txt` (runtime) and `backend/requirements-dev.txt` (adds pytest, httpx2, ruff); every package is pinned, including the ones they depend on. Installed into `.venv` at the repo root.
 - TinyFish Python SDK (`pip install tinyfish`) and/or `httpx` for REST
 - **Playwright** (Python) connecting to TinyFish Browser via `connect_over_cdp`
 - **selectolax** (or BeautifulSoup) for HTML parsing
@@ -161,6 +162,7 @@ Generation takes 30–90 s, so it is an async job with polling.
 |---|---|---|
 | `POST` | `/api/v1/guides` | Body `{ "query": "duolingo" }` → `202 { id, status }` |
 | `GET` | `/api/v1/guides/{id}` | Job status + live progress steps; full BrandGuide when `complete` |
+| `DELETE` | `/api/v1/guides/{id}` | Cancels a job that is still `queued` or `running` → `204`; it is then forgotten (`GET` → `404`). A finished guide → `409`, because anyone with its link could otherwise delete it |
 | `GET` | `/api/v1/guides/{id}/export?format=json\|css\|tailwind\|tokens\|voice` | Downloadable exports |
 | `GET` | `/api/v1/health` | Health check |
 
@@ -179,9 +181,12 @@ Generation takes 30–90 s, so it is an async job with polling.
   }
   ```
   `steps` always lists the seven steps in order (`resolving` is `skipped` when a URL was given). `detail` is one short line for people, shown as plain text. `tinyfish_usage` counts the calls made so far. `error` is `{ "title", "message" }` when `failed`; `guide` is the full BrandGuide when `complete`.
-- Validate input (length, URL format), rate-limit per IP, CORS restricted to our own origin, timeouts on every outbound call.
-- Storage: in-memory + JSON files in `backend/data/guides/` is fine (git-ignored).
-- Static files: serve `/frontend` with `Cache-Control: no-cache`, gzip for text files, and `404.html` with a real 404 status for unknown paths. `tools/serve.py` does all three in development; without them, cached modules break the guide page and mobile Lighthouse scores drop.
+- **Errors:** every API error is `{ "error": { "title", "message" } }`, written for people (same shape as a failed job's `error`), so the frontend shows it as it is. Unknown `/api/...` addresses answer this JSON, never the 404 page.
+- Validate input (length, URL format: same rules as `parseQuery` in `utils.js`, plus no IP addresses or local network names), rate-limit per IP (20 new guides an hour, 300 API requests a minute), CORS restricted to our own origin (the frontend is served by the same app, so no CORS headers are sent and browsers let only our own pages read the API), timeouts on every outbound call. Request bodies are limited to 16 KB.
+- **Jobs** (`backend/app/jobs.py`): at most 2 run at once, up to 20 wait as `queued` (then `503` busy), each has a 150 s limit (the page waits 3 minutes). Pipeline steps report progress with `async with job.step("reading_pages") as step:`, `job.skip(...)` and `job.count("fetch_urls", n)`; raise `StepFailed(title, message, detail)` to stop a job with a message for people. All limits are settings in `config.py`.
+- Storage: in-memory + JSON files in `backend/data/guides/` (git-ignored). Finished jobs (complete or failed) are saved and kept for 30 days; running jobs are lost on restart.
+- Static files: serve `/frontend` with `Cache-Control: no-cache` (API answers: `no-store`), gzip for text files, and `404.html` with a real 404 status for unknown paths. `backend/app/static.py` does all three, and `tools/serve.py` starts that same app for development; without them, cached modules break the guide page and mobile Lighthouse scores drop.
+- **Phase 4 placeholders (MOCK):** `backend/app/pipeline.py` runs seven placeholder steps that read nothing and end with the Northwind sample guide; `.invalid` addresses fail on purpose at `reading_homepage`; job IDs `mock` and `mock-partial` are finished sample jobs (linked from the About and 404 pages). Phases 5–7 replace the placeholders; Phase 9 decides what happens to the sample links.
 
 ---
 
@@ -241,13 +246,15 @@ swatchfin/
 │   └── mock/     MOCK_northwind-roasters.json   (fictional brand, dev only)
 ├── backend/
 │   ├── app/
-│   │   ├── main.py  config.py  schemas.py  jobs.py
+│   │   ├── main.py  config.py  schemas.py  jobs.py  pipeline.py  errors.py  static.py  ratelimit.py
 │   │   ├── tinyfish/   search.py  fetch.py  browser.py
 │   │   ├── extract/    resolve.py  homepage.py  discover.py  visuals.py  voice.py  verify.py  contrast.py
-│   │   ├── export/     css.py  tailwind.py  tokens.py  voice_prompt.py
+│   │   ├── export/     __init__.py (file names)  css.py  tailwind.py  tokens.py  voice_prompt.py
 │   │   └── llm.py
 │   ├── tests/
-│   └── requirements.txt
+│   ├── data/guides/             (finished guides, git-ignored)
+│   ├── requirements.txt  requirements-dev.txt
+│   └── pyproject.toml           (pytest and ruff settings)
 └── docs/
     ├── how-tinyfish-is-used.md
     └── screenshots/
@@ -273,7 +280,7 @@ swatchfin/
 2. Work in **small, reviewable steps**. After each step, summarise what changed and how to check it (which file to open, what to click).
 3. The owner reviews HTML/CSS directly. **Explain JS and Python in simple English**, with short comments in the code.
 4. After each completed milestone, make a git commit using Conventional Commits (`feat:`, `fix:`, `style:`, `docs:`, `refactor:`, `test:`, `chore:`). Never commit `.env`, `data/` or secrets. Before committing, run `git status` and check that nothing secret is staged.
-5. Never claim something works without running it. For frontend work, open the page (e.g. `python -m http.server` in `/frontend`) and check the console. For backend work, run the tests.
+5. Never claim something works without running it. For frontend work, open the page (`source .venv/bin/activate && python tools/serve.py`) and check the console. For backend work, run the tests (`pytest backend`) and `ruff check backend`.
 6. Ask instead of guessing when a requirement is unclear.
 7. Keep `README.md` updated as features land.
 
@@ -285,7 +292,7 @@ swatchfin/
 - [x] **Phase 1:** Design system (`tokens.css`, `base.css`), header/footer, theme toggle, landing page
 - [x] **Phase 2:** Guide result page rendered from `mock/MOCK_northwind-roasters.json`
 - [x] **Phase 3:** Progress view, error/empty states, about page, 404, print stylesheet, accessibility + Lighthouse pass
-- [ ] **Phase 4:** FastAPI skeleton, schemas, job system, serves frontend; frontend switches from mock to real API
+- [x] **Phase 4:** FastAPI skeleton, schemas, job system, serves frontend; frontend switches from mock to real API
 - [ ] **Phase 5:** TinyFish Search + Fetch: resolve, homepage parsing, logo, page discovery, content
 - [ ] **Phase 6:** TinyFish Browser: computed colours, fonts, logo confirmation
 - [ ] **Phase 7:** Voice and messaging with LLM + quote verification + confidence + contrast

@@ -58,37 +58,78 @@ The backend serves the frontend as static files, so the whole app deploys as one
 
 ## Getting started
 
-**Requirements:** Python 3.11+, a TinyFish API key (free at [agent.tinyfish.ai](https://agent.tinyfish.ai)) and an [Anthropic API key](https://console.anthropic.com). Copy `.env.example` to `.env` and add your keys. Never commit `.env`.
+### Set up (once per computer)
+
+You need **Python 3.11 or newer**. Check with `python3 --version`. API keys aren't needed yet: live generation arrives in Phase 5, and until then every run ends with the sample guide (see below).
 
 ```bash
 git clone https://github.com/ankanhq/swatchfin.git
 cd swatchfin
-cp .env.example .env   # then add your keys to .env (it is git-ignored)
+python3 -m venv .venv                          # a private folder of Python packages for this project (git-ignored)
+source .venv/bin/activate                      # turn it on: your prompt now starts with (.venv)
+python -m pip install --upgrade pip
+pip install -r backend/requirements-dev.txt    # the pinned packages, plus pytest and ruff
+cp .env.example .env                           # your settings and keys (git-ignored, never commit it)
 ```
 
-### Run the frontend
+On Windows, turn the virtual environment on with `.venv\Scripts\activate` instead.
 
-The frontend is a static site with no build step. Serve the `frontend` folder over HTTP (the icon sprite does not load from `file://`):
+### Run Swatchfin
+
+In every new terminal, turn the virtual environment on first, then start the server from the repo root:
 
 ```bash
-python3 tools/serve.py
+source .venv/bin/activate
+python tools/serve.py
 ```
 
-Then open [http://localhost:8000](http://localhost:8000) (pass another port as an argument, e.g. `python3 tools/serve.py 8001`). This is the standard Python file server with two additions: the header `Cache-Control: no-cache`, so the browser re-checks every file on every load, and Swatchfin's own `404.html` for any missing address (try [localhost:8000/anything](http://localhost:8000/anything)), sent with a real 404 status as the production server will. Avoid plain `python3 -m http.server`: it sends no caching rules, the browser keeps old copies of edited files, and an old cached module mixed with a new one stops the guide page from loading. If a page ever looks out of date, do a hard refresh (Cmd+Shift+R / Ctrl+Shift+R).
+Open [http://localhost:8000](http://localhost:8000). The interactive API docs are at [localhost:8000/api/docs](http://localhost:8000/api/docs). Press Ctrl+C to stop. To use another port, pass it as an argument: `python tools/serve.py 8001`.
 
-**The guide page runs on mock data for now.** The backend that generates real guides is in progress, so the guide page uses a stand-in (`frontend/js/mock-job.js`) built around *Northwind Roasters*, a fictional brand. Submitting the form on the landing page plays a 10-second simulated run of the seven steps, labelled as a simulation, and then shows the sample guide. No website is read. These addresses show every state of the page:
+This runs the FastAPI app in `backend/app` (the same app that runs in production). It serves the API under `/api/v1` and the website from `frontend/`. When you save a Python file in `backend/app`, it restarts by itself. For HTML, CSS and JavaScript changes, just reload the page.
+
+Every file is sent with `Cache-Control: no-cache`, so the browser re-checks it on every load and never mixes an old cached module with a new one. Text files are gzip-compressed. Any missing address gets Swatchfin's own 404 page with a real 404 status (try [localhost:8000/anything](http://localhost:8000/anything)), while a missing `/api/...` address answers with JSON. If a page ever looks out of date, do a hard refresh (Cmd+Shift+R / Ctrl+Shift+R).
+
+### Run the tests
+
+```bash
+pytest backend         # all backend tests
+ruff check backend     # code checks
+ruff format backend    # formats the Python code
+```
+
+### The API
+
+A guide takes 30–90 seconds, so it is made as a background job. Start one, then ask for its progress until it is `complete` or `failed`:
+
+| Method | Path | What it does |
+|---|---|---|
+| `POST` | `/api/v1/guides` | Body `{ "query": "duolingo" }`. Answers `202 { "id", "status" }` straight away |
+| `GET` | `/api/v1/guides/{id}` | The job's status and its seven steps; the full brand guide once it is complete |
+| `DELETE` | `/api/v1/guides/{id}` | Cancels a job that is still queued or running (`204`). A finished guide answers `409` |
+| `GET` | `/api/v1/guides/{id}/export?format=json` | Downloads the guide. `css`, `tailwind`, `tokens` and `voice` arrive in Phase 8 |
+| `GET` | `/api/v1/health` | `{ "status": "ok" }` |
+
+Every error has the same shape, written for people: `{ "error": { "title": "Guide not found", "message": "There is no guide with this ID…" } }`. The exact shapes are in `CLAUDE.md` (sections 6 and 7), in `backend/app/schemas.py`, and at `/api/docs`.
+
+Each visitor (IP address) can start 20 guides an hour and make 300 API requests a minute. At most two guides are made at once; the others wait their turn. Finished guides are saved in `backend/data/guides/` (git-ignored) and kept for 30 days. All of these can be changed in `.env` (see `.env.example`).
+
+### Live generation isn't connected yet
+
+The backend, the job system and the API are real, but the seven steps are placeholders until Phases 5–7 connect TinyFish. Each step waits a second and says it is a placeholder, no website is read, no TinyFish calls are made, and every run ends with the sample guide for *Northwind Roasters*, a fictional brand. The page labels it as mock data. These addresses show every state of the guide page:
 
 | Address | What it shows |
 |---|---|
-| [`guide.html?q=Duolingo`](http://localhost:8000/guide.html?q=Duolingo) | A simulated run from a company name, then the sample guide |
+| [`guide.html?q=Duolingo`](http://localhost:8000/guide.html?q=Duolingo) | A run from a company name, then the sample guide |
 | [`guide.html?q=stripe.com`](http://localhost:8000/guide.html?q=stripe.com) | The same from a URL (the search step is skipped) |
+| [`guide.html?q=fail.invalid`](http://localhost:8000/guide.html?q=fail.invalid) | A run that fails at "Reading the homepage". Addresses ending in `.invalid` (reserved, so they never exist) fail on purpose until Phase 5 |
 | [`guide.html?id=mock`](http://localhost:8000/guide.html?id=mock) | The finished sample guide (`frontend/mock/MOCK_northwind-roasters.json`) |
 | [`guide.html?id=mock-partial`](http://localhost:8000/guide.html?id=mock-partial) | A partial guide: the browser step "timed out", so colours and fonts are missing |
-| [`guide.html?id=mock-failed`](http://localhost:8000/guide.html?id=mock-failed) | A run that fails at "Reading the homepage" |
 | [`guide.html`](http://localhost:8000/guide.html) | The empty state ("No guide to show") |
 | [`guide.html?id=nope`](http://localhost:8000/guide.html?id=nope) | The "Guide not found" error |
 
-The mock is only for building the frontend: it follows the exact BrandGuide and job status shapes in `CLAUDE.md`, and every part of it is labelled as mock.
+Click **Cancel** while a guide is being made to go back to the start page with your search still in the box; the job is stopped on the server too.
+
+The mock data follows the exact BrandGuide and job status shapes in `CLAUDE.md` (the tests check this), and every part of it is labelled as mock.
 
 The other pages: [`about.html`](http://localhost:8000/about.html) explains how Swatchfin uses TinyFish Search, Fetch and Browser (with a pipeline diagram, limitations and a privacy note), and any missing address shows the 404 page ([localhost:8000/anything](http://localhost:8000/anything)).
 
@@ -96,15 +137,19 @@ The other pages: [`about.html`](http://localhost:8000/about.html) explains how S
 
 ### Quality checks
 
-Last run (`npm run lighthouse`, Lighthouse 13.5.0, dev server with gzip):
+Last run (`npm run lighthouse`, Lighthouse 13.5.0, against the FastAPI app from `tools/serve.py`, after Phase 4):
 
 | | Performance | Accessibility | Best Practices | SEO |
 |---|---|---|---|---|
-| Desktop, every page and guide state | 100 | 100 | 100 | 100 |
-| Mobile: start, about, 404 | 95–97 | 100 | 100 | 100* |
-| Mobile: guide states | 91–94 | 100 | 100 | 100 |
+| Desktop, every page and guide state | 99–100 | 100 | 100† | 100 |
+| Mobile: start, about, 404 | 96–100 | 100 | 100 | 100* |
+| Mobile: guide states | 91–94‡ | 100 | 100† | 100 |
 
-\* The 404 page is `noindex` on purpose, so its SEO score doesn't count. Mobile scores use Lighthouse's simulated slow phone and move by a few points between runs. On the guide, the remaining time is the guide data arriving and being drawn, which changes with the real backend in Phase 4.
+\* The 404 page is `noindex` on purpose, so its SEO score doesn't count.
+
+† 96 on the "Guide not found" state: Chrome logs the server's real 404 answer in the console, and Lighthouse counts that.
+
+‡ Mobile scores use Lighthouse's simulated slow phone and move between runs: the finished guide scored 85 once and 91 and 92 on two reruns. Most of the remaining time is the guide data arriving and being drawn, plus the Google Fonts request for the typography specimen.
 
 Checked by hand as well: keyboard only (visible focus everywhere, nothing hidden under the sticky toolbar), no sideways scrolling at 320px, 24px touch targets, screen reader announcements for each progress step, reduced motion, and both themes.
 

@@ -190,3 +190,14 @@ def test_api_docs_list_every_endpoint(client: TestClient) -> None:
         "/api/v1/health",
     }
     assert set(paths["/api/v1/guides/{job_id}"]) == {"get", "delete"}
+
+
+def test_other_websites_cant_use_the_api(client: TestClient) -> None:
+    """No CORS headers: a browser lets only Swatchfin's own pages read the API."""
+    other = {"Origin": "https://another-site.example"}
+    assert "access-control-allow-origin" not in client.get("/api/v1/guides/mock", headers=other).headers
+    preflight = client.options(
+        "/api/v1/guides", headers={**other, "Access-Control-Request-Method": "DELETE"}
+    )  # what a browser asks before a cross-site DELETE or JSON POST
+    assert "access-control-allow-origin" not in preflight.headers
+    assert "access-control-allow-methods" not in preflight.headers
