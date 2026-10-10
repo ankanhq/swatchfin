@@ -51,8 +51,8 @@ class Settings(BaseSettings):
     # Finished guides older than this are deleted when the server starts.
     guide_retention_days: int = Field(30, ge=1)
 
-    # TinyFish Browser measures colours and fonts and costs wallet credit ($0.002 a minute,
-    # about $0.002-0.003 a guide). USE_BROWSER=false leaves it out, e.g. while developing.
+    # TinyFish Browser measures colours and fonts and costs wallet credit ($0.002 a minute, billed
+    # by the second: about $0.001 a guide). USE_BROWSER=false leaves it out, e.g. while developing.
     use_browser: bool = True
 
     # Rate limits, per visitor (IP address). See ratelimit.py.

@@ -266,7 +266,8 @@ POST https://api.fetch.tinyfish.ai
               <h3 class="sf-api__title" id="api-browser-title">Measure the real styles</h3>
               <p>A site’s stylesheet isn’t its palette: most rules never apply, and the final colours come from variables, themes and scripts. So Swatchfin opens the homepage in a TinyFish Browser session, a real browser in the cloud, and reads the <em>computed</em> style of what people actually see: body text, headings, links, navigation, header, footer and the main buttons.</p>
               <p>Each colour is weighted by how important its element is and how much of the screen it covers, which decides its role: primary, background, text and so on. The fonts come from the ones the page really loaded. The same session confirms which image is the logo and how large it shows.</p>
-              <p class="sf-api__usage"><strong>Per guide:</strong> one session, closed as soon as the styles are read, even when something goes wrong.</p>
+              <p>It also reads what Fetch can’t. A site built entirely with JavaScript, such as Duolingo, gives Fetch an empty page; the browser draws it, so the guide still gets its logo, description and text, and up to three pages Fetch couldn’t read.</p>
+              <p class="sf-api__usage"><strong>Per guide:</strong> one session of about 20 to 35 seconds, started while Fetch reads and closed as soon as the styles are read, even when something goes wrong.</p>
             </div>
             <figure class="sf-api__example">
               <pre class="sf-code"><code>POST https://api.browser.tinyfish.ai
@@ -385,7 +386,7 @@ DELETE https://api.browser.tinyfish.ai/{session_id}</code></pre>
             <ul class="sf-about-list">
               <li>Some sites turn away automated visits. If the homepage can’t be read at all, there is no guide; if one page is blocked, it is skipped and named in the warnings.</li>
               <li>Pages behind a login, a paywall or a cookie wall can’t be read.</li>
-              <li>Colours and fonts are measured on the homepage only, at one screen size and in its default theme. The browser visits from the United States, so a site that changes by country shows its US version.</li>
+              <li>Colours and fonts are measured on the homepage only, at one screen size and in its default theme. The browser visits from the United States, so a site that changes by country shows its US version. Cookie banners and pop-ups are hidden before measuring, never accepted.</li>
               <li>Colours inside photos, videos, gradients and illustrations aren’t measured, only the colours of page elements.</li>
               <li>A logo drawn in CSS or set as a background image can be missed. The guide then falls back to the Open Graph image or the favicon, and says which one it used.</li>
               <li>Fonts are named as the site loads them, but a specimen can only show a font that Google Fonts offers. Other fonts are shown in a fallback font, and the guide says so.</li>
