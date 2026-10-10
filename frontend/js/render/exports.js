@@ -4,10 +4,10 @@
  * The menu itself is plain HTML in guide.html. This file:
  * 1. Opens and closes it (button click; closes on Esc, a click outside, or
  *    when keyboard focus leaves it), like the header's mobile menu.
- * 2. Runs the formats that work without the backend: JSON (a download made
- *    in the browser from the loaded guide) and Print / Save as PDF.
- *    The other formats are marked aria-disabled until Phase 8; clicking one
- *    explains why instead of doing nothing.
+ * 2. Runs the formats that work now: JSON (a download made in the browser
+ *    from the loaded guide) and Print / Save as PDF. The other formats are
+ *    marked aria-disabled until Phase 8, when the backend builds them;
+ *    clicking one explains why instead of doing nothing.
  */
 
 import { slugify } from '../utils.js';
@@ -59,7 +59,7 @@ export function setUpExports(page, guide, { mock }) {
     if (!item) return;
 
     if (item.getAttribute('aria-disabled') === 'true') {
-      showToast('This export is built by the Swatchfin backend, which isn’t connected yet.', { icon: 'info' });
+      showToast('This format isn’t available yet. JSON and Print / Save as PDF work now.', { icon: 'info' });
       return;
     }
 

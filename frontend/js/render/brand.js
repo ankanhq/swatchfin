@@ -164,36 +164,25 @@ export function renderToolbar(page, guide) {
 }
 
 /**
- * MOCK: the notices that label sample data and simulated runs. Phase 4
- * keeps "sample" (the mock guide stays for development) and deletes the
- * three "simulated" ones with mock-job.js.
+ * MOCK: the notice that labels the sample guide for Northwind Roasters, a
+ * fictional brand. Until live generation is connected (Phases 5–7), every
+ * run ends with it. `query` is what was searched for, when that was
+ * another brand; it is empty for the sample itself (?id=mock).
  * @type {Record<string, { title: string, message: (query: string) => string }>}
  */
 const NOTICES = {
   sample: {
     title: 'Sample guide',
-    message: () =>
-      'This guide uses mock data for Northwind Roasters, a fictional brand, so the page can be built before live generation is connected. None of it was read from a real website.',
-  },
-  'simulated-run': {
-    title: 'Simulated run',
-    message: () =>
-      'Live generation isn’t connected yet, so these steps are a timed preview. No website is being read, and the result will be the sample guide for Northwind Roasters, a fictional brand.',
-  },
-  'simulated-result': {
-    title: 'Live generation isn’t connected yet',
     message: (query) =>
-      `You searched for “${query}”. The steps were a simulation, and this page shows the sample guide for Northwind Roasters, a fictional brand. None of it was read from a real website.`,
-  },
-  'simulated-failure': {
-    title: 'Simulated failure',
-    message: () => 'This preview shows how a run that can’t be finished looks. No website was read.',
+      query
+        ? `You searched for “${query}”. Live generation isn’t connected yet, so this page shows the sample guide for Northwind Roasters, a fictional brand. None of it was read from a real website.`
+        : 'This guide uses mock data for Northwind Roasters, a fictional brand, so the page can be built before live generation is connected. None of it was read from a real website.',
   },
 };
 
 /**
- * The notice above the header that says when the page shows sample data
- * or a simulated run. With no kind (a real guide), the notice is removed.
+ * The notice above the header that says when the page shows sample data.
+ * With no kind (a real guide), the notice is removed.
  * @param {HTMLElement} page
  * @param {string | null} kind A key of NOTICES, or null.
  * @param {{ query?: string }} [options]
