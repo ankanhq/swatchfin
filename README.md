@@ -17,7 +17,7 @@
 
 ## Features
 
-Swatchfin is in active development.
+Swatchfin is in active development. Today it finds a brand's site, reads its homepage and up to nine more pages with TinyFish, and returns its name, description, logo (including logos drawn with SVG code) and sources. Colours and fonts arrive in Phase 6, tone of voice and messaging in Phase 7.
 
 - **Name or URL in, brand guide out.** Give it `duolingo` or `https://www.duolingo.com` and it finds the official site itself.
 - **Logo**: found in the page header, inline SVG, Open Graph image or favicon, with a download link.
@@ -35,14 +35,16 @@ Swatchfin uses three TinyFish APIs, and each one has a distinct job in the pipel
 
 | TinyFish API | What it does in Swatchfin |
 |---|---|
-| **Search** | Turns a company name into its official domain, and finds brand or press-kit pages. |
-| **Fetch** | Reads the live homepage HTML (logo, navigation, meta tags) and up to 10 sub-pages as markdown (About, Careers, Blog, Press, Product) for voice and messaging. |
-| **Browser** | Opens the homepage in a real browser and reads the **computed** colours and fonts of real elements: buttons, headings, body text, links, navigation. |
+| **Search** | Turns a company name into its official domain, and finds the brand's own pages that its homepage doesn't link to (brand guidelines, press kits, and About or careers pages on sites built with JavaScript). |
+| **Fetch** | Reads the live homepage twice at once: its `<head>`, header, navigation, footer and logo word for word (for the logo, icons, meta tags and links), and its main text as markdown. Then reads up to 9 more pages as markdown (About, Mission, Careers, Press, Blog, Product) for voice and messaging. |
+| **Browser** | *(Phase 6)* Opens the homepage in a real browser and reads the **computed** colours and fonts of real elements: buttons, headings, body text, links, navigation. |
 
 ```
-name or URL → Search (resolve) → Fetch (homepage + sub-pages) → Browser (computed styles)
-            → voice analysis → quote verification → BrandGuide JSON + page + exports
+name or URL → Search (resolve) → Fetch (homepage) → Search + links (choose pages) → Fetch (pages)
+            → Browser (computed styles) → voice analysis → quote verification → BrandGuide JSON + page + exports
 ```
+
+The details, what was learned from the docs and live tests, and results on three very different sites are in [docs/how-tinyfish-is-used.md](docs/how-tinyfish-is-used.md).
 
 ## Tech stack
 
@@ -60,7 +62,7 @@ The backend serves the frontend as static files, so the whole app deploys as one
 
 ### Set up (once per computer)
 
-You need **Python 3.11 or newer**. Check with `python3 --version`. API keys aren't needed yet: live generation arrives in Phase 5, and until then every run ends with the sample guide (see below).
+You need **Python 3.11 or newer** (check with `python3 --version`) and a **TinyFish API key** from [agent.tinyfish.ai](https://agent.tinyfish.ai/api-keys). The Anthropic key in `.env.example` is used from Phase 7. Without a TinyFish key the app still runs, but every guide stops with a message that it can't read websites.
 
 ```bash
 git clone https://github.com/ankanhq/swatchfin.git
@@ -71,6 +73,8 @@ python -m pip install --upgrade pip
 pip install -r backend/requirements-dev.txt    # the pinned packages, plus pytest and ruff
 cp .env.example .env                           # your settings and keys (git-ignored, never commit it)
 ```
+
+Then open `.env` and put your key after `TINYFISH_API_KEY=`.
 
 On Windows, turn the virtual environment on with `.venv\Scripts\activate` instead.
 
@@ -92,9 +96,10 @@ Every file is sent with `Cache-Control: no-cache`, so the browser re-checks it o
 ### Run the tests
 
 ```bash
-pytest backend         # all backend tests
-ruff check backend     # code checks
-ruff format backend    # formats the Python code
+pytest backend           # all backend tests, against a fake TinyFish (no network, no key needed)
+pytest backend -m live   # the tests that call the real TinyFish APIs (needs the key; spends 1 search and 1 page)
+ruff check backend       # code checks
+ruff format backend      # formats the Python code
 ```
 
 ### The API
@@ -107,29 +112,30 @@ A guide takes 30–90 seconds, so it is made as a background job. Start one, the
 | `GET` | `/api/v1/guides/{id}` | The job's status and its seven steps; the full brand guide once it is complete |
 | `DELETE` | `/api/v1/guides/{id}` | Cancels a job that is still queued or running (`204`). A finished guide answers `409` |
 | `GET` | `/api/v1/guides/{id}/export?format=json` | Downloads the guide. `css`, `tailwind`, `tokens` and `voice` arrive in Phase 8 |
+| `GET` | `/api/v1/guides/{id}/logos/{n}.svg` | A cleaned copy of a logo the site draws with SVG code (only shapes, colours and text), served so that it can't load or run anything |
 | `GET` | `/api/v1/health` | `{ "status": "ok" }` |
 
 Every error has the same shape, written for people: `{ "error": { "title": "Guide not found", "message": "There is no guide with this ID…" } }`. The exact shapes are in `CLAUDE.md` (sections 6 and 7), in `backend/app/schemas.py`, and at `/api/docs`.
 
-Each visitor (IP address) can start 20 guides an hour and make 300 API requests a minute. At most two guides are made at once; the others wait their turn. Finished guides are saved in `backend/data/guides/` (git-ignored) and kept for 30 days. All of these can be changed in `.env` (see `.env.example`).
+Each visitor (IP address) can start 20 guides an hour and make 300 API requests a minute. At most two guides are made at once; the others wait their turn. Finished guides are saved in `backend/data/guides/` and their copied logos in `backend/data/logos/` (both git-ignored), and kept for 30 days. All of these can be changed in `.env` (see `.env.example`).
 
-### Live generation isn't connected yet
+### What a guide has today
 
-The backend, the job system and the API are real, but the seven steps are placeholders until Phases 5–7 connect TinyFish. Each step waits a second and says it is a placeholder, no website is read, no TinyFish calls are made, and every run ends with the sample guide for *Northwind Roasters*, a fictional brand. The page labels it as mock data. These addresses show every state of the guide page:
+Steps 1–4 read the live site with TinyFish: finding the site (for a name), reading the homepage, choosing pages and reading them. Steps 5–7 (colours and fonts, tone of voice, checking quotes) arrive in Phases 6 and 7; until then they show as skipped, and each guide's warnings say what it doesn't have yet. Nothing is made up to fill a gap. These addresses show every state of the guide page:
 
 | Address | What it shows |
 |---|---|
-| [`guide.html?q=Duolingo`](http://localhost:8000/guide.html?q=Duolingo) | A run from a company name, then the sample guide |
+| [`guide.html?q=Patagonia`](http://localhost:8000/guide.html?q=Patagonia) | A real guide from a company name (uses your TinyFish key) |
 | [`guide.html?q=stripe.com`](http://localhost:8000/guide.html?q=stripe.com) | The same from a URL (the search step is skipped) |
-| [`guide.html?q=fail.invalid`](http://localhost:8000/guide.html?q=fail.invalid) | A run that fails at "Reading the homepage". Addresses ending in `.invalid` (reserved, so they never exist) fail on purpose until Phase 5 |
-| [`guide.html?id=mock`](http://localhost:8000/guide.html?id=mock) | The finished sample guide (`frontend/mock/MOCK_northwind-roasters.json`) |
-| [`guide.html?id=mock-partial`](http://localhost:8000/guide.html?id=mock-partial) | A partial guide: the browser step "timed out", so colours and fonts are missing |
+| [`guide.html?q=nothing-here.invalid`](http://localhost:8000/guide.html?q=nothing-here.invalid) | A guide that stops at "Reading the homepage": `.invalid` addresses never exist |
+| [`guide.html?id=mock`](http://localhost:8000/guide.html?id=mock) | The full sample guide for *Northwind Roasters*, a fictional brand, labelled as mock data (`frontend/mock/MOCK_northwind-roasters.json`) |
+| [`guide.html?id=mock-partial`](http://localhost:8000/guide.html?id=mock-partial) | A partial sample guide: the browser step "timed out", so colours and fonts are missing |
 | [`guide.html`](http://localhost:8000/guide.html) | The empty state ("No guide to show") |
 | [`guide.html?id=nope`](http://localhost:8000/guide.html?id=nope) | The "Guide not found" error |
 
 Click **Cancel** while a guide is being made to go back to the start page with your search still in the box; the job is stopped on the server too.
 
-The mock data follows the exact BrandGuide and job status shapes in `CLAUDE.md` (the tests check this), and every part of it is labelled as mock.
+The sample guides follow the exact BrandGuide and job status shapes in `CLAUDE.md` (the tests check this), and every part of them is labelled as mock. Real guides never use them.
 
 The other pages: [`about.html`](http://localhost:8000/about.html) explains how Swatchfin uses TinyFish Search, Fetch and Browser (with a pipeline diagram, limitations and a privacy note), and any missing address shows the 404 page ([localhost:8000/anything](http://localhost:8000/anything)).
 
