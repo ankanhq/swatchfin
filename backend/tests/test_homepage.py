@@ -93,6 +93,26 @@ def test_the_inline_svg_in_the_home_link_is_the_logo() -> None:
     assert not any("globex" in (other.url or "") or "Initech" in (other.svg or "") for other in homepage.logos)
 
 
+def test_a_small_tab_icon_is_listed_last_with_its_own_score() -> None:
+    head = HEAD.replace('<link rel="icon" href="/favicon.svg" type="image/svg+xml">', "")
+    homepage = build(head + INLINE_LOGO)
+    assert homepage.favicon == "https://www.larkspur.example/favicon-32.png"
+    last = homepage.logos[-1]
+    assert (last.method, last.url, last.format, last.confidence) == (
+        "favicon",
+        "https://www.larkspur.example/favicon-32.png",
+        "png",
+        0.2,
+    )
+
+
+def test_a_small_tab_icon_alone_is_not_made_the_logo() -> None:
+    head = '<head><link rel="icon" href="/favicon-32.png" sizes="32x32"></head>'
+    homepage = build(head + FOOTER)
+    assert homepage.logos == []
+    assert homepage.favicon == "https://www.larkspur.example/favicon-32.png"
+
+
 def test_a_logo_drawn_from_a_sprite_borrows_its_symbol() -> None:
     sprite = (
         '<svg height="0" style="display:none">'

@@ -222,8 +222,18 @@ function ratio(a, b) {
    Other versions
    -------------------------------------------------------------------------- */
 
+/** How each other version is labelled: shorter than METHOD_LABELS, as the card is small. */
+const VERSION_LABELS = {
+  'header-img': 'Header image',
+  'inline-svg': 'Inline SVG',
+  'og-image': 'Open Graph image',
+  favicon: 'Favicon',
+};
+
 /**
  * Alternates and the favicon, without repeating the main logo or each other.
+ * Guides made from Phase 6 on list the favicon among the alternates, with a
+ * score. Older guides only have its address, so its card says "Not scored".
  * @param {Record<string, any>} guide
  * @param {string} primarySrc
  * @returns {HTMLElement | null}
@@ -236,7 +246,7 @@ function otherVersions(guide, primarySrc) {
     const src = safeUrl(alternate?.url);
     if (!src || seen.has(src)) continue;
     seen.add(src);
-    items.push(versionItem(src, lookup(METHOD_LABELS, alternate.method) ?? 'Alternate', text(alternate.format).toUpperCase(), alternate.confidence));
+    items.push(versionItem(src, lookup(VERSION_LABELS, alternate.method) ?? 'Alternate', text(alternate.format).toUpperCase(), alternate.confidence));
   }
 
   const favicon = safeUrl(guide.logo?.favicon);
@@ -247,11 +257,13 @@ function otherVersions(guide, primarySrc) {
 }
 
 /**
- * A small card: thumbnail, then the label above a row with the link and
- * the confidence badge (the row wraps instead of squeezing either).
+ * A small card: thumbnail, then the label ("Favicon · PNG") above a row
+ * with the link and the confidence badge (the row wraps instead of
+ * squeezing either). Every card has the same link words and a badge, so
+ * the cards line up and read the same way.
  * @param {string} src
  * @param {string} label
- * @param {string} format
+ * @param {string} format "SVG", "PNG"... or "" when unknown.
  * @param {unknown} confidence
  * @returns {HTMLElement}
  */
@@ -259,10 +271,10 @@ function versionItem(src, label, format, confidence) {
   return el('li', { className: 'sf-logo-version' }, [
     el('span', { className: 'sf-logo-version__thumb' }, [logoImage(src, '', 'sf-logo-version__img')]),
     el('span', { className: 'sf-logo-version__text' }, [
-      el('span', { className: 'sf-logo-version__label', text: label }),
+      el('span', { className: 'sf-logo-version__label', text: format ? `${label} · ${format}` : label }),
       el('span', { className: 'sf-logo-version__meta' }, [
-        el('a', { className: 'sf-logo-version__link', text: format ? `Open ${format}` : 'Open file', attrs: { href: src, rel: 'noopener noreferrer' } }),
-        confidenceBadge(confidence),
+        el('a', { className: 'sf-logo-version__link', text: 'Open image', attrs: { href: src, rel: 'noopener noreferrer' } }),
+        confidenceBadge(confidence) ?? el('span', { className: 'sf-badge', text: 'Not scored' }),
       ]),
     ]),
   ]);
