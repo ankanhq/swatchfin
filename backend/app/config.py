@@ -30,9 +30,12 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # API keys. Without the TinyFish key, guides stop with a message; the Anthropic key is used from Phase 7.
+    # API keys. Without the TinyFish key, guides stop with a message. Without the Anthropic key,
+    # guides have no tone of voice or key messages, and their warnings say so.
     tinyfish_api_key: SecretStr | None = None
     anthropic_api_key: SecretStr | None = None
+    # The Claude model that reads a brand's text for its tone of voice (see llm.py), e.g. claude-opus-5-5.
+    anthropic_model: str = Field("claude-sonnet-5-5", pattern=r"^[a-z0-9][a-z0-9.\-]{1,63}$")
 
     # Where the website files are, and where generated guides are saved.
     frontend_dir: Path = REPO_ROOT / "frontend"
