@@ -17,7 +17,7 @@
 
 ## Features
 
-Swatchfin is in active development. Today it finds a brand's site, reads its homepage and up to nine more pages with TinyFish, and returns its name, description, logo (including logos drawn with SVG code) and sources. Colours and fonts arrive in Phase 6, tone of voice and messaging in Phase 7.
+Swatchfin is in active development. Today it finds a brand's site, reads its homepage and up to nine more pages with TinyFish, opens the homepage in a real browser, and returns its name, description, logo (confirmed on the page, including logos drawn with SVG code), colour palette with roles, typography and sources. Contrast checks, tone of voice and messaging arrive in Phase 7.
 
 - **Name or URL in, brand guide out.** Give it `duolingo` or `https://www.duolingo.com` and it finds the official site itself.
 - **Logo**: found in the page header, inline SVG, Open Graph image or favicon, with a download link.
@@ -37,7 +37,7 @@ Swatchfin uses three TinyFish APIs, and each one has a distinct job in the pipel
 |---|---|
 | **Search** | Turns a company name into its official domain, and finds the brand's own pages that its homepage doesn't link to (brand guidelines, press kits, and About or careers pages on sites built with JavaScript). |
 | **Fetch** | Reads the live homepage twice at once: its `<head>`, header, navigation, footer and logo word for word (for the logo, icons, meta tags and links), and its main text as markdown. Then reads up to 9 more pages as markdown (About, Mission, Careers, Press, Blog, Product) for voice and messaging. |
-| **Browser** | *(Phase 6)* Opens the homepage in a real browser and reads the **computed** colours and fonts of real elements: buttons, headings, body text, links, navigation. |
+| **Browser** | Opens the homepage in a real browser (one short session per guide, always ended) and reads the **computed** colours and fonts of real elements: buttons, headings, body text, links, navigation. Confirms the logo on the page, and reads what Fetch can't: the homepage and up to 3 pages of sites built with JavaScript. About a tenth of a cent of wallet credit per guide. |
 
 ```
 name or URL → Search (resolve) → Fetch (homepage) → Search + links (choose pages) → Fetch (pages)
@@ -121,7 +121,7 @@ Each visitor (IP address) can start 20 guides an hour and make 300 API requests 
 
 ### What a guide has today
 
-Steps 1–4 read the live site with TinyFish: finding the site (for a name), reading the homepage, choosing pages and reading them. Steps 5–7 (colours and fonts, tone of voice, checking quotes) arrive in Phases 6 and 7; until then they show as skipped, and each guide's warnings say what it doesn't have yet. Nothing is made up to fill a gap. These addresses show every state of the guide page:
+Steps 1–5 read the live site with TinyFish: finding the site (for a name), reading the homepage, choosing pages and reading them, then measuring the homepage's colours, fonts and logo in a real browser. Steps 6–7 (tone of voice, checking quotes and contrast) arrive in Phase 7; until then they show as skipped, and each guide's warnings say what it doesn't have yet. Nothing is made up to fill a gap. Each guide opens one TinyFish Browser session, which costs about $0.001 of wallet credit; set `USE_BROWSER=false` in `.env` to leave it out while developing. These addresses show every state of the guide page:
 
 | Address | What it shows |
 |---|---|

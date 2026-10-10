@@ -6,7 +6,7 @@ Swatchfin turns a company name or a URL into a brand guide by reading the live w
 |---|---|---|---|
 | **Search** | Find the official site from a name; find the brand's own pages that its homepage doesn't link to | 1–3 | Live (Phase 5) |
 | **Fetch** | Read the homepage (its structure and its text) and up to 9 more pages | up to 11 URLs | Live (Phase 5) |
-| **Browser** | Measure the computed colours and fonts of real elements on the rendered homepage | 1 session | Phase 6 |
+| **Browser** | Measure the colours and fonts the browser really draws, confirm the logo, and read what Fetch can't (pages built with JavaScript) | 1 session, about 20–35 s | Live (Phase 6) |
 
 Every guide counts its calls (`tinyfish_usage`) and lists every page it read, with the API that read it (`sources`).
 
@@ -48,9 +48,39 @@ A logo drawn with SVG code has no file address. Swatchfin rebuilds it from an al
 
 **Step 4: the pages, in one batch** ([`extract/pages.py`](../backend/app/extract/pages.py)): `format: "markdown"`, up to 9 URLs. A page that is blocked, empty, gone or redirects to another website is skipped, and the guide's warnings say which and why.
 
-## Browser (Phase 6)
+## Browser
 
-One short TinyFish Browser session per guide will open the homepage in a real browser, read the computed colours and fonts of real elements with Playwright over CDP, confirm the logo, and always be closed. Until then, guides say that colours and fonts aren't measured yet, and nothing is made up to fill the gap.
+`POST https://api.browser.tinyfish.ai` starts a real Chrome in the cloud and answers with a `cdp_url`; Swatchfin connects to it with Playwright (`connect_over_cdp`) and ends it with `DELETE https://api.browser.tinyfish.ai/{session_id}`. Code in [`backend/app/tinyfish/browser.py`](../backend/app/tinyfish/browser.py) and [`extract/visuals.py`](../backend/app/extract/visuals.py).
+
+**One short session per guide, always ended.** Browser is the one API that costs wallet credit (by the minute), so:
+
+- The session is asked for as soon as the website is known, with the homepage as its start page. TinyFish gets it ready while Fetch reads (steps 2–4), so the guide doesn't wait for it.
+- It is ended straight after step 5, in a `finally` block: whether the guide finished, failed, was cancelled or ran out of time. A session still starting when a guide stops is ended in the background the moment it exists.
+- As a safety net, every session is created with `timeout_seconds: 180`, so TinyFish ends it itself after 3 idle minutes if ending it ever fails.
+- If the browser can't be used (busy, no credit, the page won't load), the guide still finishes with what Fetch read, and its warnings say that colours and fonts are missing. Nothing is guessed to fill the gap.
+
+**Step 5: measuring the homepage.** One script, [`measure_page.js`](../backend/app/extract/measure_page.js), runs in the page at 1440 × 900 px once it has loaded and its web fonts are ready. Cookie banners and pop-ups covering the page are hidden in this private browser first; nothing is clicked or accepted. The script records:
+
+| What | How | Used for |
+|---|---|---|
+| Every element with text, a background or a border (up to 2,500) | `getComputedStyle`: the colour the browser really draws, with see-through colours blended onto what is behind them, and colours in any CSS format (`oklch()`, `color()`…) turned into `#RRGGBB` | Colour roles, fonts |
+| Buttons, including links drawn as buttons | A filled or outlined box of button size; a fill painted on `::before` or `::after` counts (Duolingo's green "Get started" is one) | The primary colour |
+| The first screen, point by point (every 24 px) | `elementFromPoint` and the background drawn there; photos, videos and gradients count as images | Each colour's share of the visible area |
+| The web fonts | `document.fonts` (those loaded) | Which font each piece of text is really set in |
+| The `<head>`, header, nav, footer and logo parts | The same parts Fetch reads, as the browser drew them, with a number on every image and SVG and its size, visibility and colour on screen | Confirming the logo; filling Fetch's gaps |
+| The visible text and links | `innerText`, `a[href]` | Filling Fetch's gaps |
+
+Then, in Python, each colour gets one role. The background is what the page itself is painted with. The text colour is the neutral that stands out most among those used for at least 5% of the text on the page background (text on photos or coloured sections doesn't count). The primary is the colourful colour the buttons use most; without one, a strong neutral button fill (black buttons); without that, the most used colourful colour. Then come the link colour, secondary and accent (clearly different colourful colours with real evidence), muted text, surface and border. Colours nobody could tell apart (delta E below 3) count as one. Every colour lists what it is used for ("button background, link text") and how sure Swatchfin is.
+
+**Checking the logo.** The logo Fetch found is looked up among the images and SVGs the browser numbered (same file address, or an SVG with the same shapes). One shown near the top of the page at a real size is confirmed (confidence up, size on screen in the step's detail line); a hidden copy, such as a phone-menu version, drops behind the visible one. A logo drawn in `currentColor` takes its colour from the page, so Swatchfin's copy is given the colour measured there instead of being black.
+
+**Filling Fetch's gaps.** On a site built with JavaScript, Fetch gets almost nothing. The browser's copy of the page is read by the same code as Fetch's ([`extract/homepage.py`](../backend/app/extract/homepage.py)), so its logo, icons, description and text fill what is missing. Pages Fetch couldn't read because they were empty without JavaScript, blocked or too slow (up to 3) are opened in the same session and their visible text read. They are listed under sources with the API **Browser**. Fetch still does the core reading; the browser only fills gaps.
+
+**What we learned from the docs and live tests.**
+
+- Sessions started in 3.5–5 seconds, faster than the docs' 10–30 s (Swatchfin still allows 60 s).
+- Browser is billed by the second at $0.002 a minute: the wallet balance (`GET https://agent.tinyfish.ai/v1/wallet`, which also lists the rates) fell by exactly the session times that `GET https://api.browser.tinyfish.ai/usage` reported.
+- Sites hide a lot in the rendered page: Stripe's hero headline stacks two copies of its text in different colours to animate between them (counted once), Patagonia's logo is on the page twice (one hidden in the phone menu), and Patagonia's rendered `og:site_name` is "Patagonia United States" (region labels are now left off names).
 
 ## When something goes wrong
 
@@ -61,28 +91,33 @@ One short TinyFish Browser session per guide will open the homepage in a real br
 | No TinyFish key, a rejected key, or the free allowance used up (`402`) | The guide stops with a message for people; nothing is sent without a key |
 | TinyFish busy (`429`) or a passing error (`5xx`, dropped connection) | Retried twice, after 1 s and 2 s (or what `Retry-After` asks, up to 5 s) |
 | A page blocked by an anti-bot check, too slow, or empty | Skipped with a warning; the guide carries on |
-| A homepage built only with JavaScript | The guide carries on with what Fetch could read and says what is missing (Phase 6's browser will read it) |
+| A homepage built only with JavaScript | The browser reads it instead: logo, icons, description and text, and up to 3 pages Fetch couldn't read |
+| The browser is busy, out of credit, or can't open the page | Step 5 is skipped with a warning; the guide keeps everything Fetch read |
+| The guide is cancelled or runs out of time | The browser session is ended anyway (and ends itself after 3 idle minutes if that ever fails) |
 | A discovery search that stays busy | The homepage's own links are used, with a warning |
 
 The API key is sent only from the server, in the `X-API-Key` header. It is kept as a secret string, so it never appears in logs or error messages. Swatchfin never fetches a brand's website itself: every read goes through TinyFish, which also refuses private network addresses.
 
-## Live results (10 October 2026)
+## Live results (10 October 2026, Phase 6)
 
 Three very different sites, run through the real app:
 
-| | Patagonia (typed as a name) | stripe.com (typed as a URL) | Duolingo (typed as a name) |
+| | stripe.com (typed as a URL) | patagonia.com (typed as a URL) | Duolingo (typed as a name) |
 |---|---|---|---|
-| Kind of site | Retail, custom HTML elements, logo in an SVG sprite | Software, Next.js, inline SVG logo | App built with JavaScript |
-| Site found | patagonia.com | (given) | duolingo.com |
-| Logo | Inline SVG, rebuilt from its `<symbol>` | Inline SVG, Stripe navy `#031323` | None: the homepage has no HTML without JavaScript |
-| Pages chosen | 8: company history, core values, activism, careers, stories, product guides… (3 found by search) | 6: About, Products, Press, Careers, Blog, Pricing | 3, all found by search |
-| Pages read | 7 (Press redirected to patagoniaworks.com) | 6 | 2 (Careers is JavaScript-only too) |
-| TinyFish calls | 2 searches, 10 Fetch URLs | 1 search, 8 Fetch URLs | 3 searches, 5 Fetch URLs |
+| Kind of site | Software, Next.js, inline SVG logo | Retail, custom HTML elements, logo in an SVG sprite | App built with JavaScript |
+| Logo | Inline SVG, confirmed at 60 × 25 px | Inline SVG, confirmed at 120 × 22 px (a hidden copy in the phone menu set aside) | Found by the browser (Fetch saw none): image, confirmed at 179 × 42 px |
+| Colours | Primary `#533AFD` (buttons, links), secondary navy `#0D1738`, text `#061B31`, muted `#50617A`, surface `#E5EDF5` and 3 more | Primary `#1B2B79` (a section; no coloured buttons, so medium confidence), text `#000000`, surface `#F5F5F5`; 40% of the first screen is photos | Primary `#58CC02` ("Get started"), link `#1CB0F6`, secondary `#100F3E`, text `#4B4B4B`, muted `#777777` and 3 more |
+| Fonts | `sohne-var` throughout, weights 300 and 400 | Ridgeway Sans, weights 300–700 | `feather` for headings, `duolingo-sans` for text |
+| Pages chosen | 6: About, Products, **Newsroom** (not Stripe Press, a book publisher), Careers, Blog, Pricing | 8: company history, core values, activism, careers, stories, product guides… | 3, all found by search |
+| Pages read | 6 by Fetch | 7 by Fetch (Press redirected to patagoniaworks.com) | 2 by Fetch, plus about.duolingo.com by Browser |
+| TinyFish calls | 1 search, 8 Fetch URLs, 1 browser session (17 s) | 1 search, 10 Fetch URLs, 1 browser session (25–29 s) | 3 searches, 5 Fetch URLs, 1 browser session (33 s) |
+| Whole guide | 18 s | 25–31 s | 35 s |
 
 ## Limits and costs
 
 - Search: free up to 12,000 calls a day, 30 a minute per key.
 - Fetch: free up to 1,000 URLs a day (counted per page read), 150 URLs a minute per key. At up to 11 URLs per guide, that is roughly 90 guides a day.
 - Fetch gives up on a page after 110 s at most; Swatchfin allows 40 s for the homepage and 30 s for other pages, so a guide stays inside its 150-second limit with room for the browser and voice steps.
+- Browser: $0.002 a minute from the wallet, billed by the second; at most 5 sessions at once per account (Swatchfin makes at most 2 guides at once). The three guides above used 17–33 seconds of browser time each: **$0.0006–$0.0011 a guide**, about a tenth of a cent, or roughly 1,000 guides per dollar. `USE_BROWSER=false` in `.env` leaves the browser out (for example while developing).
 
 Docs: [Search](https://docs.tinyfish.ai/search-api) · [Fetch](https://docs.tinyfish.ai/fetch-api) · [Browser](https://docs.tinyfish.ai/browser-api)

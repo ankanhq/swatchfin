@@ -38,7 +38,7 @@ This is a real portfolio-grade product, not a demo hack. Code quality, design qu
 |---|---|
 | **Search** | Resolve a company name → official domain; find the brand's own pages its homepage doesn't link to (brand guidelines, press kits; About/careers/press on JavaScript-only sites) |
 | **Fetch** | Read the homepage twice (its head/header/nav/footer/logo word for word via `include_selectors`, and its text as markdown with all links) and up to 9 more pages as markdown (About, Mission, Careers, Press, Blog, Product) |
-| **Browser** | Open the live page in a real browser and read **computed** colours and fonts of real elements (buttons, headings, body, links, nav) |
+| **Browser** | Open the live page in a real browser and read **computed** colours and fonts of real elements (buttons, headings, body, links, nav); confirm the logo; read what Fetch can't (JavaScript-only homepages, and up to 3 pages Fetch couldn't read) |
 
 **Fair-play rules (hard rules — never break them)**
 - No copied or recycled code from other brand-extractor projects. Write original code.
@@ -81,7 +81,7 @@ Always re-check https://docs.tinyfish.ai before writing integration code.
   - also: `links` / `image_links` (all `<a href>` / `<img src>` as absolute URLs), `per_url_timeout_ms` (1–110000)
   - **`format: "html"` is the page's main content only** (cleaned): no `<head>`, meta, icon links, header, nav, footer, `<img>` or `<svg>`. **`include_selectors` returns the named parts word for word** (scripts and styles stripped), so ask for `head`, `header`, `nav`, `footer` and logo selectors by name (verified live, Phase 5). A JavaScript-only page (e.g. Duolingo) gives empty text or `empty_content`.
   - Free up to 1,000 URLs/day (counted per page read); 150 URLs/min per key. **Does not return images/binary**; get logo URLs by parsing HTML.
-- **Browser:** `POST https://api.browser.tinyfish.ai` → `session_id`, `cdp_url`, `base_url`. Session creation takes 10–30 s (use ≥60 s timeout). Connect with Playwright `chromium.connect_over_cdp(cdp_url)`. End with `DELETE https://api.browser.tinyfish.ai/{session_id}`. **Browser costs wallet credit**: use one short session per brand and always close it (try/finally).
+- **Browser:** `POST https://api.browser.tinyfish.ai` (body `url`, `timeout_seconds` = idle limit 5–86400) → `201 { session_id, cdp_url, base_url }`. Docs say creation takes 10–30 s (use ≥60 s timeout); live it took 3.5–5 s. Connect with Playwright `chromium.connect_over_cdp(cdp_url)`. End with `DELETE https://api.browser.tinyfish.ai/{session_id}` → `204` (ending an ended session is fine; `409 RETRY_REQUIRED` → retry). **Browser costs wallet credit**: $0.002/minute, billed by the second (verified Phase 6: wallet delta = session times), max 5 sessions at once. Use one short session per brand and always close it (try/finally). Wallet and rates: `GET https://agent.tinyfish.ai/v1/wallet`; session times: `GET https://api.browser.tinyfish.ai/usage`.
 - Docs: https://docs.tinyfish.ai/fetch-api · https://docs.tinyfish.ai/search-api · https://docs.tinyfish.ai/browser-api
 
 ---
@@ -99,9 +99,10 @@ input (name or URL)
                 product, careers, press, blog, pricing). Search "<brand> brand guidelines logo press kit" always;
                 "<brand> about us, mission, careers, press" when the links lead to fewer than 3 of those.
  4. CONTENT   – Fetch those pages (format=markdown) in one batch.
- 5. VISUALS   – Browser session → homepage → getComputedStyle on body, h1–h3, p, a, nav, primary buttons/CTAs,
-                header, footer. Weight colours by element importance and visible area. Read document.fonts for
-                loaded web fonts. Confirm the logo element and its rendered size. Close session.
+ 5. VISUALS   – Browser session (started at step 2, while Fetch reads) → homepage → getComputedStyle on body,
+                h1–h3, p, a, nav, primary buttons/CTAs, header, footer. Weight colours by element importance and
+                visible area. Read document.fonts for loaded web fonts. Confirm the logo element and its rendered
+                size. Fill Fetch's gaps (JavaScript-only homepage; up to 3 pages Fetch couldn't read). Close session.
  6. VOICE     – LLM reads the fetched markdown → tone traits, 4 tone spectrums, do/don't, tagline, mission,
                 value props, audience. Each item MUST include an exact quote + source URL.
  7. VERIFY    – Normalise whitespace and check every quote exists in the fetched text. Drop unverified items
@@ -192,7 +193,7 @@ Generation takes 30–90 s, so it is an async job with polling.
 - **Jobs** (`backend/app/jobs.py`): at most 2 run at once, up to 20 wait as `queued` (then `503` busy), each has a 150 s limit (the page waits 3 minutes). Pipeline steps report progress with `async with job.step("reading_pages") as step:`, `job.skip(...)` and `job.count("fetch_urls", n)`; raise `StepFailed(title, message, detail)` to stop a job with a message for people. All limits are settings in `config.py`.
 - Storage: in-memory + JSON files in `backend/data/guides/`, copied logos in `backend/data/logos/` (both git-ignored). Finished jobs (complete or failed) are saved and kept for 30 days; running jobs are lost on restart.
 - Static files: serve `/frontend` with `Cache-Control: no-cache` (API answers: `no-store`), gzip for text files, and `404.html` with a real 404 status for unknown paths. `backend/app/static.py` does all three, and `tools/serve.py` starts that same app for development; without them, cached modules break the guide page and mobile Lighthouse scores drop.
-- **Pipeline status (Phase 5):** `backend/app/pipeline.py` (`brand_pipeline`) runs steps 1–4 live with TinyFish. Steps 5–7 are marked `skipped` (`NOT_YET` details) and the guide carries `NOT_YET_WARNINGS`; Phases 6–7 replace them. Failures that stop a guide raise `StepFailed`; passing ones (a page blocked, a search busy) become warnings. Job IDs `mock` and `mock-partial` are still finished sample jobs (MOCK, linked from the About and 404 pages); Phase 9 decides their future. Tests use `backend/tests/fake_tinyfish.py`; `pytest -m live` calls the real APIs.
+- **Pipeline status (Phase 6):** `backend/app/pipeline.py` (`brand_pipeline`) runs steps 1–5 live with TinyFish. Step 5 (`extract/visuals.py` + `extract/measure_page.js`, session in `tinyfish/browser.py`) never stops a guide: on failure it is `skipped` with a warning. Steps 6–7 are marked `skipped` (`NOT_YET` details) and the guide carries `NOT_YET_WARNINGS`; Phase 7 replaces them (contrast maths is in `extract/contrast.py`). `USE_BROWSER=false` leaves step 5 out. Failures that stop a guide raise `StepFailed`; passing ones (a page blocked, a search busy) become warnings. Job IDs `mock` and `mock-partial` are still finished sample jobs (MOCK, linked from the About and 404 pages); Phase 9 decides their future. Tests use `backend/tests/fake_tinyfish.py`; `pytest -m live` calls the real APIs.
 
 ---
 
@@ -254,7 +255,7 @@ swatchfin/
 │   ├── app/
 │   │   ├── main.py  config.py  schemas.py  jobs.py  pipeline.py  errors.py  static.py  ratelimit.py
 │   │   ├── tinyfish/   client.py  search.py  fetch.py  browser.py
-│   │   ├── extract/    resolve.py  homepage.py  svg.py  discover.py  pages.py  visuals.py  voice.py  verify.py  contrast.py
+│   │   ├── extract/    resolve.py  homepage.py  svg.py  discover.py  pages.py  visuals.py  measure_page.js  voice.py  verify.py  contrast.py
 │   │   ├── export/     __init__.py (file names)  css.py  tailwind.py  tokens.py  voice_prompt.py
 │   │   └── llm.py
 │   ├── tests/
@@ -300,7 +301,7 @@ swatchfin/
 - [x] **Phase 3:** Progress view, error/empty states, about page, 404, print stylesheet, accessibility + Lighthouse pass
 - [x] **Phase 4:** FastAPI skeleton, schemas, job system, serves frontend; frontend switches from mock to real API
 - [x] **Phase 5:** TinyFish Search + Fetch: resolve, homepage parsing, logo, page discovery, content
-- [ ] **Phase 6:** TinyFish Browser: computed colours, fonts, logo confirmation
+- [x] **Phase 6:** TinyFish Browser: computed colours, fonts, logo confirmation
 - [ ] **Phase 7:** Voice and messaging with LLM + quote verification + confidence + contrast
 - [ ] **Phase 8:** Exports (JSON, CSS, Tailwind, DTCG tokens, voice prompt)
 - [ ] **Phase 9:** Test on 10+ varied real sites, fix failures, remove mock usage from production paths
