@@ -2,8 +2,8 @@
 
 - WCAG 2.2 contrast: how readable one colour is on another, from 1:1 (the
   same colour) to 21:1 (black on white). Step 5 uses it to tell a page's
-  main text colour from its paler, muted one; step 7 (Phase 7) uses it for
-  the guide's contrast checks.
+  main text colour from its paler, muted one; step 7 grades the guide's
+  colour pairs with it (wcag_level).
 - CIELAB: a way of writing colours that matches how people see them, so
   that "how different do these two colours look?" is a simple distance
   (delta E), and "how colourful is it?" is another (chroma). Grey has a
@@ -14,6 +14,8 @@ Colours are "#RRGGBB" codes throughout.
 
 import math
 from functools import lru_cache
+
+from app.schemas import WcagLevel
 
 
 def rgb(hex_code: str) -> tuple[int, int, int]:
@@ -39,6 +41,21 @@ def contrast_ratio(a: str, b: str) -> float:
     """WCAG contrast between two colours, from 1 to 21."""
     lighter, darker = sorted((luminance(a), luminance(b)), reverse=True)
     return (lighter + 0.05) / (darker + 0.05)
+
+
+def wcag_level(ratio: float) -> WcagLevel:
+    """The WCAG 2.2 grade for text at this contrast ratio.
+
+    AAA from 7:1 and AA from 4.5:1 (any text), AA-large from 3:1 (only
+    large text: 24 px, or 18.66 px bold), and "fail" below that.
+    """
+    if ratio >= 7:
+        return "AAA"
+    if ratio >= 4.5:
+        return "AA"
+    if ratio >= 3:
+        return "AA-large"
+    return "fail"
 
 
 @lru_cache(maxsize=4096)
