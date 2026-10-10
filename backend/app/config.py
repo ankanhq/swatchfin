@@ -11,7 +11,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # backend/app/config.py -> the repo root, two folders up from backend/app.
@@ -39,6 +39,23 @@ class Settings(BaseSettings):
     data_dir: Path = REPO_ROOT / "backend" / "data"
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+
+    # Jobs (see jobs.py).
+    # How many guides are made at the same time. The rest wait their turn.
+    max_running_jobs: int = Field(2, ge=1, le=20)
+    # How many guides may wait for their turn before new ones are refused as "busy".
+    max_waiting_jobs: int = Field(20, ge=0, le=500)
+    # A guide that takes longer than this stops with a message. The guide
+    # page waits 3 minutes, so this must stay below 180.
+    job_timeout_seconds: float = Field(150, gt=0, lt=180)
+    # MOCK: how long each placeholder step takes until the real steps land (Phases 5–7).
+    placeholder_step_seconds: float = Field(1.0, ge=0, le=10)
+    # Finished guides older than this are deleted when the server starts.
+    guide_retention_days: int = Field(30, ge=1)
+
+    # Rate limits, per visitor (IP address). See ratelimit.py.
+    new_guides_per_hour: int = Field(20, ge=1)
+    api_requests_per_minute: int = Field(300, ge=1)
 
 
 @lru_cache
