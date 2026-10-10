@@ -8,7 +8,7 @@ pythonpath = ["."]
 # Show a one-line reason for every skipped or failed test, and leave out the
 # tests that call the real TinyFish APIs (run those with `pytest -m live`).
 addopts = "-ra -m 'not live'"
-markers = ["live: calls the real TinyFish APIs and spends a little of the free allowance"]
+markers = ["live: calls the real TinyFish and Anthropic APIs and spends a little of the free allowance and credit"]
 
 [tool.ruff]
 line-length = 120
