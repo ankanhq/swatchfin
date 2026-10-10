@@ -63,7 +63,7 @@ This is a real portfolio-grade product, not a demo hack. Code quality, design qu
 - **httpx2** for the TinyFish REST APIs (no SDK: full control of timeouts and retries, and easy to fake in tests)
 - **Playwright** (Python) connecting to TinyFish Browser via `connect_over_cdp`
 - **selectolax** for HTML parsing
-- LLM for voice/messaging analysis: provider-agnostic wrapper, default **Anthropic Claude API**; key from `.env`
+- LLM for voice/messaging analysis: provider-agnostic wrapper (`backend/app/llm.py`), default **Anthropic Claude API** through the official `anthropic` SDK; key and model (`ANTHROPIC_MODEL`, default `claude-sonnet-5-5`) from `.env`
 - **pytest** for tests, **ruff** for lint/format
 - FastAPI also serves `/frontend` as static files, so the whole app deploys as **one service** (e.g. Render).
 
@@ -193,7 +193,7 @@ Generation takes 30–90 s, so it is an async job with polling.
 - **Jobs** (`backend/app/jobs.py`): at most 2 run at once, up to 20 wait as `queued` (then `503` busy), each has a 150 s limit (the page waits 3 minutes). Pipeline steps report progress with `async with job.step("reading_pages") as step:`, `job.skip(...)` and `job.count("fetch_urls", n)`; raise `StepFailed(title, message, detail)` to stop a job with a message for people. All limits are settings in `config.py`.
 - Storage: in-memory + JSON files in `backend/data/guides/`, copied logos in `backend/data/logos/` (both git-ignored). Finished jobs (complete or failed) are saved and kept for 30 days; running jobs are lost on restart.
 - Static files: serve `/frontend` with `Cache-Control: no-cache` (API answers: `no-store`), gzip for text files, and `404.html` with a real 404 status for unknown paths. `backend/app/static.py` does all three, and `tools/serve.py` starts that same app for development; without them, cached modules break the guide page and mobile Lighthouse scores drop.
-- **Pipeline status (Phase 6):** `backend/app/pipeline.py` (`brand_pipeline`) runs steps 1–5 live with TinyFish. Step 5 (`extract/visuals.py` + `extract/measure_page.js`, session in `tinyfish/browser.py`) never stops a guide: on failure it is `skipped` with a warning. Steps 6–7 are marked `skipped` (`NOT_YET` details) and the guide carries `NOT_YET_WARNINGS`; Phase 7 replaces them (contrast maths is in `extract/contrast.py`). `USE_BROWSER=false` leaves step 5 out. Failures that stop a guide raise `StepFailed`; passing ones (a page blocked, a search busy) become warnings. Job IDs `mock` and `mock-partial` are still finished sample jobs (MOCK, linked from the About and 404 pages); Phase 9 decides their future. Tests use `backend/tests/fake_tinyfish.py`; `pytest -m live` calls the real APIs.
+- **Pipeline status (Phase 7):** `backend/app/pipeline.py` (`brand_pipeline`) runs all seven steps live. Step 5 (`extract/visuals.py` + `extract/measure_page.js`, session in `tinyfish/browser.py`) never stops a guide: on failure it is `skipped` with a warning. Step 6 (`extract/voice.py`, model in `llm.py`) sends at most 36,000 characters of cleaned page text to Claude at low effort, with structured outputs and no refusal fallback; no key, no time left, an API error, a refusal or a crash makes it `skipped` with a warning. Each guide's Claude tokens and cost are logged on the server only, never put in the guide (about $0.02–0.03 a guide with Sonnet 5.5). Step 7 (`extract/verify.py`) checks every quote word for word (spacing, quote marks and a final full stop may differ), drops what fails with one warning, and grades contrast pairs (`extract/contrast.py`). `USE_BROWSER=false` leaves step 5 out. Failures that stop a guide raise `StepFailed`; passing ones (a page blocked, a search busy) become warnings. Job IDs `mock` and `mock-partial` are still finished sample jobs (MOCK, linked from the About and 404 pages); Phase 9 decides their future. Tests use `backend/tests/fake_tinyfish.py` and `backend/tests/fake_llm.py`; `pytest -m live` calls the real APIs.
 
 ---
 
@@ -302,7 +302,7 @@ swatchfin/
 - [x] **Phase 4:** FastAPI skeleton, schemas, job system, serves frontend; frontend switches from mock to real API
 - [x] **Phase 5:** TinyFish Search + Fetch: resolve, homepage parsing, logo, page discovery, content
 - [x] **Phase 6:** TinyFish Browser: computed colours, fonts, logo confirmation
-- [ ] **Phase 7:** Voice and messaging with LLM + quote verification + confidence + contrast
+- [x] **Phase 7:** Voice and messaging with LLM + quote verification + confidence + contrast
 - [ ] **Phase 8:** Exports (JSON, CSS, Tailwind, DTCG tokens, voice prompt)
 - [ ] **Phase 9:** Test on 10+ varied real sites, fix failures, remove mock usage from production paths
 - [ ] **Phase 10:** Deploy, final README (with "How TinyFish is used"), screenshots, demo video on 3+ brands
