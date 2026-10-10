@@ -5,8 +5,10 @@
 testpaths = ["tests"]
 # Lets the tests "import app" from backend/app.
 pythonpath = ["."]
-# Show a one-line reason for every skipped or failed test.
-addopts = "-ra"
+# Show a one-line reason for every skipped or failed test, and leave out the
+# tests that call the real TinyFish APIs (run those with `pytest -m live`).
+addopts = "-ra -m 'not live'"
+markers = ["live: calls the real TinyFish APIs and spends a little of the free allowance"]
 
 [tool.ruff]
 line-length = 120
