@@ -8,6 +8,9 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
+from app.config import Settings
+from app.main import create_app
+from tests.fake_llm import FakeLLM, larkspur_draft
 from tests.fake_tinyfish import FakeTinyFish
 
 WaitForJob = Callable[..., dict[str, Any]]
@@ -32,12 +35,33 @@ def test_start_then_follow_a_guide_to_the_end(client: TestClient, wait_for_job: 
     assert job["status"] == "complete"
     assert job["query"] == "Larkspur Tea"
     assert job["error"] is None
-    # Steps 1–5 read the (fake) site; 6–7 arrive in Phase 7.
-    assert [step["status"] for step in job["steps"]] == ["done"] * 5 + ["skipped"] * 2
+    # Steps 1–5 read the (fake) site; 6 needs an Anthropic key (the tests have none); 7 grades the contrast.
+    assert [step["status"] for step in job["steps"]] == ["done"] * 5 + ["skipped", "done"]
     assert job["guide"]["id"] == created["id"]
     assert job["guide"]["brand"]["domain"] == "larkspurtea.example"
     assert job["guide"]["tinyfish_usage"] == job["tinyfish_usage"]
     assert job["started_at"].endswith("Z")
+
+
+def test_a_guide_with_a_tone_of_voice(settings: Settings, wait_for_job: WaitForJob) -> None:
+    fake = FakeTinyFish()
+    app = create_app(settings, http=fake.http, browser=fake.driver, llm=FakeLLM(larkspur_draft()))
+    with TestClient(app) as client:
+        job = wait_for_job(client, start(client, "Larkspur Tea"))
+    assert [step["status"] for step in job["steps"]] == ["done"] * 7
+    guide = job["guide"]
+    assert [trait["name"] for trait in guide["voice"]["traits"]] == ["Plain-spoken", "Rooted"]
+    assert guide["voice"]["traits"][0]["evidence"] == [
+        {
+            "quote": "Tea blended in small batches, shipped the week it is packed.",
+            "source_url": "https://www.larkspurtea.example/",
+            "verified": True,
+        }
+    ]
+    assert guide["messaging"]["tagline"]["verified"] is True
+    assert guide["contrast"][0] == {"fg": "#1A1A1A", "bg": "#FFFFFF", "ratio": 17.4, "wcag": "AAA"}
+    # Nothing about the model's cost goes into the guide.
+    assert "cost" not in json.dumps(guide)
 
 
 def test_job_status_has_the_documented_shape(make_client: Callable[..., TestClient]) -> None:

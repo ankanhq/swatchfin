@@ -1,30 +1,36 @@
 """The seven steps that make a guide (CLAUDE.md, section 5).
 
-Phase 6 runs the first five for real, with TinyFish:
+Steps 1–5 read the live website with TinyFish; steps 6–7 describe and check it:
 1. resolving          Search finds the official website (names only).
 2. reading_homepage   Fetch reads the homepage: name, logo, icons, links, text.
 3. discovering_pages  The homepage links and Search choose up to 9 more pages.
 4. reading_pages      Fetch reads them.
 5. reading_styles     Browser draws the homepage and measures its colours,
                       fonts and logo, and reads what Fetch couldn't.
-Steps 6–7 (tone of voice, then checking quotes and contrast) arrive in
-Phase 7. Until then they are marked "skipped", and the guide's warnings say
-what it doesn't have yet. Nothing is made up to fill the gaps.
+6. analysing_voice    Claude reads the text from steps 2, 4 and 5 and drafts
+                      the tone of voice and key messages, quoting the site.
+7. verifying          Every quote is looked for, word for word, in that text;
+                      what isn't found is dropped. The palette's text and
+                      background pairs get their WCAG contrast grades.
+Nothing is made up to fill a gap: a missing part stays empty, and the
+guide's warnings say why.
 
 The guide's one Browser session is asked for as soon as the website is
 known, so TinyFish starts it while Fetch reads (steps 2–4). It is ended
 straight after step 5, in a `finally` block, so it is ended however the
 guide goes: finished, failed, cancelled or out of time.
 
-The text read in steps 2, 4 and 5 stays in memory for the later steps; the
+The text read in steps 2, 4 and 5 stays in memory for steps 6 and 7; the
 guide itself lists every page under its sources, with the API that read it.
+Step 6 logs what Claude used and cost, once per guide (see llm.py); the
+guide doesn't mention cost.
 
 In plain English, each step reports its progress on the job ("running",
 then "done" with a short line for people). When something stops the
 guide (no website at the address, TinyFish unavailable), the step raises
 StepFailed with a message that says what happened and what to try. When
 something only leaves a gap (a page blocked, a search busy, the browser
-unavailable), the guide carries on and records a warning.
+or Claude unavailable), the guide carries on and records a warning.
 
 Also here: the sample jobs "mock" and "mock-partial" (MOCK), finished jobs
 that show the two sample guides for Northwind Roasters, a fictional brand.
@@ -45,19 +51,22 @@ from app.extract.homepage import Homepage, HomepageUnreadable, LogoCandidate, re
 from app.extract.pages import PagesRead, read_pages
 from app.extract.resolve import OfficialSite, ParsedQuery, SiteNotFound, find_official_site, main_label, name_match
 from app.extract.svg import clean_svg, uses_current_color
+from app.extract.verify import CheckedVoice, check_voice, palette_contrast
 from app.extract.visuals import Visuals, confirm_logos, fill_gaps, read_visuals
+from app.extract.voice import DraftVoice, Excerpt, draft_voice, pick_text, source_pages
 from app.jobs import JobRun, LogoStore, Pipeline, StepFailed
+from app.llm import LLM, LLMError
 from app.schemas import (
     STEP_NAMES,
     Brand,
     BrandGuide,
+    ContrastPair,
     Job,
     Logo,
     LogoAsset,
     Messaging,
     Source,
     Step,
-    StepName,
     Voice,
 )
 from app.tinyfish.browser import BrowserDriver, BrowserUnavailable, BrowserVisit
@@ -67,16 +76,6 @@ log = logging.getLogger("swatchfin.pipeline")
 
 SKIPPED_SEARCH_DETAIL = "You gave a web address, so no search was needed."
 
-# Steps 6–7 until Phase 7: the line under each step, and the guide's warning.
-NOT_YET: dict[StepName, str] = {
-    "analysing_voice": "Not connected yet: tone of voice arrives in the next update.",
-    "verifying": "Nothing to check yet: quotes and contrast are checked once tone of voice arrives.",
-}
-NOT_YET_WARNINGS = [
-    "Contrast checks, tone of voice and key messaging aren’t in this guide yet: Swatchfin starts analysing them in "
-    "its next update.",
-]
-
 # Step 5 when the browser is turned off (USE_BROWSER=false) or can't be used.
 BROWSER_OFF_DETAIL = "Turned off on this Swatchfin server."
 BROWSER_OFF_WARNING = "Colours and fonts weren’t measured: TinyFish Browser is turned off on this Swatchfin server."
@@ -84,6 +83,13 @@ BROWSER_FAILED_DETAIL = "Couldn’t open the homepage in a browser"
 # Step 5 gets at most this long, and is left out with less than the minimum left for it.
 STYLES_TIME_LIMIT = 75.0
 STYLES_MIN_TIME = 15.0
+# Step 6 when there is no Anthropic key, or Claude gives no usable answer.
+VOICE_OFF_DETAIL = "No Anthropic API key on this Swatchfin server."
+VOICE_OFF_WARNING = "Tone of voice and key messaging weren’t analysed: this Swatchfin server has no Anthropic API key."
+VOICE_FAILED_DETAIL = "Couldn’t analyse the text"
+# Step 6 gets at most this long, and is left out with less than the minimum left for it.
+VOICE_TIME_LIMIT = 60.0
+VOICE_MIN_TIME = 25.0
 # Kept in hand at the end of a job, for the last steps and saving the guide.
 TIME_MARGIN = 10.0
 
@@ -106,13 +112,15 @@ def brand_pipeline(
     logos: LogoStore,
     *,
     browser: BrowserDriver | None = None,
+    llm: LLM | None = None,
     time_limit: float = 150.0,
 ) -> Pipeline:
     """The pipeline that reads a real website with TinyFish (see the top of this file).
 
     `logos` keeps the cleaned copies of logos drawn with SVG code in the page.
     `browser` drives TinyFish Browser; None leaves step 5 out (USE_BROWSER=false).
-    `time_limit` is the job's time limit, so step 5 can finish within it.
+    `llm` is the language model for step 6; None (no Anthropic key) leaves it out.
+    `time_limit` is the job's time limit, so steps 5 and 6 can finish within it.
     """
 
     async def run(job: JobRun, query: ParsedQuery) -> BrandGuide:
@@ -184,14 +192,33 @@ def brand_pipeline(
             if visit is not None:
                 await visit.close()
 
-        # 6–7: not connected yet (Phase 7).
-        for step_name, detail in NOT_YET.items():
-            job.skip(step_name, detail)
+        # 6. analysing_voice
+        brand_name = _brand_name(homepage, query)
+        read = source_pages(homepage, pages.pages)
+        draft: DraftVoice | None = None
+        async with job.step("analysing_voice") as step:
+            excerpts = pick_text(read)
+            time_left = time_limit - (time.monotonic() - started) - TIME_MARGIN
+            draft = await _analyse_voice(job, llm, brand_name, homepage, excerpts, warnings, time_left)
+            if draft is not None and llm is not None:
+                step.detail = _voice_detail(excerpts, llm.model)
+
+        # 7. verifying
+        checked: CheckedVoice | None = None
+        contrast: list[ContrastPair] = []
+        async with job.step("verifying") as step:
+            contrast = palette_contrast(visuals.colors if visuals else [])
+            if draft is not None:
+                checked = check_voice(draft, read)
+                warnings.extend(checked.warnings)
+            if checked is None and not contrast:
+                job.skip("verifying", "No quotes or colours to check")
+            else:
+                step.detail = _verifying_detail(checked, contrast)
 
         # Warnings about gaps, now that the browser has filled what it could.
         warnings[:0] = _homepage_warnings(homepage, filled)
         warnings.extend(_skipped_warnings(pages, discovery))
-        warnings.extend(NOT_YET_WARNINGS)
 
         logo = await _logo(homepage, job.job.id, logos, warnings)
 
@@ -200,7 +227,7 @@ def brand_pipeline(
             query=query.text,
             generated_at=now(),
             brand=Brand(
-                name=_brand_name(homepage, query),
+                name=brand_name,
                 domain=_short_host(homepage.host),
                 url=homepage.url,
                 description=homepage.description,
@@ -208,9 +235,10 @@ def brand_pipeline(
             ),
             logo=logo,
             colors=visuals.colors if visuals else [],
+            contrast=contrast,
             typography=visuals.typography if visuals else [],
-            voice=Voice(),
-            messaging=Messaging(),
+            voice=checked.voice if checked else Voice(),
+            messaging=checked.messaging if checked else Messaging(),
             sources=sources,
             tinyfish_usage=job.job.tinyfish_usage.model_copy(),
             warnings=warnings,
@@ -326,6 +354,52 @@ async def _read_styles(
     return None
 
 
+async def _analyse_voice(
+    job: JobRun,
+    llm: LLM | None,
+    brand: str,
+    homepage: Homepage,
+    excerpts: list[Excerpt],
+    warnings: list[str],
+    time_left: float,
+) -> DraftVoice | None:
+    """Step 6's work (extract/voice.py). None when there is no draft: the step is then marked skipped,
+    and a warning says why. The guide carries on either way."""
+    host = _short_host(homepage.host)
+    if llm is None:
+        job.skip("analysing_voice", VOICE_OFF_DETAIL)
+        warnings.append(VOICE_OFF_WARNING)
+        return None
+    if not excerpts:
+        job.skip("analysing_voice", "No text to analyse")
+        warnings.append(f"Tone of voice and key messaging weren’t analysed: Swatchfin found no text to read on {host}.")
+        return None
+    if time_left < VOICE_MIN_TIME:
+        job.skip("analysing_voice", "Not enough time left to analyse the text")
+        warnings.append(f"The website was slow to read, so there was no time left to analyse the tone of voice of "
+                        f"{host}. Try again for a complete guide.")  # fmt: skip
+        return None
+    try:
+        answer = await draft_voice(llm, brand, host, excerpts, time_limit=min(time_left, VOICE_TIME_LIMIT))
+    except LLMError as error:
+        if error.usage is not None:
+            log.info("voice for %s (job %s), answer not used: %s", host, job.job.id, error.usage.describe())
+        job.skip("analysing_voice", VOICE_FAILED_DETAIL)
+        again = " Try again in a moment." if error.retry else ""
+        warnings.append(f"Tone of voice and key messaging weren’t analysed: {error.reason}.{again}")
+        return None
+    except Exception:
+        # A bug here mustn't cost the whole guide: everything TinyFish read is still good.
+        log.exception("voice step crashed for %s", host)
+        job.skip("analysing_voice", VOICE_FAILED_DETAIL)
+        warnings.append(
+            "Tone of voice and key messaging weren’t analysed: something went wrong. Try again in a moment."
+        )
+        return None
+    log.info("voice for %s (job %s): %s", host, job.job.id, answer.usage.describe())
+    return answer.data
+
+
 def _stopped_by(error: TinyFishError) -> StepFailed:
     """A TinyFish failure that stops the guide, with its message for people."""
     log.warning("tinyfish failure: %s", error)
@@ -400,6 +474,25 @@ def _styles_warnings(visuals: Visuals, homepage: Homepage) -> list[str]:
     if not visuals.typography:
         warnings.append(f"TinyFish Browser opened the homepage of {host} but found no text to measure fonts from.")
     return warnings
+
+
+def _voice_detail(excerpts: list[Excerpt], model: str) -> str:
+    """The line under step 6: "Analysed the text of 7 pages with claude-sonnet-5-5"."""
+    count = len(excerpts)
+    return f"Analysed the text of {count} page{'s' if count != 1 else ''} with {model}"
+
+
+def _verifying_detail(checked: CheckedVoice | None, contrast: list[ContrastPair]) -> str:
+    """The line under step 7: "Found 13 of 15 quotes word for word · graded 12 colour pairs"."""
+    parts: list[str] = []
+    if checked is not None:
+        found, total = checked.quotes_verified, checked.quotes_checked
+        parts.append(f"Found {found} of {total} quote{'s' if total != 1 else ''} word for word")
+    if contrast:
+        count = len(contrast)
+        parts.append(f"graded {count} colour pair{'s' if count != 1 else ''}")
+    detail = " · ".join(parts)
+    return detail[0].upper() + detail[1:]
 
 
 def _discovery_detail(discovery: Discovery) -> str:
