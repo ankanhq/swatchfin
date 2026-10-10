@@ -18,7 +18,9 @@ In plain English, each address is sorted into a kind (About, Careers...)
 by the words in its address and its link text or search title, then
 scored: more useful kinds first, then links from the main navigation,
 then short addresses over deep ones (the Careers page over one job
-advert). Addresses on other sites, logins, legal pages, files and copies
+advert). Some names can only mean one thing ("Newsroom"), while others are
+shared with other things ("Press" is also Stripe Press, Stripe's book
+publisher), so the unmistakable ones earn extra points. Addresses on other sites, logins, legal pages, files and copies
 of the site in other languages are left out.
 """
 
@@ -59,13 +61,31 @@ class Kind:
     # True when the words alone aren't enough and the address must say it too
     # ("Infant Product Recall" is not a product page).
     needs_path: bool = False
+    # Names that can only mean this kind, in the address or the words ("newsroom", but
+    # not a bare "press"). A page with one beats a page that only shares a word.
+    strong: re.Pattern[str] | None = None
 
 
 def _kind(
-    name: PageKind, label: str, value: float, limit: int, path: str, words: str, *, needs_path: bool = False
+    name: PageKind,
+    label: str,
+    value: float,
+    limit: int,
+    path: str,
+    words: str,
+    *,
+    needs_path: bool = False,
+    strong: str | None = None,
 ) -> Kind:
     return Kind(
-        name, label, value, limit, re.compile(path, re.IGNORECASE), re.compile(words, re.IGNORECASE), needs_path
+        name,
+        label,
+        value,
+        limit,
+        re.compile(path, re.IGNORECASE),
+        re.compile(words, re.IGNORECASE),
+        needs_path,
+        re.compile(strong, re.IGNORECASE) if strong else None,
     )
 
 
@@ -121,8 +141,10 @@ KINDS = (
         "Press",
         5,
         1,
-        r"press|newsroom|news|media|press-?room",
-        r"\bpress\b|\bnewsroom\b|\bnews\b",
+        r"press|newsroom|news|media|press-?room|press-?releases?|media-?(cent(er|re)|room)",
+        r"\bpress\b|\bnewsroom\b|\bnews\b|\bmedia (cent(er|re)|room)\b",
+        # A newsroom over Stripe Press (a book publisher) or a press. subdomain that isn't the press room.
+        strong=r"\bnews-?room\b|\bpress-?room\b|\bpress[- ]releases?\b|\bmedia[- ]?(cent(er|re)|room)\b",
     ),
     _kind(
         "blog",
@@ -166,6 +188,9 @@ LANGUAGE_CODES = frozenset(
 PLACE_POINTS = {"top": 1.0, "footer": 0.5, "other": 0.5, "search": 0.5, "body": 0.0}
 # Points lost for each part of the address beyond the first ("/careers" vs "/careers/listing/123").
 DEPTH_PENALTY = 0.6
+# Extra points for a name that can only mean its kind ("Newsroom"): enough to beat a whole subdomain
+# named with a shared word (press.stripe.com, Stripe's book publisher).
+STRONG_POINTS = 2.0
 
 Origin = Literal["link", "search"]
 
@@ -308,6 +333,8 @@ def _classify(host: str, path: str, text: str) -> PageKind | None:
             points += 3
         if text and kind.words.search(text) and (points or not kind.needs_path):
             points += 2
+        if kind.strong is not None and (any(kind.strong.search(part) for part in parts) or kind.strong.search(text)):
+            points += 1  # "/company/pressroom" is the press room, not the About page
         if points and (best is None or points > best[0]):
             best = (points, kind.name)
     return best[1] if best else None
@@ -323,6 +350,10 @@ def _match_points(address: str, text: str, kind: Kind) -> float:
         points += 2  # a whole subdomain for it: careers.example.com
     if text and kind.words.search(text):
         points += 1
+    if kind.strong is not None and (
+        any(kind.strong.search(part) for part in _path_parts(parts.path)) or (text and kind.strong.search(text))
+    ):
+        points += STRONG_POINTS
     return points
 
 
