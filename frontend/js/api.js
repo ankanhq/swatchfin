@@ -3,17 +3,17 @@
  *
  * A guide takes 30–90 seconds to make, so the backend makes it as a
  * background job:
- *   startGuide(query)   POST /api/v1/guides       -> { id }
- *   watchGuide(id, …)   GET  /api/v1/guides/{id}  every 1.5 s, until the
+ *   startGuide(query)   POST   /api/v1/guides       -> { id }
+ *   watchGuide(id, …)   GET    /api/v1/guides/{id}  every 1.5 s, until the
  *                       job is complete (with the guide) or failed
- * The job's shape is "Job status" in CLAUDE.md, section 7.
- *
- * MOCK: there is no backend yet, so both go to mock-job.js, which simulates
- * jobs for Northwind Roasters, a fictional brand. Phase 4 changes only the
- * lines marked "MOCK" below, and deletes mock-job.js.
+ *   cancelGuide(id)     DELETE /api/v1/guides/{id}  stops a job still being made
+ * The job's shape is "Job status" in CLAUDE.md, section 7. Every error the
+ * API sends is { "error": { "title", "message" } }, written for people, so
+ * the page shows it as it is.
  */
 
-import { getMockJob, isMockRunId, startMockRun } from './mock-job.js'; // MOCK
+/** Where the API lives: the same server as this page. */
+const API_BASE = '/api/v1';
 
 /** Longest wait for one answer from the server. guide-guard.js uses the same limit for the first one. */
 const REQUEST_TIMEOUT_MS = 15000;
@@ -40,16 +40,18 @@ export class GuideError extends Error {
   /**
    * @param {string} title
    * @param {string} message
-   * @param {{ retryable?: boolean, retryLabel?: string }} [options]
+   * @param {{ retryable?: boolean, retryLabel?: string, status?: number | null }} [options]
    *   retryable: a passing problem (offline, timeout, busy server), so asking again may work.
    *   retryLabel: the text of the retry button under the message.
+   *   status: the server's HTTP status code (404, 422…), when the server answered.
    */
-  constructor(title, message, { retryable = false, retryLabel = 'Try again' } = {}) {
+  constructor(title, message, { retryable = false, retryLabel = 'Try again', status = null } = {}) {
     super(message);
     this.name = 'GuideError';
     this.title = title;
     this.retryable = retryable;
     this.retryLabel = retryLabel;
+    this.status = status;
   }
 }
 
@@ -60,8 +62,13 @@ export class GuideError extends Error {
  * @returns {Promise<{ id: string }>}
  */
 export async function startGuide(query) {
-  // MOCK: Phase 4 sends POST /api/v1/guides with { query } instead.
-  return startMockRun(query);
+  const created = await callApi(`${API_BASE}/guides`, { method: 'POST', body: { query } });
+  if (typeof created?.id !== 'string' || created.id === '') {
+    throw new GuideError('The guide couldn’t be started', 'The server’s answer didn’t include the new guide’s ID. Try again.', {
+      retryable: true,
+    });
+  }
+  return { id: created.id };
 }
 
 /**
@@ -109,44 +116,62 @@ export async function watchGuide(id, { onUpdate = () => {} } = {}) {
 }
 
 /**
+ * Asks the server to stop a job that is still being made (Cancel on the
+ * progress view), without waiting for the answer.
+ *
+ * keepalive lets the request finish even though the page is leaving for
+ * the start page. If it fails, nothing is lost: the job simply finishes on
+ * its own, so any error is ignored.
+ * @param {string} id
+ */
+export function cancelGuide(id) {
+  fetch(`${API_BASE}/guides/${encodeURIComponent(id)}`, { method: 'DELETE', keepalive: true }).catch(() => {});
+}
+
+/**
  * One status check.
  * @param {string} id
  * @returns {Promise<Record<string, any>>}
  */
 async function getJob(id) {
-  // MOCK: Phase 4 replaces the next two lines with
-  //   const job = await fetchJson(`/api/v1/guides/${encodeURIComponent(id)}`);
-  // and turns a 404 answer into notFound(id).
-  const job = await getMockJob(id, fetchJson);
-  if (!job) throw notFound(id);
-
+  let job;
+  try {
+    job = await callApi(`${API_BASE}/guides/${encodeURIComponent(id)}`);
+  } catch (error) {
+    if (error instanceof GuideError && error.status === 404) throw notFound(id);
+    throw error;
+  }
   checkJob(job);
   return job;
 }
 
 /**
- * Downloads and parses JSON. Every problem becomes a GuideError.
+ * Sends one request to the API and returns the JSON answer (null for an
+ * answer with no content). Every problem becomes a GuideError.
  * @param {string} url
+ * @param {{ method?: string, body?: unknown }} [options] body is sent as JSON.
  * @returns {Promise<any>}
  */
-async function fetchJson(url) {
+async function callApi(url, { method = 'GET', body } = {}) {
+  const headers = { Accept: 'application/json' };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+
   let response;
   try {
     // no-store: always ask the server, never reuse an old copy of a status.
     response = await fetch(url, {
+      method,
       cache: 'no-store',
-      headers: { Accept: 'application/json' },
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (error) {
     throw requestError(error);
   }
 
-  if (!response.ok) {
-    // Busy or broken for a moment (408, 429, 5xx): worth asking again.
-    const retryable = response.status === 408 || response.status === 429 || response.status >= 500;
-    throw new GuideError('Couldn’t load the guide', `The server answered with an error (${response.status}). Try again in a moment.`, { retryable });
-  }
+  if (!response.ok) throw await answerError(response);
+  if (response.status === 204) return null;
 
   try {
     return await response.json();
@@ -154,6 +179,33 @@ async function fetchJson(url) {
     if (error?.name === 'TimeoutError') throw requestError(error);
     throw new GuideError('This guide can’t be read', 'The guide data is damaged or incomplete.');
   }
+}
+
+/**
+ * Turns an error answer from the server into a GuideError. The API's own
+ * errors carry a title and message for people; anything else (a proxy's
+ * error page, say) gets a general message with the status code.
+ * @param {Response} response
+ * @returns {Promise<GuideError>}
+ */
+async function answerError(response) {
+  const status = response.status;
+  // Busy or broken for a moment (408, 429, 5xx except "not built yet"): worth asking again.
+  const retryable = status === 408 || status === 429 || (status >= 500 && status !== 501);
+
+  let details = null;
+  try {
+    details = (await response.json())?.error;
+  } catch {
+    // Not JSON: use the general message below.
+  }
+
+  const title = typeof details?.title === 'string' && details.title ? details.title : 'Couldn’t load the guide';
+  const message =
+    typeof details?.message === 'string' && details.message
+      ? details.message
+      : `The server answered with an error (${status}). Try again in a moment.`;
+  return new GuideError(title, message, { retryable, status });
 }
 
 /**
@@ -177,6 +229,7 @@ function notFound(id) {
   return new GuideError(
     'Guide not found',
     `There is no guide with the ID “${shown}”. Guides are kept for a limited time, so it may have expired. Generate a new one from the start page.`,
+    { status: 404 },
   );
 }
 
@@ -223,14 +276,4 @@ function wait(ms) {
  */
 export function isMockGuide(guide) {
   return typeof guide?.id === 'string' && guide.id.startsWith('bg_MOCK');
-}
-
-/**
- * MOCK: true for a simulated run from mock-job.js, so the page can label
- * it. Phase 4 deletes this function and the notices that use it.
- * @param {Record<string, any>} job
- * @returns {boolean}
- */
-export function isSimulatedJob(job) {
-  return typeof job?.id === 'string' && isMockRunId(job.id);
 }

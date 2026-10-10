@@ -14,6 +14,7 @@
  * 1. Read the address. ?q=… (from the start page's form) starts a new job,
  *    and the address changes to ?id=… so a reload follows the same job
  *    instead of starting another. ?id=… opens an existing job.
+ *    Cancel on the progress view tells the server to stop the job.
  * 2. Ask for the job's status every 1.5 seconds (api.js) and move the
  *    steps along. A guide that is already finished skips the progress view.
  * 3. When the job is complete, draw every section. Each section is drawn
@@ -23,7 +24,7 @@
  * guide-guard.js makes sure the loading state ends after 15 seconds at most.
  */
 
-import { startGuide, watchGuide, isMockGuide, isSimulatedJob, GuideError } from './api.js';
+import { startGuide, watchGuide, cancelGuide, isMockGuide, GuideError } from './api.js';
 import { observeMotion } from './motion.js';
 import { showToast } from './toast.js';
 import { copyText, parseQuery } from './utils.js';
@@ -88,12 +89,19 @@ async function start(page) {
     try {
       ({ id } = await startGuide(request.query));
     } catch (error) {
-      showError(page, error);
+      if (error instanceof GuideError && error.status === 422) {
+        // The server refused the search itself: the retry button goes back to the start page to fix it there.
+        const refused = new GuideError(error.title, error.message, { retryLabel: 'Edit the search' });
+        showError(page, refused, { retryHref: `./?q=${encodeURIComponent(request.query)}#generate` });
+      } else {
+        showError(page, error);
+      }
       return;
     }
     showJobInAddress(id);
   }
 
+  setUpCancel(page, id);
   const progress = createProgressView(page);
   let job;
   try {
@@ -139,6 +147,23 @@ function readRequest() {
 }
 
 /**
+ * Cancel on the progress view is a plain link back to the start page (so it
+ * works without JavaScript). A click on it also asks the server to stop the
+ * job, so it doesn't keep running for nobody. A click that opens the link in
+ * a new tab (Cmd, Ctrl, Shift or the middle button) leaves the job running,
+ * because this page stays open and keeps following it.
+ * @param {HTMLElement} page
+ * @param {string} id
+ */
+function setUpCancel(page, id) {
+  const cancel = page.querySelector('[data-progress-cancel]');
+  cancel?.addEventListener('click', (event) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (page.dataset.state === 'running') cancelGuide(id);
+  });
+}
+
+/**
  * Swaps ?q=… for ?id=… in the address bar, without loading a new page, so
  * reloading or sharing the address shows this job instead of starting a
  * new one.
@@ -158,7 +183,6 @@ function showJobInAddress(id) {
  * @param {ReturnType<typeof createProgressView>} progress
  */
 function showRunning(page, job, progress) {
-  renderNotice(page, isSimulatedJob(job) ? 'simulated-run' : null); // MOCK: label simulated runs
   progress.show(job);
   // No message here: the progress view reads out the first step itself.
   setState(page, 'running');
@@ -180,10 +204,10 @@ async function showGuide(page, job) {
   const mock = isMockGuide(guide);
   const fromProgress = page.dataset.state === 'running';
 
-  // MOCK: a simulated run says that the guide is the sample, not the query.
-  let notice = mock ? 'sample' : null;
-  if (mock && isSimulatedJob(job)) notice = 'simulated-result';
-  renderNotice(page, notice, { query: job.query });
+  // MOCK: until live generation is connected, every run ends with the sample guide.
+  // The notice says so, and names the search when it was for another brand.
+  const searched = typeof job.query === 'string' && job.query !== guide.query ? job.query : '';
+  renderNotice(page, mock ? 'sample' : null, { query: searched });
 
   const focused = document.activeElement;
   renderBrandHeader(page, guide, { mock });
@@ -229,7 +253,6 @@ function showFailed(page, job, progress) {
   const query = typeof job.query === 'string' ? job.query : '';
 
   progress.update(job); // marks the failed step, and "Not started" after it
-  renderNotice(page, isSimulatedJob(job) ? 'simulated-failure' : null); // MOCK
 
   const error = {
     title: typeof job.error?.title === 'string' && job.error.title ? job.error.title : 'The guide couldn’t be finished',
