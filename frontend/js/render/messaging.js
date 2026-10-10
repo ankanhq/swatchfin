@@ -19,7 +19,7 @@ export function renderMessaging(guide) {
   const site = siteHost(guide);
 
   if (!tagline && !mission && props.length === 0 && audience.length === 0) {
-    return emptyState('No key messages found', 'None of the fetched pages had a tagline, mission or value proposition that could be verified word for word.');
+    return emptyState('No key messages found', 'This guide has no tagline, mission or value proposition verified word for word on the site. The warnings at the top say why.');
   }
 
   return el('div', { className: 'sf-messaging' }, [

@@ -23,7 +23,7 @@ export function renderSources(guide) {
 
   return el('div', { className: 'sf-sources' }, [
     el('ul', { className: 'sf-usage', attrs: { 'aria-label': 'TinyFish API usage for this guide' } }, [
-      usageTile('search', usage.search_calls, 'Search call', 'Search calls', 'Found the official site'),
+      usageTile('search', usage.search_calls, 'Search call', 'Search calls', 'Found the site and its key pages'),
       usageTile('fetch', usage.fetch_urls, 'URL fetched', 'URLs fetched', 'Read the homepage and sub-pages'),
       usageTile('browser', usage.browser_sessions, 'Browser session', 'Browser sessions', 'Measured the computed styles'),
     ]),
