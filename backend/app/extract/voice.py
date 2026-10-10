@@ -71,8 +71,9 @@ there is no clear one.
 state one. Never repeat the tagline here.
 - value_props: up to 4 key promises the brand makes to its customers. title: 2 to 5 words of your own. quote: the \
 sentence that makes the promise.
-- audience: up to 4 groups of people the brand says it serves, in the words the pages use, such as "developers" \
-or "small businesses". Leave the list empty if the pages don't say.
+- audience: up to 4 groups of people the brand says it serves. Copy each group's name exactly as the pages write \
+it, as a short phrase of 1 to 4 words, such as "developers" or "small businesses": a program checks that it is \
+there, so never combine or reword groups. Leave the list empty if the pages don't name any.
 
 Write your own words (summary, descriptions, do, dont and titles) in plain British English, even when the site is \
 in another language. Quotes always stay in the page's own language."""
