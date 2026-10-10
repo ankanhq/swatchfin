@@ -17,6 +17,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
+from app.schemas import ErrorInfo, ErrorResponse
+
 # Titles and messages for the errors FastAPI raises by itself.
 STANDARD_ERRORS: dict[int, tuple[str, str]] = {
     404: ("Not found", "There is nothing at this address."),
@@ -38,7 +40,8 @@ class ApiError(Exception):
 
 def error_response(status_code: int, title: str, message: str, headers: dict[str, str] | None = None) -> JSONResponse:
     """The JSON answer for an error."""
-    return JSONResponse({"error": {"title": title, "message": message}}, status_code=status_code, headers=headers)
+    body = ErrorResponse(error=ErrorInfo(title=title, message=message))
+    return JSONResponse(body.model_dump(), status_code=status_code, headers=headers)
 
 
 async def handle_api_error(_request: Request, error: ApiError) -> JSONResponse:
