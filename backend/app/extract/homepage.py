@@ -83,6 +83,7 @@ CONFIDENCE_NAMED_LOGO = 0.6  # labelled as a logo with the brand's name, elsewhe
 CONFIDENCE_TOUCH_ICON = 0.45  # the app icon for phones: the brand's mark, square
 CONFIDENCE_FAVICON = 0.35  # the browser tab icon
 CONFIDENCE_OG_IMAGE = 0.25  # the picture shown when the page is shared: often a banner
+CONFIDENCE_SMALL_FAVICON = 0.2  # a tab icon too small to use as a logo (16 or 32 px), listed with the others
 MAX_ALTERNATES = 4
 # Icons smaller than this (from width/height) are arrows and chevrons, not logos.
 MIN_LOGO_SIZE = 12
@@ -256,9 +257,10 @@ def _read_structure(homepage: Homepage, page: FetchedPage) -> None:
     homepage.theme_colors = [value for value in meta.get_all("theme-color") if len(value) <= 40]
 
     icons = _icon_links(tree, base)
-    homepage.favicon = _best_favicon(icons)
+    favicon = _best_favicon(icons)
+    homepage.favicon = favicon.url if favicon else None
     page_logos = _logos_on_page(tree, base, homepage)
-    homepage.logos = _rank_logos(page_logos, icons, _absolute(meta.get("og:image") or "", base))
+    homepage.logos = _rank_logos(page_logos, icons, _absolute(meta.get("og:image") or "", base), favicon)
     homepage.site_name = _meta_site_name(meta)
     homepage.links = _links_with_text(tree, base)
 
@@ -323,13 +325,13 @@ def _icon_size(sizes: str | None, image_format: LogoFormat | None) -> int:
     return max(found, default=0)
 
 
-def _best_favicon(icons: list[_Icon]) -> str | None:
+def _best_favicon(icons: list[_Icon]) -> _Icon | None:
     """The browser tab icon: an SVG first, then the largest one. The phone app icon only if there is no other."""
     tab_icons = [icon for icon in icons if "icon" in icon.rel]
     pool = tab_icons or icons
     if not pool:
         return None
-    return max(pool, key=lambda icon: icon.size).url
+    return max(pool, key=lambda icon: icon.size)
 
 
 def _logos_on_page(tree: LexborHTMLParser, base: str, homepage: Homepage) -> list[tuple[float, LogoCandidate]]:
@@ -389,9 +391,13 @@ def _logos_on_page(tree: LexborHTMLParser, base: str, homepage: Homepage) -> lis
 
 
 def _rank_logos(
-    page_logos: list[tuple[float, LogoCandidate]], icons: list[_Icon], og_image: str | None
+    page_logos: list[tuple[float, LogoCandidate]], icons: list[_Icon], og_image: str | None, favicon: _Icon | None
 ) -> list[LogoCandidate]:
-    """All candidates, best first: logos on the page, then the phone app icon, the tab icon and the share image."""
+    """All candidates, best first: logos on the page, then the phone app icon, the tab icon and the share image.
+
+    The tab icon is always among them when there are others, even when it is too
+    small to be a logo, so the guide gives it a score like every other version.
+    """
     candidates = [candidate for _confidence, candidate in page_logos]
     touch = [icon for icon in icons if icon.rel & {"apple-touch-icon", "apple-touch-icon-precomposed"}]
     if touch:
@@ -412,6 +418,9 @@ def _rank_logos(
         if key not in seen:
             seen.add(key)
             ranked.append(candidate)
+    if ranked and favicon is not None and favicon.url not in seen:
+        small = LogoCandidate("favicon", CONFIDENCE_SMALL_FAVICON, url=favicon.url, format=favicon.format)
+        return [*ranked[:MAX_ALTERNATES], small]
     return ranked[: 1 + MAX_ALTERNATES]
 
 
