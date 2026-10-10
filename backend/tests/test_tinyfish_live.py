@@ -1,7 +1,8 @@
 """The TinyFish clients against the real TinyFish APIs.
 
-These spend a little of the daily free allowance (1 search, 1 fetched page),
-so a normal `pytest` run leaves them out. Run them on purpose with:
+These spend a little of the daily free allowance (1 search, 1 fetched page)
+and a few seconds of Browser time from the wallet (well under $0.01), so a
+normal `pytest` run leaves them out. Run them on purpose with:
 
     pytest backend -m live
 
@@ -14,6 +15,7 @@ import httpx2
 import pytest
 
 from app.config import Settings
+from app.tinyfish.browser import BrowserVisit, PlaywrightDriver
 from app.tinyfish.client import TinyFishClient
 from app.tinyfish.fetch import fetch
 from app.tinyfish.search import search
@@ -43,3 +45,18 @@ async def test_live_fetch_reads_a_page_word_for_word(tinyfish: TinyFishClient) -
     page = response.results[0]
     assert "<title>" in page.text_str
     assert "Example Domain" in page.text_str
+
+
+async def test_live_browser_opens_a_page_and_its_session_is_ended(tinyfish: TinyFishClient) -> None:
+    driver = PlaywrightDriver()
+    opened: list[int] = []
+    visit = BrowserVisit(tinyfish, driver, "https://example.com/", on_open=lambda: opened.append(1))
+    visit.start()
+    try:
+        page = await visit.page(time_limit=60)
+        title = await page.run("https://example.com/", "() => document.title", None, time_limit=30)
+        assert title == "Example Domain"
+    finally:
+        await visit.close()
+        await driver.stop()
+    assert opened == [1]

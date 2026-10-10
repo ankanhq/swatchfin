@@ -14,17 +14,20 @@ pydantic==2.13.5            # data models (the BrandGuide schema)
 pydantic-settings==2.15.0   # reads settings from .env
 httpx2==2.13.1              # calls the TinyFish APIs
 selectolax==1.0.0           # reads the HTML of a brand's homepage
+playwright==1.63.0          # drives TinyFish Browser over CDP (no local browser needed)
 
 # Needed by the packages above
 annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.15.1
 click==8.5.0
+greenlet==3.5.6
 h11==0.16.0
 httpcore2==2.13.1
 httptools==0.9.0
 idna==3.20
 pydantic_core==2.46.5
+pyee==13.0.1
 python-dotenv==1.2.4
 PyYAML==6.0.3
 truststore==0.10.4

@@ -1,4 +1,4 @@
-"""The connection to TinyFish, shared by Search and Fetch (and Browser from Phase 6).
+"""The connection to TinyFish, shared by Search, Fetch and Browser.
 
 In plain English: every TinyFish call goes through TinyFishClient.call().
 It adds the API key header, waits no longer than a time limit, and tries
@@ -20,7 +20,8 @@ from pydantic import SecretStr
 log = logging.getLogger("swatchfin.tinyfish")
 
 # Answers that mean "busy or a passing problem, try again shortly".
-RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+# (409 is Browser's RETRY_REQUIRED: "a conflict upstream, try again".)
+RETRY_STATUSES = frozenset({409, 429, 500, 502, 503, 504})
 # The longest pause between tries, even if TinyFish asks for longer (Retry-After).
 MAX_PAUSE_SECONDS = 5.0
 
@@ -95,28 +96,30 @@ class TinyFishClient:
 
     async def call(
         self,
-        method: Literal["GET", "POST"],
+        method: Literal["GET", "POST", "DELETE"],
         url: str,
         *,
         time_limit: float,
         params: dict[str, str] | None = None,
         body: dict[str, Any] | None = None,
+        retries: int | None = None,
     ) -> Any:
-        """Makes one TinyFish call and returns its JSON answer.
+        """Makes one TinyFish call and returns its JSON answer (None for an empty answer, like 204).
 
         In plain English: send the request. If TinyFish is busy (429) or has
         a passing problem (5xx, or the connection dropped), wait a moment and
-        try again, up to `retries` more times. A slow answer is not retried:
-        it has already used up its time. Any other failure raises
-        TinyFishError straight away.
+        try again, up to `retries` more times (the client's own number unless
+        the call gives one). A slow answer is not retried: it has already
+        used up its time. Any other failure raises TinyFishError straight away.
         """
         if self._api_key is None or not self.configured:
             raise TinyFishError("not_configured", "no TINYFISH_API_KEY")
         headers = {"X-API-Key": self._api_key.get_secret_value(), "Accept": "application/json"}
         host = httpx2.URL(url).host
+        retries = self._retries if retries is None else retries
 
-        for attempt in range(self._retries + 1):
-            last_try = attempt == self._retries
+        for attempt in range(retries + 1):
+            last_try = attempt == retries
             try:
                 response = await self._http.request(
                     method, url, params=params, json=body, headers=headers, timeout=time_limit
@@ -132,6 +135,8 @@ class TinyFishClient:
 
             status = response.status_code
             if status < 400:
+                if status == 204 or not response.content:
+                    return None
                 try:
                     return response.json()
                 except ValueError as error:

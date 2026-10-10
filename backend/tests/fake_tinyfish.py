@@ -1,4 +1,4 @@
-"""A fake TinyFish for the tests: answers Search and Fetch the way the real APIs do, with no network.
+"""A fake TinyFish for the tests: answers Search, Fetch and Browser the way the real APIs do, with no network.
 
 The websites it "reads" are fictional and all alike:
 - Any company name is found at www.<name>.example ("Larkspur Tea" ->
@@ -9,6 +9,10 @@ The websites it "reads" are fictional and all alike:
   those pages. Its Press page is blocked by an anti-bot check. A
   site-limited search also finds its brand guidelines page.
 - A .invalid site can't be reached (.invalid is reserved and never exists).
+- Browser starts a session for any address and ends it when asked.
+  `sessions_opened` and `sessions_ended` record them, so tests can check
+  that every session was ended. FakeBrowserDriver (below) stands in for
+  Playwright: it "runs" scripts by asking a function for their result.
 
 `delay` makes every answer that many seconds slow, for tests that need a
 job to stay running. `requests` records every call made.
@@ -17,6 +21,7 @@ job to stay running. `requests` records every call made.
 import asyncio
 import json
 import re
+from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -31,6 +36,8 @@ class FakeTinyFish:
         self.delay = delay
         self.requests: list[httpx2.Request] = []
         self.http = httpx2.AsyncClient(transport=httpx2.MockTransport(self.handle))
+        self.sessions_opened: list[str] = []
+        self.sessions_ended: list[str] = []
 
     async def handle(self, request: httpx2.Request) -> httpx2.Response:
         self.requests.append(request)
@@ -42,6 +49,8 @@ class FakeTinyFish:
             return httpx2.Response(200, json=self.search(request.url.params))
         if request.url.host == "api.fetch.tinyfish.ai":
             return httpx2.Response(200, json=self.fetch(json.loads(request.content)))
+        if request.url.host == "api.browser.tinyfish.ai":
+            return self.browser(request)
         return httpx2.Response(404)
 
     def calls(self, host: str) -> list[httpx2.Request]:
@@ -63,6 +72,25 @@ class FakeTinyFish:
                     {"position": 2, "url": f"https://www.{slug}.example/", "title": f"{query} — official site"}
                 )
         return {"query": query, "results": results, "total_results": len(results), "page": 0}
+
+    # --- Browser ------------------------------------------------------------
+
+    def browser(self, request: httpx2.Request) -> httpx2.Response:
+        if request.method == "POST":
+            session_id = f"br-test-{len(self.sessions_opened) + 1}"
+            self.sessions_opened.append(session_id)
+            return httpx2.Response(
+                201,
+                json={
+                    "session_id": session_id,
+                    "cdp_url": f"wss://browser.tinyfish.example/{session_id}/cdp",
+                    "base_url": f"https://browser.tinyfish.example/{session_id}",
+                },
+            )
+        if request.method == "DELETE":
+            self.sessions_ended.append(request.url.path.strip("/"))
+            return httpx2.Response(204)
+        return httpx2.Response(405)
 
     # --- Fetch --------------------------------------------------------------
 
@@ -129,3 +157,44 @@ def _page_text(host: str, path: str) -> str:
 def _name(host: str) -> str:
     """www.larkspurtea.example -> "Larkspurtea"."""
     return host.removeprefix("www.").split(".")[0].title()
+
+
+# ---------------------------------------------------------------------------
+# A stand-in for Playwright
+# ---------------------------------------------------------------------------
+
+# Answers a script run on a page: (url, arg) -> what the script returns.
+PageAnswer = Callable[[str, Any], Any]
+
+
+class FakeBrowserDriver:
+    """Connects to the fake TinyFish's browsers. `answer` gives each script's result
+    (raise BrowserUnavailable in it to fail); `runs` records the pages opened."""
+
+    def __init__(self, answer: PageAnswer | None = None, delay: float = 0.0) -> None:
+        self.answer: PageAnswer = answer or (lambda _url, _arg: {})
+        self.delay = delay
+        self.connected: list[str] = []
+        self.disconnected = 0
+        self.runs: list[str] = []
+        # Set when a script starts running, for tests that stop a guide in the middle of one.
+        self.running = asyncio.Event()
+
+    async def connect(self, cdp_url: str) -> "FakeBrowserPage":
+        self.connected.append(cdp_url)
+        return FakeBrowserPage(self)
+
+
+class FakeBrowserPage:
+    def __init__(self, driver: FakeBrowserDriver) -> None:
+        self._driver = driver
+
+    async def run(self, url: str, script: str, arg: Any, *, time_limit: float, wait_for_text: bool = False) -> Any:
+        self._driver.runs.append(url)
+        self._driver.running.set()
+        if self._driver.delay:
+            await asyncio.sleep(self._driver.delay)
+        return self._driver.answer(url, arg)
+
+    async def close(self) -> None:
+        self._driver.disconnected += 1
