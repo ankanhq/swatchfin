@@ -56,6 +56,27 @@ def test_kinds_come_from_the_address_and_the_link_words() -> None:
     assert all(page.origin == "link" for page in pages)
 
 
+def test_a_newsroom_beats_a_subdomain_that_only_shares_the_word_press() -> None:
+    # Like stripe.com: "Stripe Press" (press.stripe.com) publishes books; the press room is "Newsroom".
+    pages = choose_pages(
+        homepage(
+            link("https://press.larkspur.example/", "Larkspur Press", "footer"),
+            link("/newsroom", "Newsroom", "footer"),
+        ),
+        [],
+    )
+    assert [page.url for page in pages] == [f"{SITE}/newsroom"]
+
+
+@pytest.mark.parametrize(
+    ("path", "text"),
+    [("/press-releases", "Press releases"), ("/media-centre", "Media centre"), ("/company/pressroom", "")],
+)
+def test_other_press_room_names_count_as_strongly(path: str, text: str) -> None:
+    pages = choose_pages(homepage(link("https://press.larkspur.example/", "Press", "footer"), link(path, text)), [])
+    assert [page.url for page in pages] == [f"{SITE}{path}"]
+
+
 def test_most_useful_kinds_come_first_and_each_kind_is_limited() -> None:
     links = [link(f"/careers/{n}", "Careers") for n in range(5)] + [
         link("/careers", "Careers"),
