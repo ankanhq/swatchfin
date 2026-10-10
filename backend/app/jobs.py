@@ -129,7 +129,9 @@ class JobRun:
         In plain English: on the way in, the step is marked "running". The
         code inside does the work and can set a detail line. On the way out
         the step is marked "done", or "failed" if the code raised an error
-        (the error then carries on and stops the job).
+        (the error then carries on and stops the job). A step that couldn't
+        do its work but lets the guide carry on calls job.skip() inside, and
+        then stays "skipped".
         """
         step = self._find(name)
         step.status = "running"
@@ -142,7 +144,8 @@ class JobRun:
         except Exception:
             _finish(step, "failed", "Something went wrong in this step.")
             raise
-        _finish(step, "done")
+        if step.status == "running":
+            _finish(step, "done")
 
     def skip(self, name: StepName, detail: str) -> None:
         """Marks a step as not needed, e.g. no search when a web address was given."""

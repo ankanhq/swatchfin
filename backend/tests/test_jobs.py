@@ -133,6 +133,21 @@ async def test_a_step_that_crashes_fails_the_job_with_a_general_message(settings
     await manager.close()
 
 
+def test_a_step_that_skips_itself_stays_skipped() -> None:
+    async def run() -> JobRun:
+        job = JobRun("bg_test", "stripe.com")
+        async with job.step("reading_styles"):
+            job.skip("reading_styles", "Couldn’t open a browser")  # the guide carries on without it
+        async with job.step("analysing_voice") as step:
+            step.detail = "Done properly"
+        return job
+
+    job = asyncio.run(run())
+    styles, voice = job.job.steps[4], job.job.steps[5]
+    assert (styles.status, styles.detail) == ("skipped", "Couldn’t open a browser")
+    assert (voice.status, voice.detail) == ("done", "Done properly")
+
+
 async def test_step_failed_keeps_its_own_message(settings: Settings) -> None:
     async def blocked(job: JobRun, _query: ParsedQuery) -> BrandGuide:
         job.skip("resolving", "Not needed")
