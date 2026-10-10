@@ -38,7 +38,7 @@ Search results join the homepage's links and are scored the same way (see Fetch,
 | Read | Request | Used for |
 |---|---|---|
 | Structure | `format: "html"`, `include_selectors: ["head", "header", "nav", "footer", "[class*=logo]", "[aria-label*=logo]", "[alt*=logo]", "[class*=brand]", "a[href='/']", …]` | Brand name (`og:site_name`, `application-name`), description, theme colour, icons, the Open Graph image, the logo, and the main links with their words |
-| Content | `format: "markdown"`, `links: true`, `image_links: true` | The homepage's main text (for tone of voice in Phase 7) and every link on the page |
+| Content | `format: "markdown"`, `links: true`, `image_links: true` | The homepage's main text (what Claude reads for the tone of voice, and what its quotes are checked against) and every link on the page |
 
 The logo is the image or inline SVG inside the link back to the homepage, or one labelled as a logo in the header or nav. Logos of other companies on the page (customers, partners) carry other names and are left out. Many sites draw the logo once in a hidden SVG sprite (`<symbol id="logo">`) and show it with `<use href="#logo">`; Swatchfin copies the symbol in, so the logo works on its own.
 
@@ -82,6 +82,13 @@ Then, in Python, each colour gets one role. The background is what the page itse
 - Browser is billed by the second at $0.002 a minute: the wallet balance (`GET https://agent.tinyfish.ai/v1/wallet`, which also lists the rates) fell by exactly the session times that `GET https://api.browser.tinyfish.ai/usage` reported.
 - Sites hide a lot in the rendered page: Stripe's hero headline stacks two copies of its text in different colours to animate between them (counted once), Patagonia's logo is on the page twice (one hidden in the phone menu), and Patagonia's rendered `og:site_name` is "Patagonia United States" (region labels are now left off names).
 
+## After TinyFish: tone of voice, checked against what Fetch read
+
+Steps 6 and 7 don't call TinyFish, but they rest on its work. The text TinyFish read (the homepage's markdown, the other pages' markdown, and the visible text of any page only Browser could read) is the one source of truth for the tone of voice:
+
+- **Step 6** ([`extract/voice.py`](../backend/app/extract/voice.py), [`llm.py`](../backend/app/llm.py)) sends that text to Claude, cleaned and cut to at most 36,000 characters. Claude never browses: it can only quote what TinyFish read.
+- **Step 7** ([`extract/verify.py`](../backend/app/extract/verify.py)) looks for every quote in the same text, word for word, and drops what isn't there. A quote found on a different page than the one Claude named is credited to the page it is really on, so every source link in a guide points to a page TinyFish read.
+
 ## When something goes wrong
 
 | What happens | Result |
@@ -95,6 +102,7 @@ Then, in Python, each colour gets one role. The background is what the page itse
 | The browser is busy, out of credit, or can't open the page | Step 5 is skipped with a warning; the guide keeps everything Fetch read |
 | The guide is cancelled or runs out of time | The browser session is ended anyway (and ends itself after 3 idle minutes if that ever fails) |
 | A discovery search that stays busy | The homepage's own links are used, with a warning |
+| No Anthropic key, Claude busy, slow or refusing, or a quote not on the page | The tone of voice (or that part of it) is left out with a warning; everything TinyFish read stays |
 
 The API key is sent only from the server, in the `X-API-Key` header. It is kept as a secret string, so it never appears in logs or error messages. Swatchfin never fetches a brand's website itself: every read goes through TinyFish, which also refuses private network addresses.
 
@@ -113,11 +121,26 @@ Three very different sites, run through the real app:
 | TinyFish calls | 1 search, 8 Fetch URLs, 1 browser session (17 s) | 1 search, 10 Fetch URLs, 1 browser session (25–29 s) | 3 searches, 5 Fetch URLs, 1 browser session (33 s) |
 | Whole guide | 18 s | 25–31 s | 35 s |
 
+## Live results (10 October 2026, Phase 7)
+
+The same three sites, with tone of voice from `claude-sonnet-5-5`:
+
+| | stripe.com | Patagonia | Duolingo |
+|---|---|---|---|
+| Text Claude read | 7 pages, 10,388 tokens | 7 pages, 6,157 tokens | 4 pages (the homepage and About page read by Browser), 5,087 tokens |
+| Quotes found word for word | 13 of 13 | 11 of 11 | 10 of 10 |
+| Tagline | "Financial infrastructure to grow your revenue." | "MADE FOR THE MOMENT. BUILT FOR A LIFETIME." | "The most fun way to learn languages, chess, and more!" |
+| Mission | "Our mission is to increase economic growth." (Careers page) | None on the pages read, so none in the guide | "Develop the best education in the world and make it universally available." |
+| Colour pairs graded | 15 | 3 | 11 |
+| Whole guide | 26–32 s | 44 s | 46 s |
+
 ## Limits and costs
 
 - Search: free up to 12,000 calls a day, 30 a minute per key.
 - Fetch: free up to 1,000 URLs a day (counted per page read), 150 URLs a minute per key. At up to 11 URLs per guide, that is roughly 90 guides a day.
 - Fetch gives up on a page after 110 s at most; Swatchfin allows 40 s for the homepage and 30 s for other pages, so a guide stays inside its 150-second limit with room for the browser and voice steps.
 - Browser: $0.002 a minute from the wallet, billed by the second; at most 5 sessions at once per account (Swatchfin makes at most 2 guides at once). The three guides above used 17–33 seconds of browser time each: **$0.0006–$0.0011 a guide**, about a tenth of a cent, or roughly 1,000 guides per dollar. `USE_BROWSER=false` in `.env` leaves the browser out (for example while developing).
+
+- Claude (not TinyFish): one call per guide, about $0.02–0.03 with `claude-sonnet-5-5` and about twice that with `claude-opus-5-5`. Step 6 gets at most 60 seconds of a guide's 150.
 
 Docs: [Search](https://docs.tinyfish.ai/search-api) · [Fetch](https://docs.tinyfish.ai/fetch-api) · [Browser](https://docs.tinyfish.ai/browser-api)

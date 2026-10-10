@@ -17,7 +17,7 @@
 
 ## Features
 
-Swatchfin is in active development. Today it finds a brand's site, reads its homepage and up to nine more pages with TinyFish, opens the homepage in a real browser, and returns its name, description, logo (confirmed on the page, including logos drawn with SVG code), colour palette with roles, typography and sources. Contrast checks, tone of voice and messaging arrive in Phase 7.
+Swatchfin is in active development. Today it finds a brand's site, reads its homepage and up to nine more pages with TinyFish, opens the homepage in a real browser, and returns its name, description, logo (confirmed on the page, including logos drawn with SVG code), colour palette with roles, WCAG contrast checks, typography, tone of voice and key messaging (every claim backed by a quote found word for word on the site) and sources. Exports other than JSON arrive in Phase 8.
 
 - **Name or URL in, brand guide out.** Give it `duolingo` or `https://www.duolingo.com` and it finds the official site itself.
 - **Logo**: found in the page header, inline SVG, Open Graph image or favicon, with a download link.
@@ -62,7 +62,7 @@ The backend serves the frontend as static files, so the whole app deploys as one
 
 ### Set up (once per computer)
 
-You need **Python 3.11 or newer** (check with `python3 --version`) and a **TinyFish API key** from [agent.tinyfish.ai](https://agent.tinyfish.ai/api-keys). The Anthropic key in `.env.example` is used from Phase 7. Without a TinyFish key the app still runs, but every guide stops with a message that it can't read websites.
+You need **Python 3.11 or newer** (check with `python3 --version`) and a **TinyFish API key** from [agent.tinyfish.ai](https://agent.tinyfish.ai/api-keys). For the tone of voice and key messaging you also need an **Anthropic API key** from [console.anthropic.com](https://console.anthropic.com). Without a TinyFish key the app still runs, but every guide stops with a message that it can't read websites. Without an Anthropic key, guides have everything else, and their warnings say the tone of voice is missing.
 
 ```bash
 git clone https://github.com/ankanhq/swatchfin.git
@@ -74,7 +74,7 @@ pip install -r backend/requirements-dev.txt    # the pinned packages, plus pytes
 cp .env.example .env                           # your settings and keys (git-ignored, never commit it)
 ```
 
-Then open `.env` and put your key after `TINYFISH_API_KEY=`.
+Then open `.env` and put your keys after `TINYFISH_API_KEY=` and `ANTHROPIC_API_KEY=`. `ANTHROPIC_MODEL` chooses the Claude model; it is `claude-sonnet-5-5` unless you set another, such as `claude-opus-5-5`.
 
 On Windows, turn the virtual environment on with `.venv\Scripts\activate` instead.
 
@@ -97,7 +97,7 @@ Every file is sent with `Cache-Control: no-cache`, so the browser re-checks it o
 
 ```bash
 pytest backend           # all backend tests, against a fake TinyFish (no network, no key needed)
-pytest backend -m live   # the tests that call the real TinyFish APIs (needs the key; spends 1 search and 1 page)
+pytest backend -m live   # the tests that call the real TinyFish and Anthropic APIs (needs the keys; 1 search, 1 page, under $0.01)
 ruff check backend       # code checks
 ruff format backend      # formats the Python code
 ```
@@ -121,7 +121,7 @@ Each visitor (IP address) can start 20 guides an hour and make 300 API requests 
 
 ### What a guide has today
 
-Steps 1–5 read the live site with TinyFish: finding the site (for a name), reading the homepage, choosing pages and reading them, then measuring the homepage's colours, fonts and logo in a real browser. Steps 6–7 (tone of voice, checking quotes and contrast) arrive in Phase 7; until then they show as skipped, and each guide's warnings say what it doesn't have yet. Nothing is made up to fill a gap. Each guide opens one TinyFish Browser session, which costs about $0.001 of wallet credit; set `USE_BROWSER=false` in `.env` to leave it out while developing. These addresses show every state of the guide page:
+Steps 1–5 read the live site with TinyFish: finding the site (for a name), reading the homepage, choosing pages and reading them, then measuring the homepage's colours, fonts and logo in a real browser. Step 6 sends the text TinyFish read to Claude, which drafts the tone of voice and key messages with an exact quote for each claim. Step 7 looks for every quote, word for word, in that same text, drops what isn't there and says so in a warning, and grades the palette's text and background pairs for WCAG contrast. Nothing is made up to fill a gap. Each guide opens one TinyFish Browser session, which costs about $0.001 of wallet credit (set `USE_BROWSER=false` in `.env` to leave it out while developing), and makes one Claude call, which costs about $0.02–0.03 (see below). These addresses show every state of the guide page:
 
 | Address | What it shows |
 |---|---|
@@ -140,6 +140,20 @@ The sample guides follow the exact BrandGuide and job status shapes in `CLAUDE.m
 The other pages: [`about.html`](http://localhost:8000/about.html) explains how Swatchfin uses TinyFish Search, Fetch and Browser (with a pipeline diagram, limitations and a privacy note), and any missing address shows the 404 page ([localhost:8000/anything](http://localhost:8000/anything)).
 
 **Print or save as PDF.** On a guide, choose Export → *Print or save as PDF*, or press Cmd/Ctrl+P. The printout is always light, keeps the brand colours exact, starts with the brand header and warnings, and puts each section on its own page, with page numbers in Chrome and Edge.
+
+### Tone of voice: how it's checked, and what it costs
+
+Claude reads at most 36,000 characters of a brand's own pages (about 9,000 tokens): the homepage first, then brand, About and mission pages, with menus, footers and repeated lines removed. Its answer must follow a fixed shape, with a quote and a page address for every trait, tagline, mission and value proposition. `backend/app/extract/verify.py` then looks for each quote in the text TinyFish read, allowing only for differences in spacing, quote marks and a final full stop. A quote that isn't there is dropped, with a warning; a trait without a quote is dropped too.
+
+Measured on 10 October 2026 with `claude-sonnet-5-5`. The server logs each guide's tokens and cost (`voice for stripe.com …`); the guide itself doesn't include them:
+
+| Brand | Pages read | Tokens in + out | Claude cost | Claude time | Quotes found word for word |
+|---|---|---|---|---|---|
+| stripe.com | 7 | 10,388 + 1,141 | $0.032 | 10 s | 13 of 13 |
+| Patagonia | 7 | 6,157 + 1,066 | $0.023 | 8 s | 11 of 11 |
+| Duolingo | 4 | 5,087 + 1,102 | $0.021 | 8 s | 10 of 10 |
+
+With `claude-opus-5-5` the same Duolingo text cost $0.046 (5,087 + 1,288 tokens, 12 s), and all 12 of its quotes were found too.
 
 ### Quality checks
 
