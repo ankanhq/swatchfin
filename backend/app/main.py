@@ -32,6 +32,7 @@ from app.errors import ApiError, add_error_handlers
 from app.export import export_filename, logo_filename
 from app.extract.resolve import QueryError, parse_query
 from app.jobs import GuideStore, JobManager, JobsBusy, LogoStore
+from app.llm import LLM, AnthropicLLM
 from app.pipeline import brand_pipeline, sample_job_finder
 from app.ratelimit import RateLimiter
 from app.schemas import BrandGuide, ErrorResponse, GuideCreated, GuideRequest, Health, Job
@@ -263,9 +264,10 @@ def create_app(
     *,
     http: httpx2.AsyncClient | None = None,
     browser: BrowserDriver | None = None,
+    llm: LLM | None = None,
 ) -> FastAPI:
-    """Builds the app. Pass settings to override the ones from .env, an http client
-    with a fake TinyFish behind it and a fake browser driver (the tests do all three)."""
+    """Builds the app. Pass settings to override the ones from .env, an http client with a fake
+    TinyFish behind it, a fake browser driver and a fake language model (the tests do these)."""
     settings = settings or get_settings()
     logging.basicConfig(level=settings.log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     # httpx2 logs every TinyFish request; keep that for LOG_LEVEL=DEBUG only.
@@ -281,12 +283,18 @@ def create_app(
     browser = browser or PlaywrightDriver()
     if not settings.use_browser:
         log.warning("USE_BROWSER is false: guides won't have colours or fonts")
+    # Claude, for tone of voice (step 6), when there is a key. One client for every guide, closed when the server stops.
+    if llm is None and settings.anthropic_api_key is not None:
+        llm = AnthropicLLM(settings.anthropic_api_key, settings.anthropic_model)
+    if llm is None:
+        log.warning("ANTHROPIC_API_KEY is not set: guides won't have a tone of voice or key messages")
 
     jobs = JobManager(
         brand_pipeline(
             tinyfish,
             logos,
             browser=browser if settings.use_browser else None,
+            llm=llm,
             time_limit=settings.job_timeout_seconds,
         ),
         store=GuideStore(settings.data_dir / "guides"),
@@ -314,6 +322,8 @@ def create_app(
         await wait_for_endings(BROWSER_ENDING_WAIT_SECONDS)
         if isinstance(browser, PlaywrightDriver):
             await browser.stop()
+        if isinstance(llm, AnthropicLLM):
+            await llm.close()
         await http.aclose()
 
     app = FastAPI(

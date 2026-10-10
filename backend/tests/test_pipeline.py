@@ -15,16 +15,20 @@ from pydantic import SecretStr
 from app.config import Settings
 from app.extract.resolve import parse_query
 from app.jobs import GuideStore, JobManager, LogoStore, Pipeline
+from app.llm import LLM, LLMError, LLMUsage
 from app.pipeline import (
     BROWSER_FAILED_DETAIL,
     BROWSER_OFF_DETAIL,
     BROWSER_OFF_WARNING,
-    NOT_YET_WARNINGS,
+    VOICE_FAILED_DETAIL,
+    VOICE_OFF_DETAIL,
+    VOICE_OFF_WARNING,
     brand_pipeline,
 )
 from app.schemas import Job
 from app.tinyfish.browser import BrowserDriver, BrowserUnavailable, wait_for_endings
 from app.tinyfish.client import TinyFishClient
+from tests.fake_llm import FakeLLM, larkspur_draft
 from tests.fake_tinyfish import FakeBrowserDriver, FakeTinyFish
 
 pytestmark = pytest.mark.anyio
@@ -37,12 +41,21 @@ async def run(
     key: str | None = "test-key",
     *,
     browser: BrowserDriver | None = None,
+    llm: LLM | None = None,
+    time_limit: float = 150,
 ) -> Job:
-    """Runs one job to the end and returns it. `browser` replaces the fake TinyFish's own browser driver."""
+    """Runs one job to the end and returns it. `browser` replaces the fake TinyFish's own browser driver;
+    `llm` is the language model for step 6 (None: no Anthropic key)."""
     fake = fake or FakeTinyFish()
     tinyfish = TinyFishClient(SecretStr(key) if key is not None else None, fake.http, pause_seconds=0)
     manager = JobManager(
-        brand_pipeline(tinyfish, LogoStore(settings.data_dir / "logos"), browser=browser or fake.driver),
+        brand_pipeline(
+            tinyfish,
+            LogoStore(settings.data_dir / "logos"),
+            browser=browser or fake.driver,
+            llm=llm,
+            time_limit=time_limit,
+        ),
         store=GuideStore(settings.data_dir / "guides"),
         max_running=1,
         max_waiting=1,
@@ -103,12 +116,21 @@ async def test_a_guide_holds_only_what_was_read(settings: Settings) -> None:
         ("ui", "Inter", True),
     ]
 
-    # Nothing made up for the steps that aren't connected yet.
-    assert guide.contrast == []
+    # Contrast: the text colours (and the white button label) on the backgrounds (and the green button).
+    contrast = {(pair.fg, pair.bg): (pair.ratio, pair.wcag) for pair in guide.contrast}
+    assert len(contrast) == 15
+    assert contrast[("#1A1A1A", "#FFFFFF")] == (17.4, "AAA")
+    assert contrast[("#6B6B6B", "#F4F1EA")][1] == "AA"
+    assert contrast[("#FFFFFF", "#2F5D50")][1] == "AAA"
+    assert ("#FFFFFF", "#FFFFFF") not in contrast
+
+    # Without an Anthropic key, no tone of voice or messaging, and nothing made up in their place.
     assert guide.voice.model_dump() == {
         "summary": None, "traits": [], "spectrum": None, "do": [], "dont": []
     }  # fmt: skip
     assert guide.messaging.model_dump() == {"tagline": None, "mission": None, "value_props": [], "audience": []}
+    assert (job.steps[5].status, job.steps[5].detail) == ("skipped", VOICE_OFF_DETAIL)
+    assert (job.steps[6].status, job.steps[6].detail) == ("done", "Graded 15 colour pairs")
 
     assert [(source.api, source.url) for source in guide.sources] == [
         ("search", "https://www.larkspurtea.example/"),
@@ -121,7 +143,7 @@ async def test_a_guide_holds_only_what_was_read(settings: Settings) -> None:
         # Fetch was blocked from the Press page; the browser read it.
         ("browser", "https://www.larkspurtea.example/press"),
     ]
-    assert guide.warnings == NOT_YET_WARNINGS
+    assert guide.warnings == [VOICE_OFF_WARNING]
 
 
 async def test_a_web_address_needs_no_search_for_the_site(settings: Settings) -> None:
@@ -397,3 +419,124 @@ async def _finish(settings: Settings, pipeline: Pipeline, query: str, *, timeout
             return job
         await asyncio.sleep(0.01)
     raise AssertionError("the job never finished")
+
+
+# ---------------------------------------------------------------------------
+# Steps 6–7: tone of voice from Claude, checked against the pages
+# ---------------------------------------------------------------------------
+
+HOME = "https://www.larkspurtea.example/"
+ABOUT = "https://www.larkspurtea.example/about"
+
+
+async def test_a_tone_of_voice_whose_quotes_are_on_the_site_is_kept(settings: Settings) -> None:
+    llm = FakeLLM(larkspur_draft())
+    job = await run(settings, "Larkspur Tea", llm=llm)
+    guide = job.guide
+    assert job.status == "complete" and guide is not None
+    assert (job.steps[5].status, job.steps[5].detail) == (
+        "done",
+        "Analysed the text of 6 pages with fake-model",
+    )
+    assert (job.steps[6].status, job.steps[6].detail) == (
+        "done",
+        "Found 4 of 4 quotes word for word · graded 15 colour pairs",
+    )
+    assert [trait.name for trait in guide.voice.traits] == ["Plain-spoken", "Rooted"]
+    assert guide.voice.traits[1].evidence[0].source_url == ABOUT
+    assert guide.voice.spectrum is not None
+    assert guide.messaging.tagline is not None and guide.messaging.tagline.source_url == HOME
+    assert [prop.title for prop in guide.messaging.value_props] == ["Small batches"]
+    # The draft had no mission: the guide says so instead of filling the gap.
+    assert guide.messaging.mission is None
+    assert "Swatchfin found no mission statement on the pages it read." in guide.warnings
+
+    # Claude read the homepage, then the pages by how much they tell (the Press page came from the browser).
+    [call] = llm.calls
+    tags = [line for line in call["prompt"].splitlines() if line.startswith("<page ")]
+    assert tags == [
+        f'<page url="{HOME}" type="Homepage">',
+        f'<page url="{HOME}brand" type="Brand assets">',
+        f'<page url="{ABOUT}" type="About">',
+        f'<page url="{HOME}careers" type="Careers">',
+        f'<page url="{HOME}press" type="Press">',
+        f'<page url="{HOME}journal" type="Blog">',
+    ]
+    assert "Tea blended in small batches, shipped the week it is packed." in call["prompt"]
+
+
+async def test_a_quote_that_isnt_on_the_site_is_dropped_with_a_warning(settings: Settings) -> None:
+    draft = larkspur_draft()
+    draft.traits[0].evidence[0].quote = "Tea blended in tiny batches, shipped the week it is packed."
+    job = await run(settings, "Larkspur Tea", llm=FakeLLM(draft))
+    guide = job.guide
+    assert guide is not None
+    assert [trait.name for trait in guide.voice.traits] == ["Rooted"]
+    assert job.steps[6].detail == "Found 3 of 4 quotes word for word · graded 15 colour pairs"
+    assert (
+        "Swatchfin left out 1 item it couldn’t find word for word on the pages it read: the trait “Plain-spoken”."
+    ) in guide.warnings
+
+
+@pytest.mark.parametrize(
+    ("error", "warning"),
+    [
+        (
+            LLMError("Anthropic’s API was busy or unavailable"),
+            "Tone of voice and key messaging weren’t analysed: Anthropic’s API was busy or unavailable. Try again in "
+            "a moment.",
+        ),
+        (
+            LLMError(
+                "Claude declined to analyse this website’s text",
+                retry=False,
+                usage=LLMUsage("fake-model", 9_000, 10, 1.0),
+            ),
+            "Tone of voice and key messaging weren’t analysed: Claude declined to analyse this website’s text.",
+        ),
+    ],
+)
+async def test_when_claude_gives_no_answer_the_guide_carries_on_with_a_warning(
+    settings: Settings, error: LLMError, warning: str
+) -> None:
+    job = await run(settings, "Larkspur Tea", llm=FakeLLM(error))
+    guide = job.guide
+    assert job.status == "complete" and guide is not None
+    assert (job.steps[5].status, job.steps[5].detail) == ("skipped", VOICE_FAILED_DETAIL)
+    assert job.steps[6].status == "done"  # contrast is still graded
+    assert guide.voice.traits == [] and guide.messaging.tagline is None
+    assert warning in guide.warnings
+    assert guide.colors and guide.contrast  # everything TinyFish read is still there
+
+
+async def test_a_crash_while_analysing_leaves_a_guide_without_a_tone_of_voice(settings: Settings) -> None:
+    class Broken(FakeLLM):
+        async def ask(self, **kwargs: Any) -> Any:
+            raise RuntimeError("a bug in the voice step")
+
+    job = await run(settings, "Larkspur Tea", llm=Broken())
+    assert job.status == "complete" and job.guide is not None
+    assert (job.steps[5].status, job.steps[5].detail) == ("skipped", VOICE_FAILED_DETAIL)
+    assert any("something went wrong" in warning for warning in job.guide.warnings)
+
+
+async def test_with_too_little_time_left_claude_isnt_asked(settings: Settings) -> None:
+    llm = FakeLLM(larkspur_draft())
+    # 34 s: enough for the browser (15 s after the 10 s margin), not for Claude (25 s).
+    job = await run(settings, "Larkspur Tea", llm=llm, time_limit=34)
+    assert job.status == "complete" and job.guide is not None
+    assert job.steps[4].status == "done"
+    assert (job.steps[5].status, job.steps[5].detail) == ("skipped", "Not enough time left to analyse the text")
+    assert llm.calls == []
+
+
+async def test_claude_gets_at_most_a_minute(settings: Settings) -> None:
+    llm = FakeLLM(larkspur_draft())
+    await run(settings, "Larkspur Tea", llm=llm)
+    assert llm.calls[0]["time_limit"] == 60
+
+
+async def test_without_colours_or_a_tone_of_voice_there_is_nothing_to_check(settings: Settings) -> None:
+    job = await run(settings, "larkspur.example", browser=FakeBrowserDriver(_unavailable))
+    assert (job.steps[6].status, job.steps[6].detail) == ("skipped", "No quotes or colours to check")
+    assert job.guide is not None and job.guide.contrast == []

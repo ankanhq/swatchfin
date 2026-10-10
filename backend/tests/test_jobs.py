@@ -12,7 +12,7 @@ import pytest
 from app.config import Settings
 from app.extract.resolve import ParsedQuery, parse_query
 from app.jobs import GuideStore, JobManager, JobRun, JobsBusy, LogoStore, Pipeline, StepFailed
-from app.pipeline import NOT_YET, SKIPPED_SEARCH_DETAIL, brand_pipeline, sample_job_finder
+from app.pipeline import SKIPPED_SEARCH_DETAIL, VOICE_OFF_DETAIL, brand_pipeline, sample_job_finder
 from app.schemas import STEP_NAMES, BrandGuide, Job
 from app.tinyfish.client import TinyFishClient
 from tests.fake_tinyfish import FakeTinyFish
@@ -68,8 +68,8 @@ async def test_a_company_name_goes_through_all_seven_steps(settings: Settings) -
         "discovering_pages": "done",
         "reading_pages": "done",
         "reading_styles": "done",
-        "analysing_voice": "skipped",
-        "verifying": "skipped",
+        "analysing_voice": "skipped",  # no Anthropic key in the test settings
+        "verifying": "done",
     }
     assert [step.detail for step in job.steps] == [
         "Found larkspurtea.example",
@@ -77,7 +77,8 @@ async def test_a_company_name_goes_through_all_seven_steps(settings: Settings) -
         "Chose 5 pages: Brand assets, About, Careers, Press, Blog (1 found by search)",
         "Read 4 of 5 pages",
         "Measured 8 colours and 3 fonts · logo confirmed at 120 × 24 px · read 1 page Fetch couldn’t",
-        *NOT_YET.values(),
+        VOICE_OFF_DETAIL,
+        "Graded 15 colour pairs",
     ]
     assert all(step.started_at and step.finished_at for step in job.steps)
     # 1 search for the website, 1 for brand pages; the homepage twice, then 5 pages; one browser.
