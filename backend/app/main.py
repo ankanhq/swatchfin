@@ -20,6 +20,7 @@ from starlette.middleware.gzip import GZipMiddleware
 
 from app.config import Settings, get_settings
 from app.errors import add_error_handlers
+from app.schemas import Health
 from app.static import CacheControlMiddleware, frontend_files
 
 log = logging.getLogger("swatchfin")
@@ -30,9 +31,9 @@ def create_router() -> APIRouter:
     router = APIRouter(prefix="/api/v1")
 
     @router.get("/health", summary="Health check")
-    async def health() -> dict[str, str]:
+    async def health() -> Health:
         """Answers {"status": "ok"} while the service is up. Used by the host to check on it."""
-        return {"status": "ok"}
+        return Health()
 
     return router
 
