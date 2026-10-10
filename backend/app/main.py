@@ -36,12 +36,15 @@ from app.pipeline import brand_pipeline, sample_job_finder
 from app.ratelimit import RateLimiter
 from app.schemas import BrandGuide, ErrorResponse, GuideCreated, GuideRequest, Health, Job
 from app.static import CacheControlMiddleware, frontend_files
+from app.tinyfish.browser import BrowserDriver, PlaywrightDriver, wait_for_endings
 from app.tinyfish.client import TinyFishClient
 
 log = logging.getLogger("swatchfin")
 
 # The largest request body the API reads. A query is at most a few hundred bytes.
 MAX_BODY_BYTES = 16 * 1024
+# How long to wait, when the server stops, for browser sessions still being ended.
+BROWSER_ENDING_WAIT_SECONDS = 15
 
 EXPORT_FORMATS = ("json", "css", "tailwind", "tokens", "voice")
 
@@ -255,9 +258,14 @@ def create_router(jobs: JobManager, logos: LogoStore, settings: Settings) -> API
     return router
 
 
-def create_app(settings: Settings | None = None, *, http: httpx2.AsyncClient | None = None) -> FastAPI:
-    """Builds the app. Pass settings to override the ones from .env, and an http
-    client with a fake TinyFish behind it (the tests do both)."""
+def create_app(
+    settings: Settings | None = None,
+    *,
+    http: httpx2.AsyncClient | None = None,
+    browser: BrowserDriver | None = None,
+) -> FastAPI:
+    """Builds the app. Pass settings to override the ones from .env, an http client
+    with a fake TinyFish behind it and a fake browser driver (the tests do all three)."""
     settings = settings or get_settings()
     logging.basicConfig(level=settings.log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     # httpx2 logs every TinyFish request; keep that for LOG_LEVEL=DEBUG only.
@@ -269,9 +277,18 @@ def create_app(settings: Settings | None = None, *, http: httpx2.AsyncClient | N
     http = http or httpx2.AsyncClient(headers={"User-Agent": "Swatchfin (+https://github.com/ankanhq/swatchfin)"})
     tinyfish = TinyFishClient(settings.tinyfish_api_key, http)
     logos = LogoStore(settings.data_dir / "logos")
+    # One Playwright for every guide's TinyFish Browser session; it starts the first time it's needed.
+    browser = browser or PlaywrightDriver()
+    if not settings.use_browser:
+        log.warning("USE_BROWSER is false: guides won't have colours or fonts")
 
     jobs = JobManager(
-        brand_pipeline(tinyfish, logos),
+        brand_pipeline(
+            tinyfish,
+            logos,
+            browser=browser if settings.use_browser else None,
+            time_limit=settings.job_timeout_seconds,
+        ),
         store=GuideStore(settings.data_dir / "guides"),
         max_running=settings.max_running_jobs,
         max_waiting=settings.max_waiting_jobs,
@@ -293,6 +310,10 @@ def create_app(settings: Settings | None = None, *, http: httpx2.AsyncClient | N
             )
         yield
         await jobs.close()
+        # Browser sessions still being ended (see tinyfish/browser.py) get a few seconds to finish.
+        await wait_for_endings(BROWSER_ENDING_WAIT_SECONDS)
+        if isinstance(browser, PlaywrightDriver):
+            await browser.stop()
         await http.aclose()
 
     app = FastAPI(

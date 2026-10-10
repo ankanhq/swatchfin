@@ -12,8 +12,9 @@ TinyFish Fetch reads the homepage twice, at the same time:
    of voice in Phase 7), with every link and image address on the page.
 
 A site that builds itself with JavaScript (Duolingo, for one) gives Fetch
-almost nothing to read. That is not an error: the guide then says what is
-missing, and from Phase 6 a real browser reads the page instead.
+almost nothing to read. That is not an error: in step 5 TinyFish Browser
+draws the page and the same code here reads the browser's copy instead
+(see visuals.py), and the guide says what is still missing.
 
 Everything read here comes from someone else's website, so it is treated
 as untrusted: only http(s) addresses are kept, and inline SVG is cleaned
@@ -96,6 +97,13 @@ LOGO_WORD = re.compile(r"logo|wordmark|brandmark", re.IGNORECASE)
 MAX_NAME_WORDS = 4
 # Separators in page titles: "Stripe | Financial infrastructure".
 TITLE_SEPARATORS = re.compile(r"\s+[|–—·:•-]\s+")
+# A region or shop label after a site's name: "Patagonia United States", "Apple (UK)", "Lego Official Site".
+REGION_SUFFIX = re.compile(
+    r"^(?P<name>.+?)[\s,|·:–-]+\(?(official (site|website|store|online store)|online store|united states|"
+    r"united kingdom|usa?|uk|global|international|europe|eu|canada|australia|new zealand|ireland|india|"
+    r"singapore|japan|germany|deutschland|france|españa|spain|italia|italy|nederland|netherlands|sweden)\)?$",
+    re.IGNORECASE,
+)
 # Words dropped when a logo's label is used as the brand name ("Stripe logo" -> "Stripe").
 LABEL_FILLER = re.compile(r"\b(logo|logotype|wordmark|home ?page|home|link|go to|back to|return to|the)\b", re.I)
 
@@ -115,6 +123,11 @@ class LogoCandidate:
     format: LogoFormat | None = None
     # The logo's own label (alt text, aria-label or title), which may be the brand's name.
     label: str = ""
+    # Set in step 5, from the browser: the number measure_page.js gave the element (data-sf-id),
+    # the colour the page gives it (for SVGs drawn in "currentColor"), and its size on screen.
+    element_id: str | None = None
+    color: str | None = None
+    rendered: tuple[int, int] | None = None
 
 
 @dataclass
@@ -232,6 +245,7 @@ def build_homepage(url: str, structure: FetchResponse, content: FetchResponse) -
 
     if homepage.site_name is None:
         homepage.site_name = _name_from_title(homepage.title, host) or _name_from_logos(homepage.logos, host)
+    homepage.site_name = _without_region(homepage.site_name, host)
     return homepage
 
 
@@ -449,7 +463,9 @@ def _svg_candidate(node: LexborNode, tree: LexborHTMLParser, confidence: float) 
         markup = f"{markup.removesuffix('</svg>')}<defs>{''.join(borrowed)}</defs></svg>"
     if not re.search(r"<(path|rect|circle|ellipse|polygon|polyline|line|text|image)\b", markup, re.IGNORECASE):
         return None
-    return LogoCandidate("inline-svg", confidence, svg=markup, format="svg")
+    return LogoCandidate(
+        "inline-svg", confidence, svg=markup, format="svg", element_id=node.attributes.get("data-sf-id")
+    )
 
 
 def _img_candidate(node: LexborNode, base: str, confidence: float) -> LogoCandidate | None:
@@ -458,7 +474,8 @@ def _img_candidate(node: LexborNode, base: str, confidence: float) -> LogoCandid
     for value in (attributes.get("src"), attributes.get("data-src"), _first_srcset(attributes.get("srcset"))):
         url = _absolute(value or "", base)
         if url is not None:
-            return LogoCandidate("header-img", confidence, url=url, format=_format_of(url))
+            element_id = attributes.get("data-sf-id")
+            return LogoCandidate("header-img", confidence, url=url, format=_format_of(url), element_id=element_id)
     return None
 
 
@@ -580,6 +597,17 @@ def _meta_site_name(meta: _Meta) -> str | None:
         if name:
             return name
     return None
+
+
+def _without_region(name: str | None, host: str) -> str | None:
+    """A site's name without a region or shop label, when what is left still matches the address.
+
+    "Patagonia United States" on patagonia.com -> "Patagonia"; "Larkspur Tea" stays as it is.
+    """
+    match = REGION_SUFFIX.fullmatch(name or "")
+    if match is None or not _could_be_name(match.group("name"), host):
+        return name
+    return match.group("name")
 
 
 def _name_from_title(title: str | None, host: str) -> str | None:

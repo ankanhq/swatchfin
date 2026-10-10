@@ -20,7 +20,7 @@ target-version = "py311"
 # RUF: ruff's own checks.
 select = ["E", "W", "F", "I", "B", "UP", "S", "ASYNC", "RUF"]
 # Messages for people use real typographic punctuation, like the website does.
-allowed-confusables = ["’", "‘", "“", "”", "–"]
+allowed-confusables = ["’", "‘", "“", "”", "–", "×"]
 
 [tool.ruff.lint.per-file-ignores]
 # Tests check results with plain assert.

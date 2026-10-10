@@ -62,7 +62,7 @@ def make_client(make_settings: Callable[..., Settings]) -> Iterator[Callable[...
 
     def make(*, tinyfish: FakeTinyFish | None = None, **overrides: Any) -> TestClient:
         tinyfish = tinyfish or FakeTinyFish()
-        test_client = TestClient(create_app(make_settings(**overrides), http=tinyfish.http))
+        test_client = TestClient(create_app(make_settings(**overrides), http=tinyfish.http, browser=tinyfish.driver))
         test_client.__enter__()  # starts the app, like `with TestClient(...)`
         clients.append(test_client)
         return test_client
@@ -75,7 +75,7 @@ def make_client(make_settings: Callable[..., Settings]) -> Iterator[Callable[...
 @pytest.fixture
 def client(settings: Settings, fake_tinyfish: FakeTinyFish) -> Iterator[TestClient]:
     """A test client: calls the app the way a browser would, without a real server."""
-    with TestClient(create_app(settings, http=fake_tinyfish.http)) as test_client:
+    with TestClient(create_app(settings, http=fake_tinyfish.http, browser=fake_tinyfish.driver)) as test_client:
         yield test_client
 
 

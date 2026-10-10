@@ -24,6 +24,7 @@ In plain English:
   with <img> anyway: three layers of protection.
 """
 
+import hashlib
 import re
 from html import escape
 
@@ -82,8 +83,19 @@ CSS_RULE = re.compile(r"([^{}]+)\{([^{}]*)\}")
 CLASS_SELECTOR = re.compile(r"\.([\w-]+)")
 
 
-def clean_svg(markup: str) -> str | None:
-    """A safe, standalone copy of an inline SVG, or None if nothing safe and visible is left."""
+HEX_COLOUR = re.compile(r"#[0-9A-Fa-f]{6}")
+# The drawing data that makes a logo's shapes, for fingerprint().
+SHAPE_DATA = re.compile(r"""\s(?:d|points)\s*=\s*["']([^"']*)["']""", re.IGNORECASE)
+
+
+def clean_svg(markup: str, *, color: str | None = None) -> str | None:
+    """A safe, standalone copy of an inline SVG, or None if nothing safe and visible is left.
+
+    `color` is the colour the page gives the logo (measured in the browser).
+    A logo drawn in "currentColor" takes that colour from the page around
+    it, so on its own it would be black: the copy is given the measured
+    colour instead, so it looks as it does on the site.
+    """
     if not markup or len(markup) > MAX_INPUT_CHARS:
         return None
     root = LexborHTMLParser(markup).css_first("svg")
@@ -93,7 +105,8 @@ def clean_svg(markup: str) -> str | None:
     class_rules = _class_rules(root)
     budget = [MAX_ELEMENTS]
     out: list[str] = []
-    drawn = _write(root, out, class_rules, depth=0, budget=budget, is_root=True)
+    page_colour = color if color and HEX_COLOUR.fullmatch(color) else None
+    drawn = _write(root, out, class_rules, depth=0, budget=budget, is_root=True, page_colour=page_colour)
     text = "".join(out)
     if not drawn or not text or len(text) > MAX_OUTPUT_CHARS:
         return None
@@ -105,6 +118,17 @@ def uses_current_color(svg: str) -> bool:
     return "currentcolor" in svg.lower()
 
 
+def fingerprint(markup: str) -> str:
+    """A short code for an SVG's shapes, the same however the page labels or styles it.
+
+    Used to find Fetch's copy of a logo among the SVGs the browser saw:
+    the two copies differ in attributes, never in the shapes they draw.
+    """
+    shapes = [re.sub(r"[\s,]+", " ", value).strip() for value in SHAPE_DATA.findall(markup)]
+    source = "|".join(shapes) if shapes else re.sub(r"\s+", " ", markup)
+    return hashlib.sha1(source.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
+
+
 def _write(
     node: LexborNode,
     out: list[str],
@@ -113,6 +137,7 @@ def _write(
     depth: int,
     budget: list[int],
     is_root: bool = False,
+    page_colour: str | None = None,
 ) -> bool:
     """Writes one allowed element and its allowed children. Returns True if anything drawable was written."""
     name = ELEMENTS.get((node.tag or "").lower())
@@ -123,6 +148,8 @@ def _write(
     attributes = _clean_attributes(node, class_rules)
     if is_root:
         _fix_root_size(node, attributes)
+        if page_colour:
+            attributes["color"] = page_colour  # what "currentColor" means inside the logo
         attributes = {"xmlns": SVG_NAMESPACE, **attributes}
 
     written = "".join(f' {key}="{escape(value)}"' for key, value in attributes.items())
