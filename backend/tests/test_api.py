@@ -145,7 +145,44 @@ def test_export_a_real_guide(client: TestClient, wait_for_job: WaitForJob) -> No
     response = client.get(f"/api/v1/guides/{job['id']}/export")
     assert response.status_code == 200
     assert response.headers["content-disposition"] == 'attachment; filename="larkspurtea-brand-guide.json"'
-    assert response.json() == job["guide"]
+    exported = response.json()
+    # Inside the app a copied logo's address is a path on Swatchfin; a downloaded guide gets it in full.
+    logo_path = f"/api/v1/guides/{job['id']}/logos/1.svg"
+    assert job["guide"]["logo"]["primary"]["url"] == logo_path
+    assert exported["logo"]["primary"]["url"] == f"http://testserver{logo_path}"
+    exported["logo"]["primary"]["url"] = logo_path
+    assert exported == job["guide"]
+
+
+def test_a_logo_copied_from_the_page_is_served_locked_down(client: TestClient, wait_for_job: WaitForJob) -> None:
+    job = wait_for_job(client, start(client, "Larkspur Tea"))
+    logo = job["guide"]["logo"]["primary"]
+    assert (logo["method"], logo["format"]) == ("inline-svg", "svg")
+
+    response = client.get(logo["url"])
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/svg+xml"
+    assert response.headers["content-security-policy"] == "default-src 'none'; sandbox"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["content-disposition"] == 'inline; filename="larkspurtea-logo.svg"'
+    assert response.headers["cache-control"] == "public, max-age=86400"
+    assert response.text.startswith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 24"')
+    assert "<script" not in response.text and "aria-label" not in response.text
+
+
+def test_logo_addresses_that_dont_exist(client: TestClient, wait_for_job: WaitForJob) -> None:
+    job_id = wait_for_job(client, start(client, "Larkspur Tea"))["id"]
+    for path in (
+        f"/api/v1/guides/{job_id}/logos/2.svg",  # only one logo was copied
+        f"/api/v1/guides/{job_id}/logos/6.svg",
+        f"/api/v1/guides/{job_id}/logos/1.png",
+        f"/api/v1/guides/{job_id}/logos/..%2F..%2Fguides%2F{job_id}.json",
+        "/api/v1/guides/bg_nope/logos/1.svg",
+        "/api/v1/guides/mock/logos/1.svg",
+    ):
+        response = client.get(path)
+        assert response.status_code == 404, path
+        assert response.json()["error"]["title"] in ("Logo not found", "Not found"), path
 
 
 def test_export_errors(make_client: Callable[..., TestClient]) -> None:
@@ -204,6 +241,7 @@ def test_api_docs_list_every_endpoint(client: TestClient) -> None:
         "/api/v1/guides",
         "/api/v1/guides/{job_id}",
         "/api/v1/guides/{job_id}/export",
+        "/api/v1/guides/{job_id}/logos/{file_name}",
         "/api/v1/health",
     }
     assert set(paths["/api/v1/guides/{job_id}"]) == {"get", "delete"}

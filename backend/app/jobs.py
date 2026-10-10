@@ -20,7 +20,9 @@ Limits that keep it safe:
 
 Finished jobs (complete or failed) are saved as JSON files in
 backend/data/guides/, so a guide's link keeps working after a restart.
-A job that was still running when the server stopped is lost.
+Logos copied from a website's code are saved next to them, in
+backend/data/logos/ (LogoStore). A job that was still running when the
+server stopped is lost.
 """
 
 import asyncio
@@ -201,12 +203,7 @@ class GuideStore:
         return await asyncio.to_thread(self._read, job_id)
 
     def _write(self, job_id: str, text: str) -> None:
-        # Write to a temporary file, then rename it: a reader never sees half a file.
-        self.folder.mkdir(parents=True, exist_ok=True)
-        path = self._path(job_id)
-        temporary = path.with_suffix(".json.tmp")
-        temporary.write_text(text, encoding="utf-8")
-        os.replace(temporary, path)
+        _write_file(self._path(job_id), text)
 
     def _read(self, job_id: str) -> Job | None:
         path = self._path(job_id)
@@ -220,18 +217,69 @@ class GuideStore:
 
     def remove_older_than(self, days: int) -> int:
         """Deletes guide files last changed more than `days` days ago. Returns how many."""
-        if not self.folder.is_dir():
-            return 0
-        cutoff = time.time() - days * 24 * 60 * 60
-        removed = 0
-        for path in self.folder.glob("*.json"):
-            try:
-                if path.stat().st_mtime < cutoff:
-                    path.unlink()
-                    removed += 1
-            except OSError:
-                log.warning("couldn't remove old guide file %s", path.name, exc_info=True)
-        return removed
+        return _remove_old_files(self.folder, "*.json", days)
+
+
+class LogoStore:
+    """Logos copied from a website's own code (cleaned inline SVG), one file each:
+    backend/data/logos/<job id>-<number>.svg. Served by GET /api/v1/guides/{id}/logos/{number}.svg.
+    """
+
+    # Where a saved logo is served. The pipeline puts this address in the guide.
+    URL = "/api/v1/guides/{job_id}/logos/{number}.svg"
+    # A guide keeps at most this many logos (the main one and four others).
+    MAX_PER_GUIDE = 5
+
+    def __init__(self, folder: Path) -> None:
+        self.folder = folder
+
+    def _path(self, job_id: str, number: int) -> Path:
+        # job_id has passed is_valid_id() and number is 1–5, so the name can't reach another folder.
+        return self.folder / f"{job_id}-{number}.svg"
+
+    def url(self, job_id: str, number: int) -> str:
+        return self.URL.format(job_id=job_id, number=number)
+
+    async def save(self, job_id: str, number: int, svg: str) -> None:
+        await asyncio.to_thread(_write_file, self._path(job_id, number), svg)
+
+    async def load(self, job_id: str, number: int) -> str | None:
+        if not is_valid_id(job_id) or not 1 <= number <= self.MAX_PER_GUIDE:
+            return None
+        try:
+            return await asyncio.to_thread(self._path(job_id, number).read_text, encoding="utf-8")
+        except FileNotFoundError:
+            return None
+        except OSError:
+            log.warning("unreadable logo file id=%s number=%d", job_id, number, exc_info=True)
+            return None
+
+    def remove_older_than(self, days: int) -> int:
+        """Deletes logo files last changed more than `days` days ago (with their guides). Returns how many."""
+        return _remove_old_files(self.folder, "*.svg", days)
+
+
+def _write_file(path: Path, text: str) -> None:
+    """Writes to a temporary file, then renames it: a reader never sees half a file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(text, encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def _remove_old_files(folder: Path, pattern: str, days: int) -> int:
+    if not folder.is_dir():
+        return 0
+    cutoff = time.time() - days * 24 * 60 * 60
+    removed = 0
+    for path in folder.glob(pattern):
+        try:
+            if path.stat().st_mtime < cutoff:
+                path.unlink()
+                removed += 1
+        except OSError:
+            log.warning("couldn't remove old file %s", path.name, exc_info=True)
+    return removed
 
 
 class JobManager:
