@@ -161,7 +161,7 @@
               <span class="sf-flow__number" aria-hidden="true">3</span>
               <p class="sf-flow__api">Swatchfin</p>
               <h3 class="sf-flow__title">Choose pages</h3>
-              <p class="sf-flow__text">Up to nine pages worth reading: About, Careers, Press, Blog, Product.</p>
+              <p class="sf-flow__text">Up to nine pages worth reading, from the homepage’s links and TinyFish Search: About, Careers, Press, Blog, Product.</p>
             </li>
             <li class="sf-flow__step sf-flow__step--fetch">
               <span class="sf-flow__number" aria-hidden="true">4</span>
@@ -212,16 +212,20 @@
           <article class="sf-api" aria-labelledby="api-search-title" data-reveal>
             <div class="sf-api__text">
               <p class="sf-api__name"><span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#search"></use></svg></span> TinyFish Search</p>
-              <h3 class="sf-api__title" id="api-search-title">Find the official site</h3>
-              <p>When you type a company name, Swatchfin searches for it and takes the first result on the brand’s own domain. Wikipedia, social networks, app stores and news sites are skipped, because they write about the brand rather than speak for it.</p>
-              <p>When you paste a URL, there is nothing to find, so Swatchfin uses your address and skips this step. Search can also look for a brand-guidelines or press-kit page to add to the pages read in step 4.</p>
-              <p class="sf-api__usage"><strong>Per guide:</strong> one or two searches, none when you give a URL.</p>
+              <h3 class="sf-api__title" id="api-search-title">Find the site and its pages</h3>
+              <p>When you type a company name, Swatchfin searches for it and picks the result whose address best matches the name, preferring the homepage of the main site. Wikipedia, social networks, app stores and news sites are left out, because they write about the brand rather than speak for it. If the chosen address doesn’t contain the name, the guide says so. When you paste a URL, there is nothing to find, so Swatchfin uses your address.</p>
+              <p>Search then looks inside the brand’s own site for pages its homepage may not link to: brand guidelines and press kits, and, when the homepage gives few links (as sites built with JavaScript do), its About, mission, careers and press pages.</p>
+              <p class="sf-api__usage"><strong>Per guide:</strong> one to three searches. One finds the site (none when you give a URL), one or two find pages.</p>
             </div>
             <figure class="sf-api__example">
               <pre class="sf-code"><code>GET https://api.search.tinyfish.ai?query=duolingo
 
 → ranked results, each with a
-  title, site name, snippet and URL</code></pre>
+  title, site name, snippet and URL
+
+GET https://api.search.tinyfish.ai
+  ?query=duolingo brand guidelines
+  &amp;include_domains=duolingo.com</code></pre>
               <figcaption class="sf-api__caption">The request, shortened. Every call sends the Swatchfin API key in an <code>X-API-Key</code> header, from the server only.</figcaption>
             </figure>
           </article>
@@ -231,22 +235,25 @@
             <div class="sf-api__text">
               <p class="sf-api__name"><span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#file-text"></use></svg></span> TinyFish Fetch</p>
               <h3 class="sf-api__title" id="api-fetch-title">Read the live pages</h3>
-              <p>Fetch does the core reading, in two requests. The first reads the homepage as HTML with <code>ttl</code> set to 0, which asks for a live copy rather than a cached one. Swatchfin parses that HTML for the logo (an image or inline SVG in the header, then the Open Graph image and the icons), the theme colour, the description and the site’s own navigation and footer links.</p>
-              <p>The second reads up to nine of those pages in one batch, as markdown: the page’s text without menus, scripts or styling. That text is what the tone of voice is drafted from, and what every quote is checked against. Fetch doesn’t return images, so the logo’s address always comes from the HTML.</p>
-              <p class="sf-api__usage"><strong>Per guide:</strong> up to 10 URLs.</p>
+              <p>Fetch does the core reading, in three requests, each with <code>ttl</code> set to 0, which asks for a live copy rather than a cached one. Two read the homepage at once. The first asks, by CSS selector, for its head, header, navigation, footer and logo, word for word: Swatchfin parses that HTML for the logo (an image or inline SVG in the link back to the homepage, then the icons and the Open Graph image), the theme colour, the description and the site’s own links. The second reads its main text as markdown, with every link on the page.</p>
+              <p>The third reads up to nine more pages in one batch, as markdown: the page’s text without menus, scripts or styling. That text is what the tone of voice is drafted from, and what every quote is checked against. Fetch doesn’t return images, so the logo’s address comes from the HTML. A logo drawn with SVG code has no address: Swatchfin copies it, keeps only its shapes and colours, and serves the copy itself.</p>
+              <p class="sf-api__usage"><strong>Per guide:</strong> up to 11 URLs (the homepage counts twice).</p>
             </div>
             <figure class="sf-api__example">
               <pre class="sf-code"><code>POST https://api.fetch.tinyfish.ai
 {
   "urls": ["https://www.duolingo.com/"],
   "format": "html",
+  "include_selectors": ["head", "header",
+                        "nav", "footer", …],
   "ttl": 0
 }
 
 POST https://api.fetch.tinyfish.ai
 {
-  "urls": ["…/info", "…/careers", "…/press"],
-  "format": "markdown"
+  "urls": ["…/about", "…/careers", "…/press"],
+  "format": "markdown",
+  "ttl": 0
 }</code></pre>
               <figcaption class="sf-api__caption">Each URL succeeds or fails on its own. A page blocked by an anti-bot check is skipped and named in the guide’s warnings.</figcaption>
             </figure>

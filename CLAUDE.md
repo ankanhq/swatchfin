@@ -36,8 +36,8 @@ This is a real portfolio-grade product, not a demo hack. Code quality, design qu
 **Scoring:** 3+ TinyFish endpoints = top tier, but **each one must contribute meaningfully** (no padding). We use exactly three, each with a real job:
 | TinyFish API | Job in Swatchfin |
 |---|---|
-| **Search** | Resolve a company name → official domain; find brand/press-kit pages |
-| **Fetch** | Read homepage HTML (logo, nav links, meta) and up to 10 sub-pages as markdown (About, Careers, Blog, Press, Product) |
+| **Search** | Resolve a company name → official domain; find the brand's own pages its homepage doesn't link to (brand guidelines, press kits; About/careers/press on JavaScript-only sites) |
+| **Fetch** | Read the homepage twice (its head/header/nav/footer/logo word for word via `include_selectors`, and its text as markdown with all links) and up to 9 more pages as markdown (About, Mission, Careers, Press, Blog, Product) |
 | **Browser** | Open the live page in a real browser and read **computed** colours and fonts of real elements (buttons, headings, body, links, nav) |
 
 **Fair-play rules (hard rules — never break them)**
@@ -60,9 +60,9 @@ This is a real portfolio-grade product, not a demo hack. Code quality, design qu
 **Backend** (`/backend`):
 - Python 3.11+, **FastAPI**, **Uvicorn**, **Pydantic v2**, **pydantic-settings** (reads `.env`)
 - Pinned in `backend/requirements.txt` (runtime) and `backend/requirements-dev.txt` (adds pytest, httpx2, ruff); every package is pinned, including the ones they depend on. Installed into `.venv` at the repo root.
-- TinyFish Python SDK (`pip install tinyfish`) and/or `httpx` for REST
+- **httpx2** for the TinyFish REST APIs (no SDK: full control of timeouts and retries, and easy to fake in tests)
 - **Playwright** (Python) connecting to TinyFish Browser via `connect_over_cdp`
-- **selectolax** (or BeautifulSoup) for HTML parsing
+- **selectolax** for HTML parsing
 - LLM for voice/messaging analysis: provider-agnostic wrapper, default **Anthropic Claude API**; key from `.env`
 - **pytest** for tests, **ruff** for lint/format
 - FastAPI also serves `/frontend` as static files, so the whole app deploys as **one service** (e.g. Render).
@@ -74,11 +74,13 @@ This is a real portfolio-grade product, not a demo hack. Code quality, design qu
 Always re-check https://docs.tinyfish.ai before writing integration code.
 
 - **Auth:** header `X-API-Key: $TINYFISH_API_KEY` (one key from agent.tinyfish.ai)
-- **Search:** `GET https://api.search.tinyfish.ai?query=...` → structured ranked results. Free, ~30 req/min.
+- **Search:** `GET https://api.search.tinyfish.ai?query=...` → `results[]` with `position, site_name, title, snippet, url`. Optional `include_domains` / `exclude_domains` (comma-separated), `purpose` (≤2000 chars), `location`, `language`. Free up to 12,000 calls/day; 30 calls/min per key.
 - **Fetch:** `POST https://api.fetch.tinyfish.ai`
   - body: `urls` (max 10), `format` = `html` | `markdown` (default) | `json`, `ttl` (`0` = force live fetch), `include_selectors` / `exclude_selectors` (max 20), `purpose` (≤2000 chars)
   - response: `results[]` with `url, final_url, title, description, language, format, text`; `errors[]` with per-URL failures (timeouts, anti-bot blocks)
-  - Free up to 1,000 URLs/day. **Does not return images/binary**; get logo URLs by parsing HTML.
+  - also: `links` / `image_links` (all `<a href>` / `<img src>` as absolute URLs), `per_url_timeout_ms` (1–110000)
+  - **`format: "html"` is the page's main content only** (cleaned): no `<head>`, meta, icon links, header, nav, footer, `<img>` or `<svg>`. **`include_selectors` returns the named parts word for word** (scripts and styles stripped), so ask for `head`, `header`, `nav`, `footer` and logo selectors by name (verified live, Phase 5). A JavaScript-only page (e.g. Duolingo) gives empty text or `empty_content`.
+  - Free up to 1,000 URLs/day (counted per page read); 150 URLs/min per key. **Does not return images/binary**; get logo URLs by parsing HTML.
 - **Browser:** `POST https://api.browser.tinyfish.ai` → `session_id`, `cdp_url`, `base_url`. Session creation takes 10–30 s (use ≥60 s timeout). Connect with Playwright `chromium.connect_over_cdp(cdp_url)`. End with `DELETE https://api.browser.tinyfish.ai/{session_id}`. **Browser costs wallet credit**: use one short session per brand and always close it (try/finally).
 - Docs: https://docs.tinyfish.ai/fetch-api · https://docs.tinyfish.ai/search-api · https://docs.tinyfish.ai/browser-api
 
@@ -89,10 +91,13 @@ Always re-check https://docs.tinyfish.ai before writing integration code.
 ```
 input (name or URL)
  1. RESOLVE   – URL given? normalise it. Name given? TinyFish Search → pick official domain (skip Wikipedia, social, news).
- 2. HOMEPAGE  – Fetch (format=html, ttl=0) → parse: logo candidates, favicon/apple-touch-icon, og:image,
-                theme-color, meta description, nav/footer links.
- 3. DISCOVER  – choose up to 9 high-value sub-pages from links (about, company, mission, careers, blog,
-                press, newsroom, brand, product, pricing). Optionally Search "<brand> brand guidelines / press kit".
+ 2. HOMEPAGE  – Fetch twice at once (ttl=0): format=html + include_selectors (head, header, nav, footer, logo
+                parts) → parse logo candidates (inline SVG or img in the home link first), favicon/apple-touch-icon,
+                og:image, theme-color, meta description, links with their words; format=markdown + links → main
+                text and every link. Inline SVG logos are cleaned (extract/svg.py) and served by our API.
+ 3. DISCOVER  – choose up to 9 high-value sub-pages from links and site-limited Search (brand, about, mission,
+                product, careers, press, blog, pricing). Search "<brand> brand guidelines logo press kit" always;
+                "<brand> about us, mission, careers, press" when the links lead to fewer than 3 of those.
  4. CONTENT   – Fetch those pages (format=markdown) in one batch.
  5. VISUALS   – Browser session → homepage → getComputedStyle on body, h1–h3, p, a, nav, primary buttons/CTAs,
                 header, footer. Weight colours by element importance and visible area. Read document.fonts for
@@ -163,7 +168,8 @@ Generation takes 30–90 s, so it is an async job with polling.
 | `POST` | `/api/v1/guides` | Body `{ "query": "duolingo" }` → `202 { id, status }` |
 | `GET` | `/api/v1/guides/{id}` | Job status + live progress steps; full BrandGuide when `complete` |
 | `DELETE` | `/api/v1/guides/{id}` | Cancels a job that is still `queued` or `running` → `204`; it is then forgotten (`GET` → `404`). A finished guide → `409`, because anyone with its link could otherwise delete it |
-| `GET` | `/api/v1/guides/{id}/export?format=json\|css\|tailwind\|tokens\|voice` | Downloadable exports |
+| `GET` | `/api/v1/guides/{id}/export?format=json\|css\|tailwind\|tokens\|voice` | Downloadable exports (copied logo URLs given in full) |
+| `GET` | `/api/v1/guides/{id}/logos/{n}.svg` | A cleaned copy of a logo drawn with inline SVG (n = 1–5), served with `Content-Security-Policy: default-src 'none'; sandbox` and `nosniff` |
 | `GET` | `/api/v1/health` | Health check |
 
 - `tokens` = W3C Design Tokens (DTCG) JSON. `voice` = a ready-to-paste "write in this brand's voice" prompt (markdown). PDF = the guide page's print stylesheet (browser "Save as PDF").
@@ -184,9 +190,9 @@ Generation takes 30–90 s, so it is an async job with polling.
 - **Errors:** every API error is `{ "error": { "title", "message" } }`, written for people (same shape as a failed job's `error`), so the frontend shows it as it is. Unknown `/api/...` addresses answer this JSON, never the 404 page.
 - Validate input (length, URL format: same rules as `parseQuery` in `utils.js`, plus no IP addresses or local network names), rate-limit per IP (20 new guides an hour, 300 API requests a minute), CORS restricted to our own origin (the frontend is served by the same app, so no CORS headers are sent and browsers let only our own pages read the API), timeouts on every outbound call. Request bodies are limited to 16 KB.
 - **Jobs** (`backend/app/jobs.py`): at most 2 run at once, up to 20 wait as `queued` (then `503` busy), each has a 150 s limit (the page waits 3 minutes). Pipeline steps report progress with `async with job.step("reading_pages") as step:`, `job.skip(...)` and `job.count("fetch_urls", n)`; raise `StepFailed(title, message, detail)` to stop a job with a message for people. All limits are settings in `config.py`.
-- Storage: in-memory + JSON files in `backend/data/guides/` (git-ignored). Finished jobs (complete or failed) are saved and kept for 30 days; running jobs are lost on restart.
+- Storage: in-memory + JSON files in `backend/data/guides/`, copied logos in `backend/data/logos/` (both git-ignored). Finished jobs (complete or failed) are saved and kept for 30 days; running jobs are lost on restart.
 - Static files: serve `/frontend` with `Cache-Control: no-cache` (API answers: `no-store`), gzip for text files, and `404.html` with a real 404 status for unknown paths. `backend/app/static.py` does all three, and `tools/serve.py` starts that same app for development; without them, cached modules break the guide page and mobile Lighthouse scores drop.
-- **Phase 4 placeholders (MOCK):** `backend/app/pipeline.py` runs seven placeholder steps that read nothing and end with the Northwind sample guide; `.invalid` addresses fail on purpose at `reading_homepage`; job IDs `mock` and `mock-partial` are finished sample jobs (linked from the About and 404 pages). Phases 5–7 replace the placeholders; Phase 9 decides what happens to the sample links.
+- **Pipeline status (Phase 5):** `backend/app/pipeline.py` (`brand_pipeline`) runs steps 1–4 live with TinyFish. Steps 5–7 are marked `skipped` (`NOT_YET` details) and the guide carries `NOT_YET_WARNINGS`; Phases 6–7 replace them. Failures that stop a guide raise `StepFailed`; passing ones (a page blocked, a search busy) become warnings. Job IDs `mock` and `mock-partial` are still finished sample jobs (MOCK, linked from the About and 404 pages); Phase 9 decides their future. Tests use `backend/tests/fake_tinyfish.py`; `pytest -m live` calls the real APIs.
 
 ---
 
@@ -247,12 +253,12 @@ swatchfin/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py  config.py  schemas.py  jobs.py  pipeline.py  errors.py  static.py  ratelimit.py
-│   │   ├── tinyfish/   search.py  fetch.py  browser.py
-│   │   ├── extract/    resolve.py  homepage.py  discover.py  visuals.py  voice.py  verify.py  contrast.py
+│   │   ├── tinyfish/   client.py  search.py  fetch.py  browser.py
+│   │   ├── extract/    resolve.py  homepage.py  svg.py  discover.py  pages.py  visuals.py  voice.py  verify.py  contrast.py
 │   │   ├── export/     __init__.py (file names)  css.py  tailwind.py  tokens.py  voice_prompt.py
 │   │   └── llm.py
 │   ├── tests/
-│   ├── data/guides/             (finished guides, git-ignored)
+│   ├── data/guides/  data/logos/   (finished guides and copied logos, git-ignored)
 │   ├── requirements.txt  requirements-dev.txt
 │   └── pyproject.toml           (pytest and ruff settings)
 └── docs/
@@ -293,7 +299,7 @@ swatchfin/
 - [x] **Phase 2:** Guide result page rendered from `mock/MOCK_northwind-roasters.json`
 - [x] **Phase 3:** Progress view, error/empty states, about page, 404, print stylesheet, accessibility + Lighthouse pass
 - [x] **Phase 4:** FastAPI skeleton, schemas, job system, serves frontend; frontend switches from mock to real API
-- [ ] **Phase 5:** TinyFish Search + Fetch: resolve, homepage parsing, logo, page discovery, content
+- [x] **Phase 5:** TinyFish Search + Fetch: resolve, homepage parsing, logo, page discovery, content
 - [ ] **Phase 6:** TinyFish Browser: computed colours, fonts, logo confirmation
 - [ ] **Phase 7:** Voice and messaging with LLM + quote verification + confidence + contrast
 - [ ] **Phase 8:** Exports (JSON, CSS, Tailwind, DTCG tokens, voice prompt)
