@@ -30,7 +30,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # API keys. Not needed yet: Phase 5 starts calling TinyFish.
+    # API keys. Without the TinyFish key, guides stop with a message; the Anthropic key is used from Phase 7.
     tinyfish_api_key: SecretStr | None = None
     anthropic_api_key: SecretStr | None = None
 
@@ -48,8 +48,6 @@ class Settings(BaseSettings):
     # A guide that takes longer than this stops with a message. The guide
     # page waits 3 minutes, so this must stay below 180.
     job_timeout_seconds: float = Field(150, gt=0, lt=180)
-    # MOCK: how long each placeholder step takes until the real steps land (Phases 5–7).
-    placeholder_step_seconds: float = Field(1.0, ge=0, le=10)
     # Finished guides older than this are deleted when the server starts.
     guide_retention_days: int = Field(30, ge=1)
 

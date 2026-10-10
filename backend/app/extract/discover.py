@@ -30,7 +30,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from app.extract.homepage import Homepage, PageLink
 from app.extract.resolve import same_site
-from app.tinyfish.client import TinyFishClient
+from app.tinyfish.client import TinyFishClient, TinyFishError
 from app.tinyfish.search import SearchResult, search
 
 MAX_PAGES = 9
@@ -192,6 +192,8 @@ class Discovery:
     search_calls: int
     # How many of the chosen pages Search found (and the homepage didn't link to).
     found_by_search: int
+    # Searches that failed for a passing reason (busy, slow). The homepage links still count.
+    searches_failed: int = 0
 
 
 async def discover_pages(client: TinyFishClient, homepage: Homepage, brand_name: str) -> Discovery:
@@ -199,7 +201,8 @@ async def discover_pages(client: TinyFishClient, homepage: Homepage, brand_name:
 
     Raises TinyFishError only if a search fails for a reason that would
     stop the whole guide (no key, no allowance left). A search that is
-    merely slow or busy is skipped: the homepage links still count.
+    merely slow or busy is counted in `searches_failed` and the homepage
+    links still count.
     """
     link_kinds = {
         found[1] for link in homepage.links if (found := _from_link(link)) is not None and _usable(found[0], homepage)
@@ -213,11 +216,25 @@ async def discover_pages(client: TinyFishClient, homepage: Homepage, brand_name:
         searches.append(_search(client, homepage.domain, f"{brand_name} about us, mission, careers, press", (
             f"Find {brand_name}’s own main pages: about the company, its mission and values, careers and press room."
         )))  # fmt: skip
-    results = await asyncio.gather(*searches)
+    # Both searches run at once. Each one's result (or error) is waited for, so neither is left running.
+    outcomes = await asyncio.gather(*searches, return_exceptions=True)
+    found: list[SearchResult] = []
+    failed = 0
+    for outcome in outcomes:
+        if isinstance(outcome, TinyFishError) and outcome.kind in ("rate_limited", "unavailable"):
+            failed += 1
+        elif isinstance(outcome, BaseException):
+            raise outcome
+        else:
+            found.extend(outcome)
 
-    pages = choose_pages(homepage, [result for batch in results for result in batch])
-    found_by_search = sum(page.origin == "search" for page in pages)
-    return Discovery(pages=pages, search_calls=len(searches), found_by_search=found_by_search)
+    pages = choose_pages(homepage, found)
+    return Discovery(
+        pages=pages,
+        search_calls=len(searches),
+        found_by_search=sum(page.origin == "search" for page in pages),
+        searches_failed=failed,
+    )
 
 
 async def _search(client: TinyFishClient, domain: str, query: str, purpose: str) -> list[SearchResult]:

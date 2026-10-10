@@ -11,7 +11,7 @@ In plain English: create_app() builds the app in four parts:
 4. the website files from /frontend, for every address that isn't an
    API endpoint.
 The tests call create_app() with their own settings (a temporary data
-folder, quick placeholder steps), so they never touch real data.
+folder) and a fake TinyFish, so they never touch real data or the network.
 """
 
 import asyncio
@@ -21,6 +21,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
+import httpx2
 from fastapi import APIRouter, Depends, FastAPI, Query, Request, Response
 from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -30,10 +31,11 @@ from app.errors import ApiError, add_error_handlers
 from app.export import export_filename
 from app.extract.resolve import QueryError, parse_query
 from app.jobs import GuideStore, JobManager, JobsBusy
-from app.pipeline import placeholder_pipeline, sample_job_finder
+from app.pipeline import brand_pipeline, sample_job_finder
 from app.ratelimit import RateLimiter
 from app.schemas import ErrorResponse, GuideCreated, GuideRequest, Health, Job
 from app.static import CacheControlMiddleware, frontend_files
+from app.tinyfish.client import TinyFishClient
 
 log = logging.getLogger("swatchfin")
 
@@ -195,13 +197,22 @@ def create_router(jobs: JobManager, settings: Settings) -> APIRouter:
     return router
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
-    """Builds the app. Pass settings to override the ones from .env (the tests do)."""
+def create_app(settings: Settings | None = None, *, http: httpx2.AsyncClient | None = None) -> FastAPI:
+    """Builds the app. Pass settings to override the ones from .env, and an http
+    client with a fake TinyFish behind it (the tests do both)."""
     settings = settings or get_settings()
     logging.basicConfig(level=settings.log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    # httpx2 logs every TinyFish request; keep that for LOG_LEVEL=DEBUG only.
+    logging.getLogger("httpx2").setLevel(logging.DEBUG if settings.log_level == "DEBUG" else logging.WARNING)
+    if settings.tinyfish_api_key is None:
+        log.warning("TINYFISH_API_KEY is not set: guides will stop with a message until it is added to .env")
+
+    # One pool of connections to TinyFish, shared by every guide, closed when the server stops.
+    http = http or httpx2.AsyncClient(headers={"User-Agent": "Swatchfin (+https://github.com/ankanhq/swatchfin)"})
+    tinyfish = TinyFishClient(settings.tinyfish_api_key, http)
 
     jobs = JobManager(
-        placeholder_pipeline(settings),  # MOCK until Phases 5–7
+        brand_pipeline(tinyfish),
         store=GuideStore(settings.data_dir / "guides"),
         max_running=settings.max_running_jobs,
         max_waiting=settings.max_waiting_jobs,
@@ -217,6 +228,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             log.info("removed %d guides older than %d days", removed, settings.guide_retention_days)
         yield
         await jobs.close()
+        await http.aclose()
 
     app = FastAPI(
         title="Swatchfin API",

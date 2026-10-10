@@ -38,7 +38,7 @@ const SAFE_STACK = /^[\p{L}\p{N} ,"'_-]{1,200}$/u;
 export function renderTypography(guide) {
   const fonts = list(guide.typography).filter((font) => text(font?.family));
   if (fonts.length === 0) {
-    return emptyState('No fonts found', 'The browser step could not read which fonts the homepage uses.');
+    return emptyState('No fonts found', 'This guide has no fonts read from the live homepage. The warnings at the top say why.');
   }
   const samples = sampleTexts(guide);
   return el('div', { className: 'sf-type-list' }, fonts.map((font) => fontCard(font, samples)));

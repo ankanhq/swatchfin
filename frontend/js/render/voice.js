@@ -27,7 +27,7 @@ export function renderVoice(guide) {
   const site = siteHost(guide);
 
   if (!summary && traits.length === 0 && scales.length === 0 && dos.length === 0 && donts.length === 0) {
-    return emptyState('No tone of voice found', 'There wasn’t enough text on the fetched pages to describe how the brand writes.');
+    return emptyState('No tone of voice found', 'This guide has no tone of voice drawn from the site’s own words. The warnings at the top say why.');
   }
 
   return el('div', { className: 'sf-voice' }, [

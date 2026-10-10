@@ -1,4 +1,4 @@
-"""The job system (app/jobs.py) and the placeholder pipeline (app/pipeline.py)."""
+"""The job system (app/jobs.py), running the pipeline (app/pipeline.py) against a fake TinyFish."""
 
 import asyncio
 import os
@@ -12,13 +12,21 @@ import pytest
 from app.config import Settings
 from app.extract.resolve import ParsedQuery, parse_query
 from app.jobs import GuideStore, JobManager, JobRun, JobsBusy, Pipeline, StepFailed
-from app.pipeline import PLACEHOLDER_DETAIL, SKIPPED_SEARCH_DETAIL, placeholder_pipeline, sample_job_finder
+from app.pipeline import NOT_YET, SKIPPED_SEARCH_DETAIL, brand_pipeline, sample_job_finder
 from app.schemas import STEP_NAMES, BrandGuide, Job
+from app.tinyfish.client import TinyFishClient
+from tests.fake_tinyfish import FakeTinyFish
 
 pytestmark = pytest.mark.anyio
 
 
-def make_manager(settings: Settings, pipeline: Pipeline | None = None, **overrides: Any) -> JobManager:
+def make_manager(
+    settings: Settings, pipeline: Pipeline | None = None, *, tinyfish: FakeTinyFish | None = None, **overrides: Any
+) -> JobManager:
+    """A job manager like the app's. Its pipeline reads from a fake TinyFish (slow with FakeTinyFish(delay=5))."""
+    if pipeline is None:
+        fake = tinyfish or FakeTinyFish()
+        pipeline = brand_pipeline(TinyFishClient(settings.tinyfish_api_key, fake.http, pause_seconds=0))
     options = {
         "store": GuideStore(settings.data_dir / "guides"),
         "max_running": settings.max_running_jobs,
@@ -26,7 +34,7 @@ def make_manager(settings: Settings, pipeline: Pipeline | None = None, **overrid
         "timeout_seconds": settings.job_timeout_seconds,
         "sample_job": sample_job_finder(settings),
     }
-    return JobManager(pipeline or placeholder_pipeline(settings), **{**options, **overrides})
+    return JobManager(pipeline, **{**options, **overrides})
 
 
 async def finished(manager: JobManager, job_id: str) -> Job:
@@ -46,34 +54,48 @@ def statuses(job: Job) -> dict[str, str]:
 
 async def test_a_company_name_goes_through_all_seven_steps(settings: Settings) -> None:
     manager = make_manager(settings)
-    job = manager.start(parse_query("Duolingo"))
+    job = manager.start(parse_query("Larkspur Tea"))
     assert job.status == "queued"
     assert job.id.startswith("bg_")
     assert [step.name for step in job.steps] == list(STEP_NAMES)
 
     job = await finished(manager, job.id)
     assert job.status == "complete"
-    assert set(statuses(job).values()) == {"done"}
-    assert all(step.detail == PLACEHOLDER_DETAIL for step in job.steps)
+    assert statuses(job) == {
+        "resolving": "done",
+        "reading_homepage": "done",
+        "discovering_pages": "done",
+        "reading_pages": "done",
+        "reading_styles": "skipped",
+        "analysing_voice": "skipped",
+        "verifying": "skipped",
+    }
+    assert [step.detail for step in job.steps] == [
+        "Found larkspurtea.example",
+        "Read larkspurtea.example: a logo, 2 icons and 6 links",
+        "Chose 5 pages: Brand assets, About, Careers, Press, Blog (1 found by search)",
+        "Read 4 of 5 pages",
+        *NOT_YET.values(),
+    ]
     assert all(step.started_at and step.finished_at for step in job.steps)
-    # MOCK: the placeholder makes no TinyFish calls, and ends with the sample guide.
-    assert job.tinyfish_usage.model_dump() == {"search_calls": 0, "fetch_urls": 0, "browser_sessions": 0}
+    # 1 search for the website, 1 for brand pages; the homepage twice, then 5 pages.
+    assert job.tinyfish_usage.model_dump() == {"search_calls": 2, "fetch_urls": 7, "browser_sessions": 0}
     assert job.guide is not None
-    assert job.guide.id == "bg_MOCK_northwind"
-    assert job.query == "Duolingo"
+    assert job.guide.id == job.id
+    assert job.query == "Larkspur Tea"
     await manager.close()
 
 
 async def test_a_web_address_skips_the_search(settings: Settings) -> None:
     manager = make_manager(settings)
-    job = await finished(manager, manager.start(parse_query("stripe.com")).id)
+    job = await finished(manager, manager.start(parse_query("larkspur.example")).id)
     assert job.status == "complete"
     assert job.steps[0].status == "skipped"
     assert job.steps[0].detail == SKIPPED_SEARCH_DETAIL
     await manager.close()
 
 
-async def test_invalid_address_fails_on_purpose_at_the_homepage(settings: Settings) -> None:
+async def test_an_address_that_cant_be_reached_fails_at_the_homepage(settings: Settings) -> None:
     manager = make_manager(settings)
     job = await finished(manager, manager.start(parse_query("https://fail.invalid")).id)
     assert job.status == "failed"
@@ -87,8 +109,9 @@ async def test_invalid_address_fails_on_purpose_at_the_homepage(settings: Settin
         "verifying": "pending",
     }
     assert job.error is not None
-    assert job.error.title == "The homepage couldn’t be read"
-    assert "No website was read" in job.error.message
+    assert job.error.title == "The website couldn’t be read"
+    assert job.steps[1].detail == "Couldn’t read fail.invalid"
+    assert job.tinyfish_usage.fetch_urls == 2
     assert job.guide is None
     await manager.close()
 
@@ -143,7 +166,7 @@ async def test_a_job_over_the_time_limit_fails(settings: Settings) -> None:
 
 
 async def test_cancel_stops_a_running_job_and_forgets_it(make_settings: Callable[..., Settings]) -> None:
-    manager = make_manager(make_settings(placeholder_step_seconds=5))
+    manager = make_manager(make_settings(), tinyfish=FakeTinyFish(delay=5))
     job = manager.start(parse_query("Duolingo"))
     await asyncio.sleep(0.05)
     assert (await manager.get(job.id)).status == "running"  # type: ignore[union-attr]
@@ -166,7 +189,7 @@ async def test_cancel_refuses_finished_and_unknown_jobs(settings: Settings) -> N
 
 
 async def test_extra_jobs_wait_their_turn_and_too_many_are_refused(make_settings: Callable[..., Settings]) -> None:
-    manager = make_manager(make_settings(placeholder_step_seconds=5, max_running_jobs=1, max_waiting_jobs=1))
+    manager = make_manager(make_settings(max_running_jobs=1, max_waiting_jobs=1), tinyfish=FakeTinyFish(delay=5))
     first = manager.start(parse_query("Duolingo"))
     await asyncio.sleep(0.05)  # lets the first job take the only slot
     second = manager.start(parse_query("Stripe"))

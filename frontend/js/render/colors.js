@@ -50,7 +50,7 @@ export function validColors(guide) {
 export function renderColors(guide) {
   const colors = validColors(guide);
   if (colors.length === 0) {
-    return emptyState('No colours found', 'The browser step could not read the computed styles of the homepage, so there is no palette.');
+    return emptyState('No colours found', 'This guide has no colours measured from the live homepage. The warnings at the top say why.');
   }
 
   return el('div', { className: 'sf-palette' }, [

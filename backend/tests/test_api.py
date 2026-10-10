@@ -8,6 +8,8 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
+from tests.fake_tinyfish import FakeTinyFish
+
 WaitForJob = Callable[..., dict[str, Any]]
 
 MOCK_GUIDE = Path(__file__).resolve().parents[2] / "frontend" / "mock" / "MOCK_northwind-roasters.json"
@@ -20,7 +22,7 @@ def start(client: TestClient, query: str) -> str:
 
 
 def test_start_then_follow_a_guide_to_the_end(client: TestClient, wait_for_job: WaitForJob) -> None:
-    response = client.post("/api/v1/guides", json={"query": "  Duolingo "})
+    response = client.post("/api/v1/guides", json={"query": "  Larkspur Tea "})
     assert response.status_code == 202
     created = response.json()
     assert created["status"] == "queued"
@@ -28,17 +30,20 @@ def test_start_then_follow_a_guide_to_the_end(client: TestClient, wait_for_job: 
 
     job = wait_for_job(client, created["id"])
     assert job["status"] == "complete"
-    assert job["query"] == "Duolingo"
+    assert job["query"] == "Larkspur Tea"
     assert job["error"] is None
-    assert [step["status"] for step in job["steps"]] == ["done"] * 7
-    assert job["guide"]["id"] == "bg_MOCK_northwind"  # MOCK until Phases 5–7
+    # Steps 1–4 read the (fake) site; 5–7 arrive in Phases 6 and 7.
+    assert [step["status"] for step in job["steps"]] == ["done"] * 4 + ["skipped"] * 3
+    assert job["guide"]["id"] == created["id"]
+    assert job["guide"]["brand"]["domain"] == "larkspurtea.example"
+    assert job["guide"]["tinyfish_usage"] == job["tinyfish_usage"]
     assert job["started_at"].endswith("Z")
 
 
 def test_job_status_has_the_documented_shape(make_client: Callable[..., TestClient]) -> None:
     """The exact fields the progress view on guide.html is built against (CLAUDE.md, section 7)."""
-    client = make_client(placeholder_step_seconds=0.5)
-    job = client.get(f"/api/v1/guides/{start(client, 'stripe.com')}").json()
+    client = make_client(tinyfish=FakeTinyFish(delay=0.5))
+    job = client.get(f"/api/v1/guides/{start(client, 'larkspur.example')}").json()
     assert set(job) == {"id", "status", "query", "started_at", "steps", "tinyfish_usage", "error", "guide"}
     assert set(job["steps"][0]) == {"name", "status", "detail", "started_at", "finished_at"}
     assert job["steps"][0]["status"] == "skipped"
@@ -46,11 +51,15 @@ def test_job_status_has_the_documented_shape(make_client: Callable[..., TestClie
     assert job["guide"] is None
 
 
-def test_invalid_address_fails_at_the_homepage(client: TestClient, wait_for_job: WaitForJob) -> None:
-    job = wait_for_job(client, start(client, "fail.invalid"))
+def test_an_address_that_cant_be_reached_fails_at_the_homepage(client: TestClient, wait_for_job: WaitForJob) -> None:
+    job = wait_for_job(client, start(client, "nothing-here.invalid"))
     assert job["status"] == "failed"
     assert job["steps"][1]["status"] == "failed"
-    assert job["error"]["title"] == "The homepage couldn’t be read"
+    assert job["error"] == {
+        "title": "The website couldn’t be read",
+        "message": "Swatchfin couldn’t read nothing-here.invalid: the site couldn’t be reached. Check the address "
+        "and try again.",
+    }
 
 
 def test_refused_query_says_what_to_fix(client: TestClient) -> None:
@@ -98,8 +107,8 @@ def test_sample_guides(client: TestClient) -> None:
 
 
 def test_cancel_a_running_guide(make_client: Callable[..., TestClient], wait_for_job: WaitForJob) -> None:
-    client = make_client(placeholder_step_seconds=5)
-    job_id = start(client, "Duolingo")
+    client = make_client(tinyfish=FakeTinyFish(delay=5))
+    job_id = start(client, "Larkspur Tea")
     wait_for_job(client, job_id, until=("running",))
 
     started = time.monotonic()
@@ -112,7 +121,7 @@ def test_cancel_a_running_guide(make_client: Callable[..., TestClient], wait_for
 
 
 def test_a_finished_guide_cant_be_deleted(client: TestClient, wait_for_job: WaitForJob) -> None:
-    job_id = start(client, "Duolingo")
+    job_id = start(client, "Larkspur Tea")
     wait_for_job(client, job_id)
     for finished_id in (job_id, "mock"):
         response = client.delete(f"/api/v1/guides/{finished_id}")
@@ -131,8 +140,16 @@ def test_export_json(client: TestClient) -> None:
     assert client.get("/api/v1/guides/mock/export").status_code == 200
 
 
+def test_export_a_real_guide(client: TestClient, wait_for_job: WaitForJob) -> None:
+    job = wait_for_job(client, start(client, "Larkspur Tea"))
+    response = client.get(f"/api/v1/guides/{job['id']}/export")
+    assert response.status_code == 200
+    assert response.headers["content-disposition"] == 'attachment; filename="larkspurtea-brand-guide.json"'
+    assert response.json() == job["guide"]
+
+
 def test_export_errors(make_client: Callable[..., TestClient]) -> None:
-    client = make_client(placeholder_step_seconds=5)
+    client = make_client(tinyfish=FakeTinyFish(delay=5))
     cases = {
         "/api/v1/guides/mock/export?format=css": (501, "Not available yet"),
         "/api/v1/guides/mock/export?format=pdf": (422, "Unknown export format"),
@@ -168,7 +185,7 @@ def test_too_many_requests(make_client: Callable[..., TestClient]) -> None:
 
 
 def test_busy(make_client: Callable[..., TestClient], wait_for_job: WaitForJob) -> None:
-    client = make_client(placeholder_step_seconds=5, max_running_jobs=1, max_waiting_jobs=0)
+    client = make_client(tinyfish=FakeTinyFish(delay=5), max_running_jobs=1, max_waiting_jobs=0)
     wait_for_job(client, start(client, "Duolingo"), until=("running",))
     response = client.post("/api/v1/guides", json={"query": "Stripe"})
     assert response.status_code == 503
