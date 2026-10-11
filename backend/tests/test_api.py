@@ -159,9 +159,40 @@ def test_export_json(client: TestClient) -> None:
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/json"
     assert response.headers["content-disposition"] == 'attachment; filename="MOCK_northwind-roasters-brand-guide.json"'
-    assert response.json() == json.loads(MOCK_GUIDE.read_text(encoding="utf-8"))
+    expected = json.loads(MOCK_GUIDE.read_text(encoding="utf-8"))
+    # The sample's logos are files next to the guide page; a downloaded guide gets their whole address.
+    logo = expected["logo"]
+    for asset in [logo["primary"], *logo["alternates"]]:
+        asset["url"] = f"http://testserver/{asset['url']}"
+    logo["favicon"] = f"http://testserver/{logo['favicon']}"
+    assert response.json() == expected
     # JSON is the default format.
     assert client.get("/api/v1/guides/mock/export").status_code == 200
+
+
+def test_every_export_format(client: TestClient) -> None:
+    formats = {
+        "json": ("application/json", "MOCK_northwind-roasters-brand-guide.json", "{"),
+        "css": ("text/css; charset=utf-8", "MOCK_northwind-roasters-brand.css", '@charset "UTF-8";\n/*\n'),
+        "tailwind": ("text/css; charset=utf-8", "MOCK_northwind-roasters-tailwind.css", "/*\n"),
+        "tokens": ("application/design-tokens+json", "MOCK_northwind-roasters-brand.tokens.json", "{"),
+        "voice": ("text/markdown; charset=utf-8", "MOCK_northwind-roasters-voice-prompt.md", "# Write in the voice"),
+    }
+    for export_format, (media_type, filename, start) in formats.items():
+        response = client.get(f"/api/v1/guides/mock/export?format={export_format}")
+        assert response.status_code == 200, export_format
+        assert response.headers["content-type"] == media_type
+        assert response.headers["content-disposition"] == f'attachment; filename="{filename}"'
+        # Saved, never shown; and if it is opened anyway, nothing in it runs.
+        assert response.headers["content-security-policy"] == "default-src 'none'; sandbox"
+        assert response.headers["x-content-type-options"] == "nosniff"
+        assert response.headers["cache-control"] == "no-store"
+        assert response.text.startswith(start), export_format
+        if export_format != "json":
+            assert "MOCK sample data for a fictional brand" in response.text, export_format
+
+    css = client.get("/api/v1/guides/mock/export?format=css").text
+    assert '--brand-logo: url("http://testserver/mock/MOCK_northwind-logo.svg");' in css
 
 
 def test_export_a_real_guide(client: TestClient, wait_for_job: WaitForJob) -> None:
@@ -176,6 +207,18 @@ def test_export_a_real_guide(client: TestClient, wait_for_job: WaitForJob) -> No
     assert exported["logo"]["primary"]["url"] == f"http://testserver{logo_path}"
     exported["logo"]["primary"]["url"] = logo_path
     assert exported == job["guide"]
+
+    # The other files give the copied logo in full too, and say which live site they came from.
+    css = client.get(f"/api/v1/guides/{job['id']}/export?format=css")
+    assert css.headers["content-disposition"] == 'attachment; filename="larkspurtea-brand.css"'
+    assert f'--brand-logo: url("http://testserver{logo_path}");' in css.text
+    assert f"Made by Swatchfin from the live site {job['guide']['brand']['url']} on " in css.text
+    tokens = client.get(f"/api/v1/guides/{job['id']}/export?format=tokens").json()
+    assert tokens["$extensions"]["io.github.ankanhq.swatchfin"]["logo"] == f"http://testserver{logo_path}"
+    # The tests have no Anthropic key, so this guide has no tone of voice to write a prompt from.
+    voice = client.get(f"/api/v1/guides/{job['id']}/export?format=voice")
+    assert voice.status_code == 409
+    assert voice.json()["error"]["title"] == "No tone of voice to export"
 
 
 def test_a_logo_copied_from_the_page_is_served_locked_down(client: TestClient, wait_for_job: WaitForJob) -> None:
@@ -212,8 +255,11 @@ def test_logo_addresses_that_dont_exist(client: TestClient, wait_for_job: WaitFo
 def test_export_errors(make_client: Callable[..., TestClient]) -> None:
     client = make_client(tinyfish=FakeTinyFish(delay=5))
     cases = {
-        "/api/v1/guides/mock/export?format=css": (501, "Not available yet"),
         "/api/v1/guides/mock/export?format=pdf": (422, "Unknown export format"),
+        # The partial sample has no colours or fonts (its browser step timed out).
+        "/api/v1/guides/mock-partial/export?format=css": (409, "No colours or fonts to export"),
+        "/api/v1/guides/mock-partial/export?format=tailwind": (409, "No colours or fonts to export"),
+        "/api/v1/guides/mock-partial/export?format=tokens": (409, "No colours or fonts to export"),
         "/api/v1/guides/bg_nope/export": (404, "Guide not found"),
         f"/api/v1/guides/{start(client, 'Duolingo')}/export": (409, "The guide isn’t ready"),
     }

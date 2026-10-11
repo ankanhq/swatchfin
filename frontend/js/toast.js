@@ -15,9 +15,10 @@ let hideTimer = 0;
 /**
  * Shows a toast.
  * @param {string} message
- * @param {{ icon?: string, tone?: 'default' | 'danger' }} [options]
+ * @param {{ icon?: string, tone?: 'default' | 'danger', duration?: number }} [options]
+ *   duration: how long it shows, in milliseconds. Give longer messages more time to be read.
  */
-export function showToast(message, { icon = 'check', tone = 'default' } = {}) {
+export function showToast(message, { icon = 'check', tone = 'default', duration = SHOW_MS } = {}) {
   if (!region) return;
   window.clearTimeout(hideTimer);
 
@@ -35,5 +36,5 @@ export function showToast(message, { icon = 'check', tone = 'default' } = {}) {
     toast.classList.remove('is-visible');
     // Remove it once the fade-out (the slow duration token) has finished.
     window.setTimeout(() => toast.remove(), 400);
-  }, SHOW_MS);
+  }, duration);
 }

@@ -21,6 +21,7 @@ import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
+from urllib.parse import urljoin
 
 import httpx2
 from fastapi import APIRouter, Depends, FastAPI, Query, Request, Response
@@ -29,7 +30,7 @@ from starlette.middleware.gzip import GZipMiddleware
 
 from app.config import Settings, get_settings
 from app.errors import ApiError, add_error_handlers
-from app.export import export_filename, logo_filename
+from app.export import FORMATS, NothingToExport, export_filename, logo_filename
 from app.extract.resolve import QueryError, parse_query
 from app.jobs import GuideStore, JobManager, JobsBusy, LogoStore
 from app.llm import LLM, AnthropicLLM
@@ -47,8 +48,6 @@ MAX_BODY_BYTES = 16 * 1024
 # How long to wait, when the server stops, for browser sessions still being ended.
 BROWSER_ENDING_WAIT_SECONDS = 15
 
-EXPORT_FORMATS = ("json", "css", "tailwind", "tokens", "voice")
-
 # A logo file's name in its address: 1.svg to 5.svg.
 LOGO_FILE = re.compile(r"([1-5])\.svg")
 # Headers for a logo copied from a website's code. The file is cleaned SVG
@@ -60,6 +59,14 @@ LOGO_HEADERS = {
     # A guide's logos never change, so browsers may keep them for a day.
     "Cache-Control": "public, max-age=86400",
 }
+# Headers for a downloaded export. Content-Disposition (added per file) saves
+# it instead of showing it; if it is opened anyway, nothing in it can run.
+EXPORT_HEADERS = {
+    "Content-Security-Policy": "default-src 'none'; sandbox",
+    "X-Content-Type-Options": "nosniff",
+}
+# A web address that starts with a scheme, like "https:".
+HAS_SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*:")
 
 
 def error_docs(*status_codes: int) -> dict[int | str, dict[str, Any]]:
@@ -92,17 +99,20 @@ def not_found() -> ApiError:
 def with_full_addresses(guide: BrandGuide, base_url: str) -> BrandGuide:
     """The guide with its logo addresses in full ("https://swatchfin.app/api/v1/guides/…/logos/1.svg").
 
-    Inside the app, a copied logo's address is a path on Swatchfin's own site.
-    A downloaded guide is used elsewhere, so it gets the whole address.
+    Inside the app, a copied logo's address is a path on Swatchfin's own site
+    (and the sample guides' logos are files next to the guide page). A
+    downloaded guide is used elsewhere, so it gets the whole address.
     """
 
     def full(url: str) -> str:
-        return base_url.rstrip("/") + url if url.startswith("/") else url
+        return url if not url or HAS_SCHEME.match(url) else urljoin(base_url, url)
 
     logo = guide.logo.model_copy(deep=True)
     for asset in [logo.primary, *logo.alternates]:
         if asset is not None:
             asset.url = full(asset.url)
+    if logo.favicon is not None:
+        logo.favicon = full(logo.favicon)
     return guide.model_copy(update={"logo": logo})
 
 
@@ -198,31 +208,48 @@ def create_router(jobs: JobManager, logos: LogoStore, settings: Settings) -> API
         "/guides/{job_id}/export",
         summary="Download a guide",
         response_class=Response,
-        responses={200: {"content": {"application/json": {}}}, **error_docs(404, 409, 422, 429, 501)},
+        responses={
+            200: {"content": {export.media_type: {} for export in FORMATS.values()}},
+            **error_docs(404, 409, 422, 429),
+        },
     )
     async def export_guide(
         request: Request,
         job_id: str,
-        export_format: str = Query("json", alias="format", description="One of: " + ", ".join(EXPORT_FORMATS)),
+        export_format: str = Query("json", alias="format", description="One of: " + ", ".join(FORMATS)),
     ) -> Response:
-        """A finished guide as a file to download. JSON works now; the other formats arrive in Phase 8."""
-        if export_format not in EXPORT_FORMATS:
-            raise ApiError(422, "Unknown export format", f"Choose one of: {', '.join(EXPORT_FORMATS)}.")
+        """A finished guide as a file to download.
+
+        - `json`: the whole guide, in the versioned schema
+        - `css`: colours, fonts and the logo as CSS custom properties
+        - `tailwind`: colours and fonts as a Tailwind CSS v4 theme
+        - `tokens`: colours and fonts as W3C Design Tokens (format 2025.10)
+        - `voice`: a Markdown prompt for writing in the brand's voice
+
+        A format the guide has nothing for (CSS without colours or fonts, a
+        voice prompt without a tone of voice) answers 409 and says why.
+        """
+        export = FORMATS.get(export_format)
+        if export is None:
+            raise ApiError(422, "Unknown export format", f"Choose one of: {', '.join(FORMATS)}.")
 
         job = await jobs.get(job_id)
         if job is None:
             raise not_found()
         if job.status != "complete" or job.guide is None:
             raise ApiError(409, "The guide isn’t ready", "Exports are available once the guide is complete.")
-        if export_format != "json":
-            raise ApiError(501, "Not available yet", "This export format is coming soon. The JSON export works now.")
 
-        filename = export_filename(job.guide, "brand-guide.json")
         guide = with_full_addresses(job.guide, str(request.base_url))
+        try:
+            text = export.build(guide)
+        except NothingToExport as error:
+            raise ApiError(409, error.title, error.message) from error
+
+        filename = export_filename(job.guide, export.suffix)
         return Response(
-            guide.model_dump_json(indent=2) + "\n",
-            media_type="application/json",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            text,
+            media_type=export.media_type,
+            headers={**EXPORT_HEADERS, "Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
     @router.get(

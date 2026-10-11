@@ -7,6 +7,7 @@
  *   watchGuide(id, …)   GET    /api/v1/guides/{id}  every 1.5 s, until the
  *                       job is complete (with the guide) or failed
  *   cancelGuide(id)     DELETE /api/v1/guides/{id}  stops a job still being made
+ *   getExport(id, fmt)  GET    /api/v1/guides/{id}/export?format=…  a file to save
  * The job's shape is "Job status" in CLAUDE.md, section 7. Every error the
  * API sends is { "error": { "title", "message" } }, written for people, so
  * the page shows it as it is.
@@ -129,6 +130,39 @@ export function cancelGuide(id) {
 }
 
 /**
+ * Downloads one export of a finished guide (JSON, CSS, Tailwind, Design
+ * Tokens or the voice prompt) and returns the file and the name the server
+ * gave it ("stripe-brand.css").
+ *
+ * In plain English: ask the server for the file. If it answers with an
+ * error (say, "No colours or fonts to export"), throw it as a GuideError
+ * with the server's own words. Otherwise read the whole answer as a file
+ * in memory (a Blob) and take its name from the Content-Disposition header.
+ *
+ * @param {string} id The job's ID, from the page address.
+ * @param {string} format
+ * @returns {Promise<{ blob: Blob, filename: string }>}
+ */
+export async function getExport(id, format) {
+  const url = `${API_BASE}/guides/${encodeURIComponent(id)}/export?format=${encodeURIComponent(format)}`;
+  const failedTitle = 'Couldn’t download the file';
+
+  let response;
+  let blob;
+  try {
+    response = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+    if (!response.ok) throw await answerError(response, failedTitle);
+    blob = await response.blob();
+  } catch (error) {
+    throw error instanceof GuideError ? error : requestError(error, failedTitle);
+  }
+
+  // The server names every file, e.g. attachment; filename="stripe-brand.css".
+  const named = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') ?? '');
+  return { blob, filename: named ? named[1] : `swatchfin-${format}` };
+}
+
+/**
  * One status check.
  * @param {string} id
  * @returns {Promise<Record<string, any>>}
@@ -186,9 +220,10 @@ async function callApi(url, { method = 'GET', body } = {}) {
  * errors carry a title and message for people; anything else (a proxy's
  * error page, say) gets a general message with the status code.
  * @param {Response} response
+ * @param {string} [fallbackTitle] The title when the server didn't send one.
  * @returns {Promise<GuideError>}
  */
-async function answerError(response) {
+async function answerError(response, fallbackTitle = 'Couldn’t load the guide') {
   const status = response.status;
   // Busy or broken for a moment (408, 429, 5xx except "not built yet"): worth asking again.
   const retryable = status === 408 || status === 429 || (status >= 500 && status !== 501);
@@ -200,7 +235,7 @@ async function answerError(response) {
     // Not JSON: use the general message below.
   }
 
-  const title = typeof details?.title === 'string' && details.title ? details.title : 'Couldn’t load the guide';
+  const title = typeof details?.title === 'string' && details.title ? details.title : fallbackTitle;
   const message =
     typeof details?.message === 'string' && details.message
       ? details.message
@@ -211,13 +246,14 @@ async function answerError(response) {
 /**
  * Turns a failed request into a message for people: too slow, or no connection.
  * @param {unknown} error
+ * @param {string} [failedTitle] The title when the connection failed.
  * @returns {GuideError}
  */
-function requestError(error) {
+function requestError(error, failedTitle = 'Couldn’t load the guide') {
   if (error?.name === 'TimeoutError') {
     return new GuideError('This is taking too long', 'The server didn’t answer within 15 seconds. Check your connection and try again.', { retryable: true });
   }
-  return new GuideError('Couldn’t load the guide', 'The connection failed. Check that you are online and try again.', { retryable: true });
+  return new GuideError(failedTitle, 'The connection failed. Check that you are online and try again.', { retryable: true });
 }
 
 /**

@@ -151,13 +151,51 @@
 
           <div class="sf-export__panel" id="export-menu" data-export-panel>
             <p class="sf-export__title">Export this guide</p>
+            <!-- exports.js marks a format aria-disabled, with the reason in its description,
+                 when this guide has nothing for it (no colours or fonts, no tone of voice). -->
             <ul class="sf-export__list">
               <li>
                 <button class="sf-export__item" type="button" data-export-format="json">
                   <span class="sf-export__icon"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#braces"></use></svg></span>
                   <span class="sf-export__text">
                     <span class="sf-export__name">JSON</span>
-                    <span class="sf-export__desc">The full guide in the versioned schema.</span>
+                    <span class="sf-export__desc" data-export-desc>The full guide in the versioned schema.</span>
+                  </span>
+                </button>
+              </li>
+              <li>
+                <button class="sf-export__item" type="button" data-export-format="css">
+                  <span class="sf-export__icon"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#code"></use></svg></span>
+                  <span class="sf-export__text">
+                    <span class="sf-export__name">CSS</span>
+                    <span class="sf-export__desc" data-export-desc>Colours, fonts and the logo as custom properties.</span>
+                  </span>
+                </button>
+              </li>
+              <li>
+                <button class="sf-export__item" type="button" data-export-format="tailwind">
+                  <span class="sf-export__icon"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#wind"></use></svg></span>
+                  <span class="sf-export__text">
+                    <span class="sf-export__name">Tailwind</span>
+                    <span class="sf-export__desc" data-export-desc>A theme for Tailwind CSS v4.</span>
+                  </span>
+                </button>
+              </li>
+              <li>
+                <button class="sf-export__item" type="button" data-export-format="tokens">
+                  <span class="sf-export__icon"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#swatch-book"></use></svg></span>
+                  <span class="sf-export__text">
+                    <span class="sf-export__name">Design Tokens</span>
+                    <span class="sf-export__desc" data-export-desc>W3C Design Tokens, format 2025.10.</span>
+                  </span>
+                </button>
+              </li>
+              <li>
+                <button class="sf-export__item" type="button" data-export-format="voice">
+                  <span class="sf-export__icon"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#message-square-text"></use></svg></span>
+                  <span class="sf-export__text">
+                    <span class="sf-export__name">Voice prompt</span>
+                    <span class="sf-export__desc" data-export-desc>A prompt for writing in the brand’s voice.</span>
                   </span>
                 </button>
               </li>
@@ -166,48 +204,12 @@
                   <span class="sf-export__icon"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#printer"></use></svg></span>
                   <span class="sf-export__text">
                     <span class="sf-export__name">Print or save as PDF</span>
-                    <span class="sf-export__desc">Opens your browser’s print dialog.</span>
-                  </span>
-                </button>
-              </li>
-              <li>
-                <button class="sf-export__item" type="button" aria-disabled="true" aria-describedby="export-note" data-export-format="css">
-                  <span class="sf-export__icon"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#code"></use></svg></span>
-                  <span class="sf-export__text">
-                    <span class="sf-export__name">CSS <span class="sf-badge">Soon</span></span>
-                    <span class="sf-export__desc">Colours and fonts as custom properties.</span>
-                  </span>
-                </button>
-              </li>
-              <li>
-                <button class="sf-export__item" type="button" aria-disabled="true" aria-describedby="export-note" data-export-format="tailwind">
-                  <span class="sf-export__icon"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#wind"></use></svg></span>
-                  <span class="sf-export__text">
-                    <span class="sf-export__name">Tailwind <span class="sf-badge">Soon</span></span>
-                    <span class="sf-export__desc">A theme extension for tailwind.config.js.</span>
-                  </span>
-                </button>
-              </li>
-              <li>
-                <button class="sf-export__item" type="button" aria-disabled="true" aria-describedby="export-note" data-export-format="tokens">
-                  <span class="sf-export__icon"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#swatch-book"></use></svg></span>
-                  <span class="sf-export__text">
-                    <span class="sf-export__name">Design Tokens <span class="sf-badge">Soon</span></span>
-                    <span class="sf-export__desc">W3C Design Tokens JSON.</span>
-                  </span>
-                </button>
-              </li>
-              <li>
-                <button class="sf-export__item" type="button" aria-disabled="true" aria-describedby="export-note" data-export-format="voice">
-                  <span class="sf-export__icon"><svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#message-square-text"></use></svg></span>
-                  <span class="sf-export__text">
-                    <span class="sf-export__name">Voice prompt <span class="sf-badge">Soon</span></span>
-                    <span class="sf-export__desc">A prompt for writing in the brand’s voice.</span>
+                    <span class="sf-export__desc" data-export-desc>Opens your browser’s print dialog.</span>
                   </span>
                 </button>
               </li>
             </ul>
-            <p class="sf-export__note" id="export-note">CSS, Tailwind, Design Tokens and the voice prompt are built by the Swatchfin backend, which isn’t connected yet.</p>
+            <p class="sf-export__note" data-export-note>Every file holds only what Swatchfin found on the live site, and says when.</p>
           </div>
         </div>
       </div>
