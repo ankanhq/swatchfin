@@ -140,8 +140,9 @@ def made_by(guide: BrandGuide, link: Callable[[str], str] = str) -> str:
     if is_mock(guide):
         return f"Made by Swatchfin from MOCK sample data for a fictional brand, not a live site, on {date}."
     site = web_address(guide.brand.url)
-    where = link(site) if site else clean_text(guide.brand.domain)
-    return f"Made by Swatchfin from the live site {where} on {date}."
+    # Without a web address, the domain, kept to the characters a domain can have.
+    where = link(site) if site else re.sub(r"[^A-Za-z0-9.-]", "", guide.brand.domain)
+    return f"Made by Swatchfin from the live site {where} on {date}." if where else f"Made by Swatchfin on {date}."
 
 
 def numbered(names: list[str]) -> list[str]:
