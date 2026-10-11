@@ -1,7 +1,9 @@
 """Step 6 of the pipeline, "analysing_voice": Claude drafts the brand's tone of voice and key messages.
 
 What goes in: the text TinyFish read in steps 2, 4 and 5 (the homepage and
-the brand's other pages). To keep a guide's cost near $0.04, the text is
+the brand's other pages). The homepage starts with its title and description,
+as search results and browser tabs show them, because brands often put their
+tagline there ("Nike. Just Do It.") rather than in the page itself. To keep a guide's cost near $0.04, the text is
 cleaned and cut first (pick_text):
 - markdown marks, images and link addresses are removed, keeping only the
   words people see on the page (plain_text);
@@ -70,10 +72,12 @@ how the trait shows in the writing. evidence: 1 or 2 quotes that show the trait 
 0 is serious, 100 playful. technical_simple: 0 is technical, 100 simple. reserved_bold: 0 is reserved, 100 bold.
 - do and dont: 3 to 5 each: short, practical instructions for someone writing new copy in this voice, based on \
 the traits and quotes. Start each dont with "Don’t".
-- tagline: the brand's main line about itself, usually the top headline of the homepage, as a quote. null if \
-there is no clear one.
-- mission: the sentence in which the brand states its mission or purpose, as a quote. null if the pages don't \
-state one. Never repeat the tagline here.
+- tagline: the brand's main line about itself, as a quote: a short, lasting slogan or positioning line, usually \
+the top headline of the homepage or part of its title (the homepage text starts with its title and description). \
+Never a promotion, offer, sale, product launch, campaign or call to action. null if there is no clear one.
+- mission: the sentence in which the brand states its mission, purpose or vision (why it exists, what it sets out \
+to do), as a quote. Not its values, its history, a fact about the company or what inspires it. null if the pages \
+don't state one. Never repeat the tagline here.
 - value_props: up to 4 key promises the brand makes to its customers. title: 2 to 5 words of your own. quote: the \
 sentence that makes the promise.
 - audience: up to 4 groups of people the brand says it serves. Copy each group's name exactly as the pages write \
@@ -165,9 +169,14 @@ class Excerpt:
 
 
 def source_pages(homepage: Homepage, pages: list[ReadPage]) -> list[SourcePage]:
-    """The homepage and every page read, the most useful kinds first (brand assets, about, mission…)."""
+    """The homepage and every page read, the most useful kinds first (brand assets, about, mission…).
+
+    The homepage's title and description come first in its text, each unless the page already says it.
+    Quotes from them are checked like any other: they are words the brand wrote on its homepage.
+    """
     ordered = sorted(pages, key=lambda page: -KINDS_BY_NAME[page.kind].value)
-    found = [SourcePage(homepage.url, None, homepage.text)] + [
+    head = [line for line in (homepage.title, homepage.description) if line and line not in homepage.text]
+    found = [SourcePage(homepage.url, None, "\n\n".join([*head, homepage.text]).strip())] + [
         SourcePage(page.url, page.kind, page.text) for page in ordered
     ]
     return [page for page in found if page.text.strip()]
