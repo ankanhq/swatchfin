@@ -212,6 +212,11 @@ async (options) => {
     return null;
   }
 
+  /** True when box `inner` covers at least `share` of box `outer`'s width and height. */
+  function fillsBox(inner, outer, share) {
+    return inner.width >= outer.width * share && inner.height >= outer.height * share;
+  }
+
   function borderOf(style) {
     const sides = ['Top', 'Right', 'Bottom', 'Left'].filter(
       (side) => parseFloat(style[`border${side}Width`]) >= 1 && !['none', 'hidden'].includes(style[`border${side}Style`]),
@@ -249,6 +254,9 @@ async (options) => {
     const heading = element.closest('h1, h2, h3');
     let kind = 'box';
     if (isButton) kind = 'button';
+    // Some buttons are painted by an element inside them (Airbnb's round search button, IKEA's
+    // add-to-cart buttons): a fill that covers the button is the button's own colour.
+    else if (owner && buttons.has(owner) && filled && fillsBox(rect, owner.getBoundingClientRect(), 0.8)) kind = 'button';
     else if (owner && buttons.has(owner)) kind = 'button-text';
     else if (['input', 'select', 'textarea'].includes(tag)) kind = 'input';
     else if (element.closest(CODE)) kind = 'code';
