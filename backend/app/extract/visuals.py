@@ -171,6 +171,9 @@ class LogoSpot(_Data):
     color: Hex | None = None
     src: str = ""
     current_src: str = ""
+    # The image file's own size in pixels (0 when unknown).
+    nw: int = 0
+    nh: int = 0
 
 
 class Samples(_Data):
@@ -404,6 +407,10 @@ CONFIRM_MAX_Y = 400
 CONFIRM_MIN_WIDTH = 16
 CONFIRM_MIN_HEIGHT = 8
 CONFIRMED_BONUS = 0.05
+# An image this big is a photo, whatever its label says ("Zomato logo" on a 1920 × 1080 photo of food):
+# its file at least PHOTO_FILE in pixels, or drawn at least PHOTO_DRAWN on the page.
+PHOTO_FILE = (1200, 600)
+PHOTO_DRAWN = (600, 300)
 CONFIRMED_MAX = 0.95
 HIDDEN_PENALTY = 0.15
 
@@ -418,9 +425,10 @@ def confirm_logos(
     shapes). A logo shown near the top of the page at a real size is
     confirmed: a little more confidence, and its size on screen and colour
     are kept. One that is on the page but hidden (a version for phones)
-    loses some, so a visible one comes first. Logos only the browser saw
-    (on sites built with JavaScript) join the list, then all are ranked
-    again, best first.
+    loses some, so a visible one comes first. An image the size of a photo
+    is left out, whatever its label says. Logos only the browser saw (on
+    sites built with JavaScript) join the list, then all are ranked again,
+    best first.
     """
     # The same logo can be on the page twice (a hidden copy in the phone menu): the one shown wins.
     seen_by_key: dict[str, LogoCandidate] = {}
@@ -442,6 +450,8 @@ def confirm_logos(
         spot = spots.get(twin.element_id or "") if twin is not None else None
         if spot is None:
             spot = _spot_by_address(candidate, spots)
+        if _photo(spot):
+            continue
         merged.append(_checked(candidate, spot))
     return _top(sorted(merged, key=lambda candidate: -candidate.confidence))
 
@@ -469,6 +479,18 @@ def logo_colours(logos: list[LogoCandidate], spots: dict[str, LogoSpot]) -> list
 def _six_digits(code: str) -> str:
     """#FA4 -> #FFAA44."""
     return "#" + "".join(2 * char for char in code[1:]) if len(code) == 4 else code
+
+
+def _photo(spot: LogoSpot | None) -> bool:
+    """True for an image the size of a photo or a banner: not a logo.
+
+    A big file shown at a logo's size is a sharp logo (a retina PNG), so how the page draws it wins.
+    """
+    if spot is None:
+        return False
+    drawn_big = spot.w >= PHOTO_DRAWN[0] and spot.h >= PHOTO_DRAWN[1]
+    file_big = spot.nw >= PHOTO_FILE[0] and spot.nh >= PHOTO_FILE[1]
+    return drawn_big or (file_big and not _shown(spot))
 
 
 def _shown(spot: LogoSpot | None) -> bool:

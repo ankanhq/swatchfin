@@ -385,6 +385,9 @@ async (options) => {
         color: colour ? hex(over(colour, backdrop(image).colour)) : null,
         src: (image.getAttribute('src') || '').slice(0, 2000),
         current_src: (image.currentSrc || '').slice(0, 2000),
+        // The image file's own size (0 for an SVG or an image not loaded yet): a photo isn't a logo.
+        nw: image.naturalWidth || 0,
+        nh: image.naturalHeight || 0,
       });
     }
   }
