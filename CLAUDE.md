@@ -174,6 +174,7 @@ Generation takes 30–90 s, so it is an async job with polling.
 | `GET` | `/api/v1/health` | Health check |
 
 - `tokens` = W3C Design Tokens (DTCG) JSON. `voice` = a ready-to-paste "write in this brand's voice" prompt (markdown). PDF = the guide page's print stylesheet (browser "Save as PDF").
+- **Exports (Phase 8):** `backend/app/export/__init__.py` lists every format (file name, media type, builder); `common.py` has what they share. `css` = `--brand-color-<role>` / `--brand-font-<role>` / `--brand-logo` in `:root` (names don't include the brand, so files can be swapped). `tailwind` = a Tailwind **v4** `@theme` file (`--color-brand-<role>`, `--font-<role>`). `tokens` = DTCG **2025.10** (sRGB colour objects, `fontFamily` / `fontWeight` / `dimension` per font role, no typography composite because there are no line heights; extras under `$extensions["io.github.ankanhq.swatchfin"]`). Every export but JSON starts with "Made by Swatchfin from the live site <url> on <date>." (MOCK guides say so instead); the JSON export stays exactly the schema. Builders get the guide with logo addresses in full and raise `NothingToExport` (→ `409`) when the guide has nothing for the format; the guide page greys those formats out. All website text goes through `clean_text()` (one line, no direction-changing characters) and then the format's own escaping (CSS strings and comments, JSON, Markdown); token font names with `{}` are dropped. Downloads are `attachment` with `Content-Security-Policy: default-src 'none'; sandbox` and `nosniff`. Tests: `backend/tests/test_export_*.py`, with a hostile guide in `export_guides.py`.
 - Progress steps (shown live in the UI): `resolving → reading_homepage → discovering_pages → reading_pages → reading_styles → analysing_voice → verifying → complete | failed`.
 - **Job status** returned by `GET /api/v1/guides/{id}`. The progress view on `guide.html` is built against this shape:
   ```json
@@ -256,7 +257,7 @@ swatchfin/
 │   │   ├── main.py  config.py  schemas.py  jobs.py  pipeline.py  errors.py  static.py  ratelimit.py
 │   │   ├── tinyfish/   client.py  search.py  fetch.py  browser.py
 │   │   ├── extract/    resolve.py  homepage.py  svg.py  discover.py  pages.py  visuals.py  measure_page.js  voice.py  verify.py  contrast.py
-│   │   ├── export/     __init__.py (file names)  css.py  tailwind.py  tokens.py  voice_prompt.py
+│   │   ├── export/     __init__.py (formats)  common.py  css.py  tailwind.py  tokens.py  voice_prompt.py
 │   │   └── llm.py
 │   ├── tests/
 │   ├── data/guides/  data/logos/   (finished guides and copied logos, git-ignored)
@@ -303,7 +304,7 @@ swatchfin/
 - [x] **Phase 5:** TinyFish Search + Fetch: resolve, homepage parsing, logo, page discovery, content
 - [x] **Phase 6:** TinyFish Browser: computed colours, fonts, logo confirmation
 - [x] **Phase 7:** Voice and messaging with LLM + quote verification + confidence + contrast
-- [ ] **Phase 8:** Exports (JSON, CSS, Tailwind, DTCG tokens, voice prompt)
+- [x] **Phase 8:** Exports (JSON, CSS, Tailwind, DTCG tokens, voice prompt)
 - [ ] **Phase 9:** Test on 10+ varied real sites, fix failures, remove mock usage from production paths
 - [ ] **Phase 10:** Deploy, final README (with "How TinyFish is used"), screenshots, demo video on 3+ brands
 - [ ] **Phase 11:** Submit: build link, LinkedIn post tagging TinyFish, #showcase on Discord
