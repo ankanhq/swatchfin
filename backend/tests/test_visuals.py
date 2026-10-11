@@ -100,6 +100,33 @@ def test_without_colourful_buttons_strong_neutral_buttons_are_primary() -> None:
     assert roles(measurement)["primary"] == "#000000"
 
 
+def test_black_buttons_are_the_primary_even_when_black_is_also_the_text_colour() -> None:
+    # Nike and Figma: black buttons, black text, no colourful buttons.
+    measurement = measure(
+        button("#111111"), button("#111111", y=500), text("#111111"), text("#111111", y=400),
+        samples={"colors": {"#FFFFFF": 880, "#111111": 20}, "images": 100, "total": 1000},
+    )  # fmt: skip
+    colors = palette(measurement)
+    assert [(color.role, color.hex) for color in colors] == [
+        ("primary", "#111111"),
+        ("background", "#FFFFFF"),
+        ("text", "#111111"),
+    ]
+    assert colors[0].usage[0] == "button background"
+    # Its share of the screen is counted once.
+    assert (colors[0].share, colors[2].share) == (0.02, 0.0)
+
+
+def test_icon_sized_buttons_dont_decide_the_primary() -> None:
+    # Figma: black buttons (also its text colour) and grey social icons in the footer.
+    icons = [button("#3D3D3D", y=7000, w=36, h=36, region="footer") for _ in range(4)]
+    measurement = measure(button("#000000"), button("#000000", y=500), text("#000000"), *icons)
+    colors = {color.role: color for color in palette(measurement)}
+    assert colors["primary"].hex == "#000000"
+    assert colors["surface"].hex == "#3D3D3D"
+    assert colors["surface"].usage == ["icon background"]
+
+
 def test_a_button_fill_close_to_the_page_is_a_surface_not_a_brand_colour() -> None:
     measurement = measure(button("#F5F5F5"), text("#111111"))
     assert "primary" not in roles(measurement)
