@@ -53,11 +53,15 @@ class NothingToExport(Exception):
 def need_colours_or_fonts(guide: BrandGuide, file_kind: str) -> None:
     """Stops an export of colours and fonts (CSS, Tailwind, tokens) when the guide has neither."""
     if not guide.colors and not any(font_names(font) for font in guide.typography):
-        raise NothingToExport(
-            "No colours or fonts to export",
-            f"This guide has no colours or fonts, so there is nothing to put in {file_kind}. "
-            "Its warnings say why. Generate the guide again to retry.",
-        )
+        raise no_colours_or_fonts(file_kind)
+
+
+def no_colours_or_fonts(file_kind: str) -> NothingToExport:
+    return NothingToExport(
+        "No colours or fonts to export",
+        f"This guide has no colours or fonts, so there is nothing to put in {file_kind}. "
+        "Its warnings say why. Generate the guide again to retry.",
+    )
 
 
 def clean_text(value: str) -> str:

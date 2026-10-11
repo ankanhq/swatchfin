@@ -14,6 +14,7 @@ from app.export.common import NothingToExport, export_filename, logo_filename
 from app.export.css import css_export
 from app.export.tailwind import SUFFIX as TAILWIND_SUFFIX
 from app.export.tailwind import tailwind_export
+from app.export.tokens import tokens_export
 from app.schemas import BrandGuide
 
 __all__ = ["FORMATS", "ExportFormat", "NothingToExport", "export_filename", "logo_filename"]
@@ -36,4 +37,6 @@ FORMATS: dict[str, ExportFormat] = {
     "json": ExportFormat("brand-guide.json", "application/json", json_export),
     "css": ExportFormat("brand.css", "text/css", css_export),
     "tailwind": ExportFormat(TAILWIND_SUFFIX, "text/css", tailwind_export),
+    # The media type the Design Tokens format asks for; tools that read it also accept application/json.
+    "tokens": ExportFormat("brand.tokens.json", "application/design-tokens+json", tokens_export),
 }
