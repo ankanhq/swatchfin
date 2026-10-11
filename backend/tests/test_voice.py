@@ -134,6 +134,29 @@ def test_the_homepage_comes_first_then_the_most_useful_pages() -> None:
     ]
 
 
+def test_the_homepage_text_starts_with_its_title_and_description() -> None:
+    # Nike's tagline is only in its title: "Nike. Just Do It. Nike.com".
+    homepage = Homepage(
+        requested_url=HOME,
+        url=HOME,
+        host="www.larkspurtea.example",
+        title="Larkspur Tea. Slow down.",
+        description="Loose-leaf tea, blended in small batches.",
+        text="# Our teas\n\nLoose-leaf tea, blended in small batches.",
+    )
+    [home] = source_pages(homepage, [])
+    # The description is already on the page, so it isn't added twice.
+    assert home.text == "Larkspur Tea. Slow down.\n\n# Our teas\n\nLoose-leaf tea, blended in small batches."
+    # A homepage with no text of its own still has its title and description.
+    empty = Homepage(requested_url=HOME, url=HOME, host="www.larkspurtea.example", title="Larkspur Tea", text="")
+    assert [page.text for page in source_pages(empty, [])] == ["Larkspur Tea"]
+
+
+def test_the_instructions_rule_out_promotions_as_taglines_and_values_as_missions() -> None:
+    assert "Never a promotion, offer, sale, product launch, campaign or call to action." in INSTRUCTIONS
+    assert "Not its values, its history, a fact about the company or what inspires it." in INSTRUCTIONS
+
+
 def test_the_prompt_tags_each_page_and_a_page_cant_close_its_own_tag() -> None:
     excerpts = pick_text(
         [
