@@ -143,7 +143,7 @@ The other pages: [`about.html`](http://localhost:8000/about.html) explains how S
 
 ### Tone of voice: how it's checked, and what it costs
 
-Claude reads at most 36,000 characters of a brand's own pages (about 9,000 tokens): the homepage first, then brand, About and mission pages, with menus, footers and repeated lines removed. Its answer must follow a fixed shape, with a quote and a page address for every trait, tagline, mission and value proposition. `backend/app/extract/verify.py` then looks for each quote in the text TinyFish read, allowing only for differences in spacing, quote marks and a final full stop. A quote that isn't there is dropped, with a warning; a trait without a quote is dropped too.
+Claude reads at most 36,000 characters of a brand's own pages (about 9,000 tokens): the homepage first, then brand, About and mission pages, with menus, footers and repeated lines removed. Its answer must follow a fixed shape, with a quote and a page address for every trait, tagline, mission and value proposition. Careers, jobs and culture pages describe how staff work, so Claude is told not to use them as evidence for traits, value propositions or the audience (a mission stated there still counts). `backend/app/extract/verify.py` then looks for each quote in the text TinyFish read, allowing only for differences in spacing, quote marks and a final full stop. A quote that isn't there is dropped, with a warning; a trait without a quote is dropped too.
 
 Measured on 10 October 2026 with `claude-sonnet-5-5`. The server logs each guide's tokens and cost (`voice for stripe.com …`); the guide itself doesn't include them:
 

@@ -156,6 +156,13 @@ def test_the_instructions_ask_for_exact_quotes_and_treat_pages_as_data() -> None
     assert "British English" in INSTRUCTIONS
 
 
+def test_the_instructions_keep_careers_and_culture_pages_out_of_the_evidence() -> None:
+    assert "Careers, jobs and culture pages describe how staff work" in INSTRUCTIONS
+    assert "Never use them as evidence for traits, as value propositions or for the audience." in INSTRUCTIONS
+    # A brand that states its mission on its careers page (Stripe does) still gets it.
+    assert "The mission may still come from them" in INSTRUCTIONS
+
+
 @pytest.mark.anyio
 async def test_draft_voice_sends_the_instructions_and_pages_and_returns_the_answer() -> None:
     draft = DraftVoice(
