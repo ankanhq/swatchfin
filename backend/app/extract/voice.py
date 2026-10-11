@@ -57,6 +57,11 @@ capitals and punctuation. Never paraphrase, shorten, join two passages, add an e
 - Set source_url to the url of the <page> tag the quote comes from, exactly.
 - Quote only the brand speaking for itself: not customer testimonials, reviews, cookie notices or legal text.
 
+Careers, jobs and culture pages describe how staff work, not how the brand speaks to its customers. This includes \
+any page or part of a page about working at the company, such as job listings, hiring, values for employees or an \
+employee handbook, whatever the page's type says. Never use them as evidence for traits, as value propositions or \
+for the audience. The mission may still come from them when that is where the brand states it.
+
 What to write:
 - summary: two sentences on how the brand writes: its voice, and how its sentences and word choices work.
 - traits: 3 to 5 traits of the voice. name: one or two words, such as "Confident". description: one sentence on \
