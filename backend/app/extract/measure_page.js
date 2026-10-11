@@ -212,6 +212,17 @@ async (options) => {
     return null;
   }
 
+  /**
+   * True when an image, video or canvas inside an element takes up (nearly) all of it. It
+   * counts even while it is still faded out: lazy pictures fade in as the page scrolls.
+   */
+  function underPicture(element, rect) {
+    for (const picture of element.querySelectorAll('img, picture, video, canvas')) {
+      if (fillsBox(picture.getBoundingClientRect(), rect, 0.9)) return true;
+    }
+    return false;
+  }
+
   /** True when box `inner` covers at least `share` of box `outer`'s width and height. */
   function fillsBox(inner, outer, share) {
     return inner.width >= outer.width * share && inner.height >= outer.height * share;
@@ -245,6 +256,9 @@ async (options) => {
     const text = ownText(element);
     const ownBackground = fillOf(element, style, rect);
     const filled = Boolean(ownBackground);
+    // A fill under a picture of the same size isn't what people see: the colour Spotify shows
+    // behind each album cover while it loads, a section behind a full-size photo.
+    const hidden = filled && tag !== 'body' && underPicture(element, rect);
     const border = borderOf(style);
     const isButton = looksLikeButton(element, tag, style, rect, filled, Boolean(border && border.allSides));
     if (isButton) buttons.add(element);
@@ -281,7 +295,7 @@ async (options) => {
       // What the text sits on: a solid colour, or a photo or gradient (on_image).
       back: text ? hex(here.colour) : null,
       on_image: Boolean(text && here.image),
-      bg: filled ? hex(over(ownBackground, behind)) : null,
+      bg: filled && !hidden ? hex(over(ownBackground, behind)) : null,
       bg_image: style.backgroundImage !== 'none',
       border: border ? hex(over(border.colour, behind)) : null,
       font: text ? style.fontFamily.slice(0, 300) : null,
