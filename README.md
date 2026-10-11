@@ -17,7 +17,7 @@
 
 ## Features
 
-Swatchfin is in active development. Today it finds a brand's site, reads its homepage and up to nine more pages with TinyFish, opens the homepage in a real browser, and returns its name, description, logo (confirmed on the page, including logos drawn with SVG code), colour palette with roles, WCAG contrast checks, typography, tone of voice and key messaging (every claim backed by a quote found word for word on the site) and sources. Exports other than JSON arrive in Phase 8.
+Swatchfin is in active development. Today it finds a brand's site, reads its homepage and up to nine more pages with TinyFish, opens the homepage in a real browser, and returns its name, description, logo (confirmed on the page, including logos drawn with SVG code), colour palette with roles, WCAG contrast checks, typography, tone of voice and key messaging (every claim backed by a quote found word for word on the site) and sources. Every guide downloads as JSON, CSS, a Tailwind theme, W3C Design Tokens and a voice prompt.
 
 - **Name or URL in, brand guide out.** Give it `duolingo` or `https://www.duolingo.com` and it finds the official site itself.
 - **Logo**: found in the page header, inline SVG, Open Graph image or favicon, with a download link.
@@ -27,7 +27,7 @@ Swatchfin is in active development. Today it finds a brand's site, reads its hom
 - **Tone of voice**: traits, four tone spectrums and do/don't lists. Every claim is backed by an exact quote from the site.
 - **Key messaging**: tagline, mission, value propositions and audience, each linked to the page it came from.
 - **No invented data**: every quote is checked against the fetched text. If something can't be extracted, the guide says so with a warning instead of making it up.
-- **Exports for other tools**: JSON, CSS custom properties, Tailwind config, W3C Design Tokens and a ready-to-paste "write in this brand's voice" prompt. Print-ready page for PDF.
+- **Exports for other tools**: JSON, CSS custom properties, a Tailwind CSS v4 theme, W3C Design Tokens and a ready-to-paste "write in this brand's voice" prompt. Print-ready page for PDF.
 
 ## How TinyFish is used
 
@@ -111,7 +111,7 @@ A guide takes 30–90 seconds, so it is made as a background job. Start one, the
 | `POST` | `/api/v1/guides` | Body `{ "query": "duolingo" }`. Answers `202 { "id", "status" }` straight away |
 | `GET` | `/api/v1/guides/{id}` | The job's status and its seven steps; the full brand guide once it is complete |
 | `DELETE` | `/api/v1/guides/{id}` | Cancels a job that is still queued or running (`204`). A finished guide answers `409` |
-| `GET` | `/api/v1/guides/{id}/export?format=json` | Downloads the guide. `css`, `tailwind`, `tokens` and `voice` arrive in Phase 8 |
+| `GET` | `/api/v1/guides/{id}/export?format=json` | Downloads the guide as `json`, `css`, `tailwind`, `tokens` or `voice` (see [Exports](#exports)). A format the guide has nothing for answers `409` |
 | `GET` | `/api/v1/guides/{id}/logos/{n}.svg` | A cleaned copy of a logo the site draws with SVG code (only shapes, colours and text), served so that it can't load or run anything |
 | `GET` | `/api/v1/health` | `{ "status": "ok" }` |
 
@@ -154,6 +154,34 @@ Measured on 10 October 2026 with `claude-sonnet-5-5`. The server logs each guide
 | Duolingo | 4 | 5,087 + 1,102 | $0.021 | 8 s | 10 of 10 |
 
 With `claude-opus-5-5` the same Duolingo text cost $0.046 (5,087 + 1,288 tokens, 12 s), and all 12 of its quotes were found too.
+
+### Exports
+
+Export on a guide page (or `GET /api/v1/guides/{id}/export?format=…`) downloads the guide in five formats. `backend/app/export/` has one module for each:
+
+| Format | File | What's in it |
+|---|---|---|
+| `json` | `stripe-brand-guide.json` | The whole guide, in the versioned schema (`CLAUDE.md`, section 6) |
+| `css` | `stripe-brand.css` | `--brand-color-<role>`, `--brand-font-<role>` and `--brand-logo` custom properties in `:root`, each with a note on where the site uses it |
+| `tailwind` | `stripe-tailwind.css` | A Tailwind CSS v4 `@theme`: classes such as `bg-brand-primary`, `text-brand-text-muted` and `font-heading` |
+| `tokens` | `stripe-brand.tokens.json` | [W3C Design Tokens, format 2025.10](https://www.designtokens.org/TR/2025.10/format/): sRGB colours, and a family, weights and sizes for each font role. Usage and confidence go under `$extensions` |
+| `voice` | `stripe-voice-prompt.md` | A Markdown prompt: the voice in brief, traits with their quotes and pages, the four tone scales, do and don't, key messages |
+
+What every export follows:
+
+- **It says where it came from.** Each file starts with `Made by Swatchfin from the live site https://stripe.com/ on 10 October 2026.` (the guide's date). Sample guides say `MOCK sample data for a fictional brand, not a live site` instead. The JSON export is the one exception: it is exactly the guide's schema, which already has `generated_at`, `brand.url` and `sources`.
+- **Only what was found.** A missing font means no font line, not a guessed one. The voice prompt has only quotes found word for word on the site, and leaves out a trait with none. The tokens file has no combined typography token, because the format needs line heights Swatchfin doesn't measure. A guide with no colours or fonts can't be exported as CSS, Tailwind or tokens (the menu greys them out and says why), and one with no tone of voice has no voice prompt.
+- **Website text stays text.** Every value is put on one line and hidden direction-changing characters are removed. Font names become escaped CSS strings, so they can't add rules or end a `<style>` element. Comments can't be closed early. In the tokens file, font names with `{…}` are left out, because tools read those as links to other tokens. In the voice prompt, Markdown characters are escaped, so a quote can't become a link, an image, HTML or a heading. The prompt also says the quotes are examples of style, not instructions. The tests try all of this with a hostile guide (`backend/tests/export_guides.py`).
+- **Copied logos get their whole address**, so the files work outside Swatchfin.
+
+Use the Tailwind theme by importing it after Tailwind in your main CSS file:
+
+```css
+@import "tailwindcss";
+@import "./stripe-tailwind.css";
+```
+
+Checked with real tools on 11 October 2026: Tailwind CSS 4.1.13 builds the classes from the Tailwind file, and Terrazzo 2.7.1 (`tz check`) finds no errors in the tokens file for Stripe, the sample guide and the hostile test guide.
 
 ### Quality checks
 
