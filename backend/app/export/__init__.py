@@ -1,34 +1,39 @@
 """Exports: a guide as files other tools can use (CLAUDE.md, section 7).
 
-Phase 4 has the JSON export (in main.py). Phase 8 adds CSS, Tailwind,
-design tokens and the voice prompt, one module each in this folder.
+FORMATS below lists every format the export endpoint (main.py) offers:
+the end of its file name, its media type and the function that writes it.
+Each format has its own module in this folder; common.py holds what they
+share. A builder gets the guide with its logo addresses already in full,
+and raises NothingToExport when the guide has nothing the format can hold.
 """
 
-import re
-import unicodedata
+from collections.abc import Callable
+from dataclasses import dataclass
 
+from app.export.common import NothingToExport, export_filename, logo_filename
+from app.export.css import css_export
+from app.export.tailwind import SUFFIX as TAILWIND_SUFFIX
+from app.export.tailwind import tailwind_export
 from app.schemas import BrandGuide
 
-
-def logo_filename(guide: BrandGuide, number: int) -> str:
-    """A download name for a logo Swatchfin copied: "stripe-logo.svg", then "stripe-logo-2.svg"."""
-    base = export_filename(guide, "svg").removesuffix("-brand-guide.svg")
-    return f"{base}-logo.svg" if number == 1 else f"{base}-logo-{number}.svg"
+__all__ = ["FORMATS", "ExportFormat", "NothingToExport", "export_filename", "logo_filename"]
 
 
-def export_filename(guide: BrandGuide, extension: str) -> str:
-    """A safe download name, like "northwind-roasters-brand-guide.json".
+@dataclass(frozen=True)
+class ExportFormat:
+    # The end of the file name: "brand.css" -> "stripe-brand.css".
+    suffix: str
+    media_type: str
+    build: Callable[[BrandGuide], str]
 
-    The same name the guide page gives its own JSON download (slugify() in
-    frontend/js/utils.js): accents and punctuation dropped, spaces turned
-    into dashes, "Ben & Jerry's" -> "ben-jerrys". Plain ASCII only, so it is
-    safe in a download header and on any computer. Mock guides get a MOCK_
-    prefix.
-    """
-    name = guide.brand.name or guide.brand.domain or guide.query
-    slug = unicodedata.normalize("NFKD", name.lower())
-    slug = re.sub(r"[^A-Za-z0-9_\s.-]", "", slug).strip()
-    slug = re.sub(r"[\s_.]+", "-", slug)
-    slug = re.sub(r"-+", "-", slug).strip("-")[:60].strip("-") or "brand"
-    prefix = "MOCK_" if guide.id.startswith("bg_MOCK") else ""
-    return f"{prefix}{slug}-brand-guide.{extension}"
+
+def json_export(guide: BrandGuide) -> str:
+    """The whole guide, exactly as the API sends it (the versioned schema in CLAUDE.md, section 6)."""
+    return guide.model_dump_json(indent=2) + "\n"
+
+
+FORMATS: dict[str, ExportFormat] = {
+    "json": ExportFormat("brand-guide.json", "application/json", json_export),
+    "css": ExportFormat("brand.css", "text/css", css_export),
+    "tailwind": ExportFormat(TAILWIND_SUFFIX, "text/css", tailwind_export),
+}
