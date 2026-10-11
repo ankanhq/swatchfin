@@ -14,10 +14,12 @@ from app.extract.homepage import Homepage, LogoCandidate
 from app.extract.pages import SkippedPage
 from app.extract.svg import clean_svg, fingerprint
 from app.extract.visuals import (
+    LogoSpot,
     Measurement,
     browser_homepage,
     confirm_logos,
     fill_gaps,
+    logo_colours,
     palette,
     read_visuals,
     typography,
@@ -125,6 +127,56 @@ def test_icon_sized_buttons_dont_decide_the_primary() -> None:
     assert colors["primary"].hex == "#000000"
     assert colors["surface"].hex == "#3D3D3D"
     assert colors["surface"].usage == ["icon background"]
+
+
+# Ten red buttons: so much red that a colour used once falls below the usual bar (10% of the primary's use).
+BUSY_PRIMARY = [button("#E4002B") for _ in range(10)]
+
+
+def test_a_rarely_used_colour_on_a_real_button_is_listed_with_a_note() -> None:
+    measurement = measure(*BUSY_PRIMARY, button("#1B7F3A", y=2000), text("#111111"))
+    colors = {color.role: color for color in palette(measurement)}
+    assert colors["primary"].hex == "#E4002B"
+    assert colors["secondary"].hex == "#1B7F3A"
+    assert colors["secondary"].usage == ["rarely used: on one button", "button background"]
+    assert colors["secondary"].confidence == 0.5
+
+
+def test_a_rarely_used_large_block_on_the_first_screen_is_listed_with_a_note() -> None:
+    block = {"tag": "div", "kind": "box", "region": "main", "x": 0, "y": 100, "w": 400, "h": 150, "bg": "#00897B"}
+    samples = {"colors": {"#FFFFFF": 870, "#00897B": 30}, "images": 100, "total": 1000}
+    colors = {color.role: color for color in palette(measure(*BUSY_PRIMARY, block, samples=samples))}
+    assert colors["secondary"].hex == "#00897B"
+    assert colors["secondary"].usage[0] == "rarely used: a large block on the first screen"
+    # The same block hidden behind something else on the screen (no points of it seen) is left out.
+    hidden = {"colors": {"#FFFFFF": 900}, "images": 100, "total": 1000}
+    assert "secondary" not in roles(measure(*BUSY_PRIMARY, block, samples=hidden))
+
+
+def test_a_colour_of_the_logo_is_listed_with_a_note() -> None:
+    colors = {color.role: color for color in palette(measure(*BUSY_PRIMARY), logo_colours=["#FA4616", "#FFFFFF"])}
+    assert colors["secondary"].hex == "#FA4616"
+    assert colors["secondary"].usage == ["rarely used: in the logo"]
+    assert colors["secondary"].share == 0
+    # A logo colour that looks like the primary isn't listed again.
+    assert "secondary" not in roles_with_logo(["#E5032D"])
+
+
+def roles_with_logo(logo: list[str]) -> dict[str, str]:
+    return {color.role: color.hex for color in palette(measure(*BUSY_PRIMARY), logo_colours=logo)}
+
+
+def test_rarely_used_colours_on_icons_badges_banners_and_headings_are_not_listed() -> None:
+    measurement = measure(
+        *BUSY_PRIMARY,
+        button("#00A000", y=300, w=36, h=36),  # a small icon
+        {"tag": "span", "kind": "link", "region": "main", "y": 400, "w": 60, "h": 22, "bg": "#7A00CC"},  # a badge
+        {"tag": "div", "kind": "box", "region": "header", "y": 0, "w": 1440, "h": 40, "bg": "#0055FF"},  # a strip
+        text("#FA4616", 25, kind="heading", size=48, y=2000),  # a heading further down (Patagonia's orange)
+        button("#FFB000", y=8000, region="footer"),  # a footer button
+        samples={"colors": {"#FFFFFF": 860, "#0055FF": 40}, "images": 100, "total": 1000},
+    )
+    assert set(roles(measurement)) == {"primary", "background"}
 
 
 def test_a_button_fill_close_to_the_page_is_a_surface_not_a_brand_colour() -> None:
@@ -342,6 +394,21 @@ def test_a_logo_drawn_in_current_color_gets_the_colour_it_has_on_the_page() -> N
     assert copy is not None and copy.startswith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"')
     assert 'color="#2F5D50"' in copy
     assert clean_svg(svg, color="red; background: url(x)") == clean_svg(svg)  # only a plain hex code is used
+
+
+def test_the_colours_of_an_svg_logo_shown_at_the_top_are_read() -> None:
+    svg = '<svg><path fill="#00B6FF" d="M0 0h1"/><path style="fill:#f73" d="M1 1h1"/><path fill="currentColor"/></svg>'
+    logo = LogoCandidate(method="inline-svg", confidence=0.9, svg=svg, element_id="1")
+    spot = {"1": spot_at(y=20, color="#FF385C")}
+    assert logo_colours([logo], spot) == ["#00B6FF", "#FF7733", "#FF385C"]
+    # Not shown near the top, or an image file (its colours are in the file): none.
+    assert logo_colours([logo], {"1": spot_at(y=2000, color="#FF385C")}) == []
+    image = LogoCandidate(method="header-img", confidence=0.9, url=f"{HOME}logo.svg", element_id="1")
+    assert logo_colours([image, logo], spot) == []
+
+
+def spot_at(*, y: float, color: str) -> LogoSpot:
+    return LogoSpot(id="1", x=20, y=y, w=120, h=32, visible=True, color=color)
 
 
 def test_an_svg_fingerprint_ignores_labels_and_styles() -> None:

@@ -27,6 +27,7 @@ import logging
 import math
 import re
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Literal
@@ -46,7 +47,7 @@ from app.extract.homepage import (
 )
 from app.extract.pages import MIN_TEXT_LENGTH, ReadPage, SkippedPage
 from app.extract.resolve import same_site
-from app.extract.svg import fingerprint
+from app.extract.svg import fingerprint, uses_current_color
 from app.schemas import Color, ColorRole, Font, FontRole
 from app.tinyfish.browser import BrowserPage, BrowserUnavailable, BrowserVisit
 from app.tinyfish.fetch import FetchedPage, FetchResponse
@@ -106,6 +107,20 @@ MUTED_STEP = 15.0
 STANDS_OUT = 1.5
 # A "button" narrower than this is an icon (a social link, a search glass): its colour isn't a brand colour.
 MIN_BUTTON_WIDTH = 40
+# A brand colour used too little to pass MIN_BRAND_WEIGHT and MIN_BRAND_SHARE is still listed when it is
+# on something important (see _rarely_used): a button at least this big, outside the footer (smaller ones
+# are icons and badges, like a sale label)...
+KEY_BUTTON_WIDTH = 64
+KEY_BUTTON_HEIGHT = 32
+# ...a block on the first screen at least this tall (thinner ones are banners and promotion strips) and
+# this share of the screen, that people can see there (a share of the first screen's points)...
+KEY_BLOCK_HEIGHT = 120
+KEY_BLOCK_AREA = 0.04
+KEY_BLOCK_POINTS = 0.02
+# ...or the logo. It is listed with this confidence, and a usage note that says so.
+RARELY_USED_CONFIDENCE = 0.5
+# Colours written in an SVG logo's code: fill="#E3000B", stroke:#FFF, stop-color="#FA4616".
+SVG_COLOUR = re.compile(r"(?:fill|stroke|stop-color)\s*[:=]\s*[\"']?\s*(#[0-9a-f]{6}|#[0-9a-f]{3})(?![0-9a-f])", re.I)
 
 Hex = Annotated[str, Field(pattern=r"^#[0-9A-Fa-f]{6}$")]
 
@@ -255,11 +270,12 @@ async def read_visuals(
         raise BrowserUnavailable(f"measurement in an unexpected shape: {error.error_count()} problems") from error
 
     seen = browser_homepage(homepage_url, measurement)
+    spots = {spot.id: spot for spot in measurement.logos}
     visuals = Visuals(
-        colors=palette(measurement),
+        colors=palette(measurement, logo_colours=logo_colours(seen.logos, spots)),
         typography=typography(measurement),
         homepage=seen,
-        spots={spot.id: spot for spot in measurement.logos},
+        spots=spots,
     )
 
     for skipped in retry:
@@ -376,6 +392,31 @@ def confirm_logos(
     return _top(sorted(merged, key=lambda candidate: -candidate.confidence))
 
 
+def logo_colours(logos: list[LogoCandidate], spots: dict[str, LogoSpot]) -> list[str]:
+    """The colours of the page's logo, when it is drawn with SVG code and shown near the top.
+
+    In plain English: the best logo candidate the browser saw, if it is an
+    inline SVG on screen at a real size: the colours written in its code,
+    and the colour the page gives it when it is drawn in "currentColor"
+    (Airbnb's pink). A logo that is an image file gives none: its colours
+    are inside the file, which TinyFish doesn't read.
+    """
+    if not logos or logos[0].method != "inline-svg" or not logos[0].svg:
+        return []
+    spot = spots.get(logos[0].element_id or "")
+    if spot is None or not _shown(spot) or spot.y > CONFIRM_MAX_Y:
+        return []
+    found = [_six_digits(code) for code in SVG_COLOUR.findall(logos[0].svg)]
+    if spot.color and uses_current_color(logos[0].svg):
+        found.append(spot.color)
+    return list(dict.fromkeys(code.upper() for code in found))
+
+
+def _six_digits(code: str) -> str:
+    """#FA4 -> #FFAA44."""
+    return "#" + "".join(2 * char for char in code[1:]) if len(code) == 4 else code
+
+
 def _shown(spot: LogoSpot | None) -> bool:
     """True when an image is drawn on the page at a real size."""
     return spot is not None and spot.visible and spot.w >= CONFIRM_MIN_WIDTH and spot.h >= CONFIRM_MIN_HEIGHT
@@ -452,6 +493,12 @@ class _Use:
     links: float = 0.0
     # Points of the first screen it fills (from the samples).
     points: int = 0
+    # Signs it matters even if it is rarely used (see _rarely_used): buttons it fills (at least
+    # KEY_BUTTON_WIDTH × KEY_BUTTON_HEIGHT, outside the footer), a large block on the first screen,
+    # and whether it is a colour of the logo.
+    key_buttons: int = 0
+    first_screen_block: bool = False
+    in_logo: bool = False
 
     @property
     def weight(self) -> float:
@@ -473,9 +520,12 @@ class _Use:
         self.text_on_page += other.text_on_page
         self.links += other.links
         self.points += other.points
+        self.key_buttons += other.key_buttons
+        self.first_screen_block = self.first_screen_block or other.first_screen_block
+        self.in_logo = self.in_logo or other.in_logo
 
 
-def palette(measurement: Measurement) -> list[Color]:
+def palette(measurement: Measurement, *, logo_colours: Iterable[str] = ()) -> list[Color]:
     """The page's colours, each with one role, in the guide's role order.
 
     In plain English, in this order:
@@ -489,6 +539,11 @@ def palette(measurement: Measurement) -> list[Color]:
       already the primary;
     - secondary and accent: the next most used colourful colours that look
       clearly different from the ones before;
+    - then, for roles still empty (primary, secondary, accent): a colourful
+      colour that is rarely used but sits on something important: the logo
+      (`logo_colours`), a real button, or a large block on the first screen.
+      Never a small icon, a badge or a thin banner. It gets a lower confidence
+      and a usage note that says so ("rarely used: on one button");
     - muted text: another neutral used for at least 10% of the text, visibly
       paler than the text colour;
     - surface: the most used other neutral background (cards, sections);
@@ -557,6 +612,25 @@ def palette(measurement: Measurement) -> list[Color]:
             take(role, best)
             brand.append(best)
 
+    # Rarely used colours on something important fill the brand roles still empty.
+    notes: dict[ColorRole, str] = {}
+    candidates = [*colourful, *_logo_uses(uses, logo_colours)]
+    for role in ("primary", *EXTRA_BRAND_ROLES):
+        if role in roles:
+            continue
+        options = [
+            use
+            for use in candidates
+            if use.hex not in taken
+            and _rarely_used(use, measurement.samples.total) is not None
+            and all(delta_e(use.hex, other.hex) >= DISTINCT_BRAND for other in brand)
+        ]
+        best = max(options, key=lambda use: (use.in_logo, use.key_buttons, _brand_weight(use)), default=None)
+        if best is not None:
+            take(role, best)
+            brand.append(best)
+            notes[role] = _rarely_used(best, measurement.samples.total) or ""
+
     text = roles.get("text")
     if text is not None:
         muted = [
@@ -591,7 +665,7 @@ def palette(measurement: Measurement) -> list[Color]:
             listed = any(color.hex == roles[role].hex for color in colors)
             # A colour listed twice (black buttons and black text) counts its share of the screen once.
             colors.append(_color(role, roles[role], background, 0 if listed else total_points,
-                                 measurement.default_background))  # fmt: skip
+                                 measurement.default_background, note=notes.get(role)))  # fmt: skip
     return colors
 
 
@@ -644,6 +718,10 @@ def _collect(measurement: Measurement, background: str) -> dict[str, _Use]:
             use.uses[_background_label(element)] += weight
             use.elements += 1
             use.buttons += button
+            if button and element.region != "footer":
+                use.key_buttons += element.w >= KEY_BUTTON_WIDTH and element.h >= KEY_BUTTON_HEIGHT
+            elif element.kind == "box" and element.region not in ("footer", "page"):
+                use.first_screen_block = use.first_screen_block or _first_screen_block(element, measurement.viewport)
 
         if element.border:
             weight = (element.w + element.h) / 10 * place * (3 if button else 1)
@@ -725,6 +803,39 @@ def _brand_weight(use: _Use) -> float:
     return use.weight - use.uses["page background"]
 
 
+def _first_screen_block(element: MeasuredElement, viewport: Viewport) -> bool:
+    """True for a large block on the first screen: tall enough not to be a banner or a strip."""
+    shown = min(element.y + element.h, viewport.height) - max(element.y, 0)
+    return shown >= KEY_BLOCK_HEIGHT and element.w * shown >= KEY_BLOCK_AREA * viewport.width * viewport.height
+
+
+def _logo_uses(uses: dict[str, _Use], logo_colours: Iterable[str]) -> list[_Use]:
+    """Marks the logo's colourful colours, and returns the ones used nowhere else on the page."""
+    only_in_logo: list[_Use] = []
+    for hex_code in dict.fromkeys(code.upper() for code in logo_colours):
+        if chroma(hex_code) < COLOURFUL:
+            continue
+        twin = uses.get(hex_code) or next(
+            (use for use in uses.values() if delta_e(use.hex, hex_code) < SAME_COLOUR), None
+        )
+        if twin is None:
+            twin = _Use(hex=hex_code)
+            only_in_logo.append(twin)
+        twin.in_logo = True
+    return only_in_logo
+
+
+def _rarely_used(use: _Use, total_points: int) -> str | None:
+    """Why a rarely used colour matters, for its usage note; None when it is on nothing important."""
+    if use.in_logo:
+        return "in the logo"
+    if use.key_buttons:
+        return "on one button" if use.key_buttons == 1 else f"on {use.key_buttons} buttons"
+    if use.first_screen_block and total_points and use.points >= KEY_BLOCK_POINTS * total_points:
+        return "a large block on the first screen"
+    return None
+
+
 def _text_like(hex_code: str) -> bool:
     """A colour text could be set in: a neutral, or so dark it reads as black (Stripe's navy)."""
     return chroma(hex_code) < COLOURFUL or lightness(hex_code) < 15
@@ -755,7 +866,10 @@ CONFIDENCE: dict[ColorRole, tuple[float, float]] = {
 }
 
 
-def _color(role: ColorRole, use: _Use, background: str, total_points: int, default_background: bool) -> Color:
+def _color(
+    role: ColorRole, use: _Use, background: str, total_points: int, default_background: bool, *, note: str | None = None
+) -> Color:
+    """One palette entry. `note` says why a rarely used colour is listed (see _rarely_used)."""
     if role == "background":
         plenty = not default_background
     elif role == "primary":
@@ -771,6 +885,10 @@ def _color(role: ColorRole, use: _Use, background: str, total_points: int, defau
         labels = ["page background (the browser’s default white)"] + [
             label for label in labels if label != "page background"
         ]
+    confidence = CONFIDENCE[role][0 if plenty else 1]
+    if note:
+        labels = [f"rarely used: {note}", *(label for label in labels if label != "logo")]
+        confidence = RARELY_USED_CONFIDENCE
     return Color(
         hex=use.hex,
         rgb=list(rgb(use.hex)),
@@ -778,7 +896,7 @@ def _color(role: ColorRole, use: _Use, background: str, total_points: int, defau
         usage=labels[:3],
         share=round(use.points / total_points, 3) if total_points else 0.0,
         source="computed-style",
-        confidence=CONFIDENCE[role][0 if plenty else 1],
+        confidence=confidence,
     )
 
 
