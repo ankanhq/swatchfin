@@ -183,6 +183,13 @@ def test_links_keep_their_words_and_place() -> None:
         ("Larkspur Official Site", "Larkspur"),
         ("Canada Larkspur", "Canada Larkspur"),
         ("Tea Shop UK", "Tea Shop UK"),  # what's left doesn't match the address, so it isn't trimmed
+        # Nike's site calls itself "Nike.com", LEGO's "Official LEGO® Shop".
+        ("larkspur.example", "larkspur"),
+        ("Larkspur.example", "Larkspur"),
+        ("Official Larkspur® Shop", "Larkspur"),
+        ("The Official Larkspur Store", "Larkspur"),
+        ("Larkspur™", "Larkspur"),
+        ("Official Tea Shop", "Official Tea Shop"),
     ],
 )
 def test_a_region_after_the_site_name_is_left_out(site_name: str, name: str) -> None:

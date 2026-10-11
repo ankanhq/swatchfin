@@ -104,6 +104,10 @@ REGION_SUFFIX = re.compile(
     r"singapore|japan|germany|deutschland|france|españa|spain|italia|italy|nederland|netherlands|sweden)\)?$",
     re.IGNORECASE,
 )
+# Signs dropped from a brand's name: "LEGO®" is LEGO.
+TRADEMARKS = re.compile(r"[®™©℠]")
+# Shop words around a site's name: "Official LEGO Shop", "The Official Larkspur Store".
+SHOP_WORDS = re.compile(r"^(the )?official |( official)?( online)? (shop|store)$", re.IGNORECASE)
 # Words dropped when a logo's label is used as the brand name ("Stripe logo" -> "Stripe").
 LABEL_FILLER = re.compile(r"\b(logo|logotype|wordmark|home ?page|home|link|go to|back to|return to|the)\b", re.I)
 
@@ -245,7 +249,7 @@ def build_homepage(url: str, structure: FetchResponse, content: FetchResponse) -
 
     if homepage.site_name is None:
         homepage.site_name = _name_from_title(homepage.title, host) or _name_from_logos(homepage.logos, host)
-    homepage.site_name = _without_region(homepage.site_name, host)
+    homepage.site_name = _plain_name(homepage.site_name, host)
     return homepage
 
 
@@ -597,6 +601,24 @@ def _meta_site_name(meta: _Meta) -> str | None:
         if name:
             return name
     return None
+
+
+def _plain_name(name: str | None, host: str) -> str | None:
+    """A site's name as people say it, without trademark signs, a web address, shop words or a region.
+
+    "Nike.com" -> "Nike"; "Official LEGO® Shop" -> "LEGO"; "Patagonia United States" -> "Patagonia".
+    Each word is only dropped when what is left still matches the address.
+    """
+    if not name:
+        return name
+    name = re.sub(r"\s+", " ", TRADEMARKS.sub(" ", name)).strip() or name
+    address = re.fullmatch(r"(?:www\.)?([^.\s]+)\.[a-z.]{2,12}", name, re.IGNORECASE)
+    if address and name.lower().removeprefix("www.") == host.lower().removeprefix("www."):
+        return address.group(1)
+    shopless = SHOP_WORDS.sub("", name).strip()
+    if shopless != name and _could_be_name(shopless, host):
+        name = shopless
+    return _without_region(name, host)
 
 
 def _without_region(name: str | None, host: str) -> str | None:
