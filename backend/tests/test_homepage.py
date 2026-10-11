@@ -187,6 +187,7 @@ def test_links_keep_their_words_and_place() -> None:
         ("larkspur.example", "larkspur"),
         ("Larkspur.example", "Larkspur"),
         ("Official Larkspur® Shop", "Larkspur"),
+        ("Official Larkspur® Shop US", "Larkspur"),  # LEGO's title: "Home | Official LEGO® Shop US"
         ("The Official Larkspur Store", "Larkspur"),
         ("Larkspur™", "Larkspur"),
         ("Official Tea Shop", "Official Tea Shop"),
