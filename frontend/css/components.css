@@ -1047,7 +1047,8 @@
   left: 50%;
   z-index: var(--sf-z-toast);
   width: max-content;
-  max-width: calc(100vw - 2 * var(--sf-gutter));
+  /* Long messages (an export that failed) wrap at a readable line length. */
+  max-width: min(36rem, calc(100vw - 2 * var(--sf-gutter)));
   pointer-events: none;
   transform: translateX(-50%);
 }

@@ -238,7 +238,7 @@ async function showGuide(page, job) {
 
   observeMotion(page);
   setUpTableOfContents(page);
-  setUpExports(page, guide, { mock });
+  setUpExports(page, guide, { jobId: job.id, mock });
 }
 
 /**
