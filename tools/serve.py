@@ -3,9 +3,10 @@
 Run it from the repo root, with the virtual environment turned on:
 
     source .venv/bin/activate
-    python tools/serve.py [port]      (default port 8000)
+    python tools/serve.py [port]      (default: the PORT environment variable, or 8000)
 
-Then open http://localhost:8000. Press Ctrl+C to stop.
+Then open http://localhost:8000. Press Ctrl+C to stop. Tools that pick a
+free port for you (like a preview pane) can pass it in PORT instead.
 
 This starts the FastAPI app in backend/app/main.py with Uvicorn, the same
 app that runs in production. The app serves the API under /api/v1 and the
@@ -17,6 +18,7 @@ For HTML, CSS and JavaScript, just reload the page.
 """
 
 import errno
+import os
 import socket
 import sys
 from pathlib import Path
@@ -39,7 +41,8 @@ def port_in_use(port: int) -> bool:
 
 
 def main() -> None:
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+    # A port typed after the command wins; then PORT, set by tools that choose a free port; then 8000.
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get("PORT") or 8000)
 
     # Imported here, not at the top, so a missing package gets a clear message.
     try:
