@@ -167,18 +167,15 @@ export function renderToolbar(page, guide) {
 
 /**
  * MOCK: the notice that labels the sample guide for Northwind Roasters, a
- * fictional brand. Until live generation is connected (Phases 5–7), every
- * run ends with it. `query` is what was searched for, when that was
- * another brand; it is empty for the sample itself (?id=mock).
- * @type {Record<string, { title: string, message: (query: string) => string }>}
+ * fictional brand. The sample is only served where sample guides are
+ * switched on (SAMPLE_GUIDES, for building this page), never in production.
+ * @type {Record<string, { title: string, message: string }>}
  */
 const NOTICES = {
   sample: {
     title: 'Sample guide',
-    message: (query) =>
-      query
-        ? `You searched for “${query}”. Live generation isn’t connected yet, so this page shows the sample guide for Northwind Roasters, a fictional brand. None of it was read from a real website.`
-        : 'This guide uses mock data for Northwind Roasters, a fictional brand, so the page can be built before live generation is connected. None of it was read from a real website.',
+    message:
+      'This guide uses mock data for Northwind Roasters, a fictional brand, for building and testing Swatchfin. None of it was read from a real website.',
   },
 };
 
@@ -187,9 +184,8 @@ const NOTICES = {
  * With no kind (a real guide), the notice is removed.
  * @param {HTMLElement} page
  * @param {string | null} kind A key of NOTICES, or null.
- * @param {{ query?: string }} [options]
  */
-export function renderNotice(page, kind, { query = '' } = {}) {
+export function renderNotice(page, kind) {
   const slot = page.querySelector('[data-guide-notice]');
   if (!slot) return;
 
@@ -200,7 +196,7 @@ export function renderNotice(page, kind, { query = '' } = {}) {
   }
 
   const title = notice.title;
-  const message = notice.message(query);
+  const message = notice.message;
 
   slot.replaceChildren(
     el('div', { className: 'sf-notice' }, [

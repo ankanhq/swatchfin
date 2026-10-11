@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
+from app.schemas import STEP_NAMES, BrandGuide, Job, Step, TinyFishUsage
 from tests.fake_llm import FakeLLM, larkspur_draft
 from tests.fake_tinyfish import FakeTinyFish
 
@@ -128,6 +129,29 @@ def test_sample_guides(client: TestClient) -> None:
     assert job["status"] == "complete"
     assert job["guide"] == json.loads(MOCK_GUIDE.read_text(encoding="utf-8"))
     assert client.get("/api/v1/guides/mock-partial").json()["guide"]["colors"] == []
+
+
+def test_production_serves_no_sample_or_mock_guide(make_client: Callable[..., TestClient], tmp_path: Path) -> None:
+    # A guide marked MOCK left in the guides folder from before live generation (a run for "Duolingo"
+    # once ended with the sample guide).
+    leftover = Job(
+        id="bg_0123456789abcdef",
+        status="complete",
+        query="Duolingo",
+        steps=[Step(name=name, status="done") for name in STEP_NAMES],
+        tinyfish_usage=TinyFishUsage(),
+        guide=BrandGuide.model_validate_json(MOCK_GUIDE.read_text(encoding="utf-8")),
+    )
+    guides = tmp_path / "data" / "guides"
+    guides.mkdir(parents=True)
+    (guides / f"{leftover.id}.json").write_text(leftover.model_dump_json(), encoding="utf-8")
+
+    client = make_client(sample_guides=False)  # the default, as in production
+    for job_id in ("mock", "mock-partial", leftover.id):
+        assert client.get(f"/api/v1/guides/{job_id}").status_code == 404, job_id
+        assert client.get(f"/api/v1/guides/{job_id}/export?format=css").status_code == 404, job_id
+    # Where sample guides are on (building the guide page, Lighthouse, tests), both are served.
+    assert make_client().get(f"/api/v1/guides/{leftover.id}").status_code == 200
 
 
 def test_cancel_a_running_guide(make_client: Callable[..., TestClient], wait_for_job: WaitForJob) -> None:

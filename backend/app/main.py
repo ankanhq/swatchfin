@@ -328,7 +328,8 @@ def create_app(
         max_running=settings.max_running_jobs,
         max_waiting=settings.max_waiting_jobs,
         timeout_seconds=settings.job_timeout_seconds,
-        sample_job=sample_job_finder(settings),  # MOCK: the "mock" and "mock-partial" sample guides
+        # MOCK: the "mock" and "mock-partial" sample guides, only where SAMPLE_GUIDES is on (never in production).
+        sample_job=sample_job_finder(settings) if settings.sample_guides else None,
     )
 
     @asynccontextmanager

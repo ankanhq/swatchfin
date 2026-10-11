@@ -1,7 +1,9 @@
 // Runs Lighthouse on every Swatchfin page, and on every state of the guide
 // page, for mobile and desktop, then prints a table of the four scores.
 // Run it with `npm run lighthouse` while the dev server is running
-// (python tools/serve.py, with .venv turned on). The full reports are saved in
+// (python tools/serve.py, with .venv turned on), with SAMPLE_GUIDES=true in
+// .env: the guide and guide-partial pages are the MOCK sample guides, which
+// the server only serves with that setting. The full reports are saved in
 // reports/lighthouse/ (git-ignored): open the .html files in a browser.
 //
 //   npm run lighthouse                       every page, mobile and desktop

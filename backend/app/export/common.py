@@ -12,7 +12,7 @@ import unicodedata
 from collections.abc import Callable
 from datetime import UTC
 
-from app.schemas import BrandGuide, Font
+from app.schemas import BrandGuide, Font, is_mock
 
 # Where people can find out what made a file.
 SWATCHFIN_URL = "https://github.com/ankanhq/swatchfin"
@@ -101,11 +101,6 @@ def export_filename(guide: BrandGuide, suffix: str) -> str:
 def logo_filename(guide: BrandGuide, number: int) -> str:
     """A download name for a logo Swatchfin copied: "stripe-logo.svg", then "stripe-logo-2.svg"."""
     return export_filename(guide, "logo.svg" if number == 1 else f"logo-{number}.svg")
-
-
-def is_mock(guide: BrandGuide) -> bool:
-    """True for the sample guides (MOCK). Their IDs start with "bg_MOCK"."""
-    return guide.id.startswith("bg_MOCK")
 
 
 def web_address(url: str | None) -> str | None:

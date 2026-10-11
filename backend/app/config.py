@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     # Finished guides older than this are deleted when the server starts.
     guide_retention_days: int = Field(30, ge=1)
 
+    # MOCK: serve the sample guides "mock" and "mock-partial" (Northwind Roasters, a fictional brand),
+    # for building the guide page, Lighthouse runs and tests. Never turned on in production, where
+    # no guide marked MOCK is ever served.
+    sample_guides: bool = False
+
     # TinyFish Browser measures colours and fonts and costs wallet credit ($0.002 a minute, billed
     # by the second: about $0.001 a guide). USE_BROWSER=false leaves it out, e.g. while developing.
     use_browser: bool = True
