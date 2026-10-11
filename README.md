@@ -155,6 +155,32 @@ Measured on 10 October 2026 with `claude-sonnet-5-5`. The server logs each guide
 
 With `claude-opus-5-5` the same Duolingo text cost $0.046 (5,087 + 1,288 tokens, 12 s), and all 12 of its quotes were found too.
 
+### Tested on 13 live sites (Phase 9)
+
+On 12 October 2026 Swatchfin made guides for 13 sites, each checked by hand against the live page (logo, button colours, fonts, tagline, quotes and warnings), then again after the fixes. These are the final guides:
+
+| Site | Primary (and other brand colours) | Fonts | Tagline |
+|---|---|---|---|
+| notion.so | `#0075DE` blue buttons, `#F64932` | NotionInter | “The AI workspace that works for you.” |
+| airbnb.com | `#DA1249` search button | Airbnb Cereal VF | “Get an Airbnb for every kind of trip” |
+| spotify.com (its web player) | `#1ED760` play button | SpotifyMixUI, SpotifyMixUITitle | none found |
+| zomato.com | `#FFC6CD`, `#DFCFFF`, `#FFEEAF` (colour blocks; no colourful buttons) | Our Lexend | “Better food for more people” |
+| nike.com | `#111111` black buttons | Nike Futura ND, Helvetica Now Text | “Nike. Just Do It” |
+| mailchimp.com | `#FFE01B` yellow | Means Web, Graphik Web | none found |
+| linear.app | `#E5E5E6` light buttons on near-black | Inter Variable, Berkeley Mono | “The system for product development” |
+| figma.com | `#000000` black buttons, `#00B6FF` and `#24CB71` from the logo | figmaSans | “Figma: The collaborative canvas for design, code, and AI” |
+| lego.com | `#F47D20` “Add to Bag”, `#FFD502` yellow header | Cera Pro | none (its headings are promotions) |
+| tata.com | `#E2A330` gold buttons, `#0876B9` | Lato | “Leadership with Trust.” |
+| ikea.com/de (German) | `#0058A3` blue, `#FFDB00` yellow | Noto IKEA | none found |
+| champaca.in (an independent bookshop) | `#A3AB3B` olive buttons | Yrsa, PT Sans | none found |
+| patagonia.com | `#000000` black buttons, `#1B2B79` navy hero | Ridgeway Sans | “MADE FOR THE MOMENT. BUILT FOR A LIFETIME.” |
+
+Every logo is the brand's own, and 134 of 136 quotes were found word for word (the two that weren't were dropped, with a warning). Fixed along the way: homepages built with JavaScript measured before they had drawn (Spotify), buttons painted by an element inside them (Airbnb, IKEA, Spotify), colours hidden under album covers and photos, black-and-white brands without a primary colour (Nike, Figma), near-black “muted” text, a rarely used colour on the logo, a real button or a large first-screen block now listed with confidence 0.5 and a usage note, a photo labelled “Zomato logo” taken as the logo, one odd element or a slow page costing a guide all its colours (Tata, Mailchimp), taglines that are only in the page title (Nike, Tata), promotions as taglines, template galleries and customer stories read as the brand's pages, and names like “Nike.com” and “Official LEGO® Shop”.
+
+Still true, and said on the About page: a colour the homepage shows only in a heading or not at all (Patagonia's orange `#FA4616` is one campaign heading today; Zomato's red isn't on its homepage) isn't listed; a web-app homepage like Spotify's changes between visits; and a short name can match the wrong site (“Tata” finds tata.cars; type “Tata group” or the address).
+
+The 34 test guides cost $0.96 with Claude (288,810 input and 38,271 output tokens with `claude-sonnet-5-5`, about $0.03 a guide) and $0.046 of TinyFish wallet credit (51 Browser sessions, 24 minutes, including one-off checks). Search and Fetch cost nothing.
+
 ### Exports
 
 Export on a guide page (or `GET /api/v1/guides/{id}/export?format=…`) downloads the guide in five formats. `backend/app/export/` has one module for each:
