@@ -345,7 +345,7 @@ def test_the_browsers_copy_of_the_homepage_is_read_like_fetchs() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def _visuals(answer: Any, retry: list[SkippedPage]):
+async def _visuals(answer: Any, retry: list[SkippedPage], driver: FakeBrowserDriver | None = None):
     from pydantic import SecretStr
 
     from app.tinyfish.browser import BrowserVisit
@@ -353,12 +353,21 @@ async def _visuals(answer: Any, retry: list[SkippedPage]):
 
     fake = FakeTinyFish()
     visit = BrowserVisit(
-        TinyFishClient(SecretStr("test-key"), fake.http, pause_seconds=0), FakeBrowserDriver(answer), HOME
+        TinyFishClient(SecretStr("test-key"), fake.http, pause_seconds=0), driver or FakeBrowserDriver(answer), HOME
     )
     try:
         return await read_visuals(visit, HOME, retry, time_limit=60)
     finally:
         await visit.close()
+
+
+@pytest.mark.anyio
+async def test_the_homepage_is_measured_once_it_has_drawn_its_text() -> None:
+    # A homepage built with JavaScript is blank when it has loaded; measured then, it has no colours or fonts.
+    driver = FakeBrowserDriver(lambda url, _arg: browser_measurement(url))
+    await _visuals(None, [], driver)
+    assert driver.runs == [HOME]
+    assert driver.waited_for_text == [True]
 
 
 @pytest.mark.anyio
