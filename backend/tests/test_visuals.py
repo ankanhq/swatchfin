@@ -17,6 +17,7 @@ from app.extract.visuals import (
     LogoSpot,
     Measurement,
     browser_homepage,
+    checked_measurement,
     confirm_logos,
     fill_gaps,
     logo_colours,
@@ -512,6 +513,25 @@ async def test_no_more_than_three_pages_are_read_in_the_browser() -> None:
 async def test_a_measurement_in_the_wrong_shape_is_an_error() -> None:
     with pytest.raises(BrowserUnavailable):
         await _visuals(lambda _url, _arg: {"elements": "nope"}, [])
+    with pytest.raises(BrowserUnavailable):
+        await _visuals(lambda _url, _arg: ["not", "an", "object"], [])
+
+
+def test_odd_elements_are_left_out_and_the_rest_is_measured(caplog: pytest.LogCaptureFixture) -> None:
+    # Tata's homepage once gave 4 such elements, and the whole guide lost its colours and fonts.
+    raw = browser_measurement(HOME)
+    raw["elements"] += [
+        {"tag": "p", "kind": "text", "text": 20, "color": "#NaNNaN", "w": 10, "h": 10},
+        {"tag": "p", "kind": "text", "text": 20, "weight": 512.5, "w": 10, "h": 10},
+    ]
+    raw["logos"].append({"id": "99", "x": None})
+    raw["samples"]["colors"]["#NaNNaN"] = 3
+    measurement = checked_measurement(raw, HOME)
+    assert len(measurement.elements) == len(raw["elements"]) - 2
+    assert len(measurement.logos) == len(raw["logos"]) - 1
+    assert "#NaNNaN" not in measurement.samples.colors
+    assert palette(measurement) == palette(Measurement.model_validate(browser_measurement(HOME)))
+    assert "2 elements, 1 logos, 1 first-screen colours" in caplog.text
 
 
 # ---------------------------------------------------------------------------
