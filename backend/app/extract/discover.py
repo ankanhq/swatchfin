@@ -20,8 +20,9 @@ scored: more useful kinds first, then links from the main navigation,
 then short addresses over deep ones (the Careers page over one job
 advert). Some names can only mean one thing ("Newsroom"), while others are
 shared with other things ("Press" is also Stripe Press, Stripe's book
-publisher), so the unmistakable ones earn extra points. Addresses on other sites, logins, legal pages, files and copies
-of the site in other languages are left out.
+publisher), so the unmistakable ones earn extra points. Addresses on other sites, logins, legal pages, files, copies
+of the site in other languages, and other people's words (template
+galleries, community files, customer stories) are left out.
 """
 
 import asyncio
@@ -95,10 +96,13 @@ KINDS = (
         "Brand assets",
         10,
         1,
+        # "/logos", and a page named for its logos ("/newsroom/collections/nike-inc-logos").
         r"brand(-?(guidelines?|assets|book|cent(er|re)|kit|portal|resources|identity))?|brandbook"
-        r"|press-?kit|media-?kit|logos?|style-?guide",
+        r"|press-?kit|media-?kit|logos?|[a-z0-9-]+-logos|style-?guide",
+        # Not a bare "logo" or "assets": "ACG Logo" on nike.com is a range of clothes.
         r"\bbrand (guidelines?|guide|assets|book|cent(er|re)|kit|portal|resources)\b|\b(press|media) kit\b"
-        r"|\blogos?\b|\bassets\b",
+        r"|\blogo (files|downloads?|guidelines|usage)\b|\b(our|download|company) logos?\b"
+        r"|\blogos (and|&) (brand )?(assets|guidelines)\b",
     ),
     _kind(
         "about",
@@ -163,7 +167,9 @@ KINDS_BY_NAME = {kind.name: kind for kind in KINDS}
 SKIP_PATH = re.compile(
     r"(?<![a-z])(log-?in|sign-?in|sign-?up|sign-?out|register|account|password|cart|checkout|basket|wishlist"
     r"|search|privacy|terms|legal|cookies?|polic(y|ies)|gdpr|accessibility|sitemap|unsubscribe|returns"
-    r"|order-status|help|support|faq|contact|status|cdn-cgi)(?![a-z])",
+    r"|order-status|help|support|faq|contact|status|cdn-cgi"
+    # Other people's words, not the brand's: template galleries, community files, marketplaces, customer stories.
+    r"|templates?|community|marketplace|customers|customer-stories|case-stud(y|ies)|testimonials)(?![a-z])",
     re.IGNORECASE,
 )
 # Subdomains that are apps, help desks, docs or investor relations rather than the brand's own pages.
@@ -331,6 +337,8 @@ def _classify(host: str, path: str, text: str) -> PageKind | None:
         points = 0.0
         if any(kind.path.fullmatch(part) for part in parts) or (subdomain and kind.path.fullmatch(subdomain)):
             points += 3
+            if parts and kind.path.fullmatch(parts[-1]):
+                points += 1  # the last part names the page itself: "/newsroom/collections/nike-inc-logos"
         if text and kind.words.search(text) and (points or not kind.needs_path):
             points += 2
         if kind.strong is not None and (any(kind.strong.search(part) for part in parts) or kind.strong.search(text)):

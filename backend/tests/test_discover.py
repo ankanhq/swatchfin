@@ -107,6 +107,11 @@ def test_no_more_than_nine_pages() -> None:
         "/about/brand-book.pdf",
         "/de/ueber-uns/about",  # the German copy of the site
         "/fr-fr/about",
+        # Other people's words: Notion's template gallery, Figma's community files, customer stories.
+        "/templates/category/free-company-mission-vision-templates",
+        "/community/website-templates/about-us-page",
+        "/customers/multiverse",
+        "/case-studies/acme",
     ],
 )
 def test_pages_that_are_left_out(path: str) -> None:
@@ -130,6 +135,19 @@ def test_pages_that_are_kept(path: str) -> None:
 def test_on_a_site_in_one_language_its_own_copies_are_kept() -> None:
     home = homepage(link("/en-gb/about", "About"), link("/fr-fr/about", "About"), url=f"{SITE}/en-gb/")
     assert chosen_urls(home) == [f"{SITE}/en-gb/about"]
+
+
+def test_a_bare_logo_in_a_link_is_not_the_brand_assets_page() -> None:
+    # On nike.com, "ACG Logo" leads to a range of clothes.
+    assert chosen_urls(homepage(link("/w/aja-wilson-4yj6f", "ACG Logo"))) == []
+    assert [page.kind for page in choose_pages(homepage(link("/downloads", "Download our logos")), [])] == ["brand"]
+
+
+def test_the_last_part_of_the_address_names_the_page() -> None:
+    # Nike's logo page sits in its newsroom; a careers page under /about is a careers page.
+    logos = SearchResult(position=1, url=f"{SITE}/newsroom/collections/larkspur-logos", title="Larkspur Logos")
+    assert [page.kind for page in choose_pages(homepage(), [logos])] == ["brand"]
+    assert [page.kind for page in choose_pages(homepage(link("/about/careers", "")), [])] == ["careers"]
 
 
 def test_product_pages_need_the_word_in_their_address() -> None:
