@@ -217,7 +217,7 @@ def create_router(jobs: JobManager, logos: LogoStore, settings: Settings) -> API
         if export_format != "json":
             raise ApiError(501, "Not available yet", "This export format is coming soon. The JSON export works now.")
 
-        filename = export_filename(job.guide, "json")
+        filename = export_filename(job.guide, "brand-guide.json")
         guide = with_full_addresses(job.guide, str(request.base_url))
         return Response(
             guide.model_dump_json(indent=2) + "\n",
