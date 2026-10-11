@@ -30,7 +30,7 @@ from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -211,6 +211,63 @@ class Measurement(_Data):
     links: Annotated[list[str], Field(max_length=1000)] = []
 
 
+def checked_measurement(raw: Any, url: str) -> Measurement:
+    """measure_page.js's result, checked. Raises BrowserUnavailable when it can't be used.
+
+    In plain English: one odd element (a colour or size the script couldn't
+    read) shouldn't cost the guide all its colours and fonts. Each element,
+    logo spot, font and first-screen colour is checked on its own; those in
+    the wrong shape are left out and logged, and the rest is used. Only a
+    result that is wrong as a whole is refused.
+    """
+    if not isinstance(raw, dict):
+        raise BrowserUnavailable("measurement in an unexpected shape: not an object")
+    data = dict(raw)
+    left_out: Counter[str] = Counter()
+    problems: list[str] = []
+    for key, model in (("elements", MeasuredElement), ("logos", LogoSpot), ("fonts", LoadedFont)):
+        items = data.get(key)
+        if not isinstance(items, list):
+            continue
+        kept: list[_Data] = []
+        for index, item in enumerate(items):
+            try:
+                kept.append(model.model_validate(item))
+            except ValidationError as error:
+                left_out[key] += 1
+                problems.append(f"{key}[{index}]: {_first_problem(error)}")
+        data[key] = kept
+    samples = data.get("samples")
+    if isinstance(samples, dict) and isinstance(samples.get("colors"), dict):
+        colours = samples["colors"]
+        good = {code: count for code, count in colours.items() if _is_hex(code) and isinstance(count, int)}
+        left_out["first-screen colours"] += len(colours) - len(good)
+        data["samples"] = {**samples, "colors": good}
+    try:
+        measurement = Measurement.model_validate(data)
+    except ValidationError as error:
+        raise BrowserUnavailable(f"measurement in an unexpected shape: {_first_problem(error)}") from error
+    if any(left_out.values()):
+        log.warning(
+            "left out of the measurement of %s: %s (%s)",
+            url,
+            ", ".join(f"{count} {key}" for key, count in left_out.items() if count),
+            "; ".join(problems[:3]),
+        )
+    return measurement
+
+
+def _first_problem(error: ValidationError) -> str:
+    """The first thing wrong, for the log: "weight: Input should be a valid integer"."""
+    first = error.errors()[0]
+    where = ".".join(str(part) for part in first["loc"])
+    return f"{where}: {first['msg']}" if where else first["msg"]
+
+
+def _is_hex(code: Any) -> bool:
+    return isinstance(code, str) and re.fullmatch(r"#[0-9A-Fa-f]{6}", code) is not None
+
+
 class _PageText(_Data):
     url: str
     title: str = ""
@@ -264,10 +321,7 @@ async def read_visuals(
         time_limit=min(MEASURE_TIME_LIMIT, max(remaining(), 1)),
         wait_for_text=True,
     )
-    try:
-        measurement = Measurement.model_validate(raw)
-    except ValidationError as error:
-        raise BrowserUnavailable(f"measurement in an unexpected shape: {error.error_count()} problems") from error
+    measurement = checked_measurement(raw, homepage_url)
 
     seen = browser_homepage(homepage_url, measurement)
     spots = {spot.id: spot for spot in measurement.logos}

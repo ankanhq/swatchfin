@@ -299,7 +299,7 @@ async (options) => {
       bg_image: style.backgroundImage !== 'none',
       border: border ? hex(over(border.colour, behind)) : null,
       font: text ? style.fontFamily.slice(0, 300) : null,
-      weight: Number(style.fontWeight) || 400,
+      weight: Math.round(Number(style.fontWeight)) || 400, // a variable font in mid-animation can be 512.5
       size: parseFloat(style.fontSize) || 0,
     });
   }
