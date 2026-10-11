@@ -336,10 +336,14 @@ def palette_contrast(colors: list[Color]) -> list[ContrastPair]:
     texts = _pick(colors, TEXT_ROLES, "text")[:MAX_TEXT_COLOURS]
     backgrounds = _pick(colors, BACKGROUND_ROLES, "background")[:MAX_BACKGROUNDS]
     pairs: list[ContrastPair] = []
+    seen: set[tuple[str, str]] = set()
     for text in texts:
         for background in backgrounds:
-            if text.hex.upper() == background.hex.upper():
+            key = (text.hex.upper(), background.hex.upper())
+            # A colour can be listed under two roles (black buttons and black text): one pair is enough.
+            if key[0] == key[1] or key in seen:
                 continue
+            seen.add(key)
             ratio = contrast_ratio(text.hex, background.hex)
             # Rounded down, so 4.499 shows as 4.49 next to its grade (AA-large), never 4.50.
             shown = math.floor(ratio * 100) / 100

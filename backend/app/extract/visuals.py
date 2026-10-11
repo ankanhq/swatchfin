@@ -101,6 +101,8 @@ TEXT_SHARE = 0.05
 MUTED_SHARE = 0.10
 # A button fill this close to the page background (contrast) is a surface, not a brand colour.
 STANDS_OUT = 1.5
+# A "button" narrower than this is an icon (a social link, a search glass): its colour isn't a brand colour.
+MIN_BUTTON_WIDTH = 40
 
 Hex = Annotated[str, Field(pattern=r"^#[0-9A-Fa-f]{6}$")]
 
@@ -478,7 +480,8 @@ def palette(measurement: Measurement) -> list[Color]:
     - text: of the neutral colours used for a fair share (5%) of the text on
       the page background, the one that stands out most from it;
     - primary: the colourful colour the buttons use most; else a strong
-      neutral button fill (black buttons); else the most used colourful colour;
+      neutral button fill (black buttons, even when black is also the text
+      colour: it is then listed twice); else the most used colourful colour;
     - link: the colourful colour of links in the main content, if it is not
       already the primary;
     - secondary and accent: the next most used colourful colours that look
@@ -487,8 +490,9 @@ def palette(measurement: Measurement) -> list[Color]:
       than the text colour;
     - surface: the most used other neutral background (cards, sections);
     - border: the most used border colour not listed yet.
-    Each colour is listed once, under its first role; its "usage" says
-    everything it is used for.
+    Each colour is listed once, under its first role (but for black-and-white
+    brands' buttons, above); its "usage" says everything it is used for.
+    Buttons narrower than 40 px are icons, and their colours count as icons.
     """
     background = (measurement.page_background or "#FFFFFF").upper()
     uses = _merge(_collect(measurement, background), first=background)
@@ -514,17 +518,23 @@ def palette(measurement: Measurement) -> list[Color]:
     free = [use for use in uses.values() if use.hex not in taken]
     colourful = [use for use in free if chroma(use.hex) >= COLOURFUL]
     with_buttons = [use for use in colourful if use.button_weight() > 0]
+    # Black-and-white brands (Nike, Figma) fill their buttons with their text colour, so it may be taken.
     strong_fills = [
         use
-        for use in free
-        if use.uses["button background"] > 0 and contrast_ratio(use.hex, background) >= 3 and _text_like(use.hex)
+        for use in uses.values()
+        if use.hex != background
+        and use.uses["button background"] > 0
+        and contrast_ratio(use.hex, background) >= 3
+        and _text_like(use.hex)
     ]
     primary = (
         max(with_buttons, key=_Use.button_weight, default=None)
         or max(strong_fills, key=_Use.button_weight, default=None)
         or max(colourful, key=_brand_weight, default=None)
     )
-    take("primary", primary)
+    if primary is not None:
+        roles["primary"] = primary
+        taken.add(primary.hex)
 
     links = [use for use in colourful if use.links > 0 and use.hex not in taken]
     take("link", max(links, key=lambda use: use.links, default=None))
@@ -571,11 +581,14 @@ def palette(measurement: Measurement) -> list[Color]:
     take("border", max(borders, key=_Use.border_weight, default=None))
 
     total_points = measurement.samples.total
-    return [
-        _color(role, roles[role], background, total_points, measurement.default_background)
-        for role in ROLE_ORDER
-        if role in roles
-    ]
+    colors: list[Color] = []
+    for role in ROLE_ORDER:
+        if role in roles:
+            listed = any(color.hex == roles[role].hex for color in colors)
+            # A colour listed twice (black buttons and black text) counts its share of the screen once.
+            colors.append(_color(role, roles[role], background, 0 if listed else total_points,
+                                 measurement.default_background))  # fmt: skip
+    return colors
 
 
 EXTRA_BRAND_ROLES: tuple[ColorRole, ...] = ("secondary", "accent")
@@ -605,7 +618,8 @@ def _collect(measurement: Measurement, background: str) -> dict[str, _Use]:
         if element.w < 1 or element.h < 1:
             continue
         place = 1.0 if element.y < screen else 0.6 if element.y < 3 * screen else 0.3
-        button = element.kind == "button"
+        icon = element.kind == "button" and element.w < MIN_BUTTON_WIDTH
+        button = element.kind == "button" and not icon
 
         if element.color and element.text:
             weight = min(element.text * max(element.size, 8) / 16, MAX_TEXT_WEIGHT) * place
@@ -629,7 +643,10 @@ def _collect(measurement: Measurement, background: str) -> dict[str, _Use]:
 
         if element.border:
             weight = (element.w + element.h) / 10 * place * (3 if button else 1)
-            label = "button border" if button else "input border" if element.kind == "input" else "border"
+            label = (
+                "button border" if button else "icon border" if icon
+                else "input border" if element.kind == "input" else "border"
+            )  # fmt: skip
             use = use_of(element.border)
             use.uses[label] += weight
             use.elements += 1
@@ -666,7 +683,7 @@ def _text_label(element: MeasuredElement) -> str:
 
 def _background_label(element: MeasuredElement) -> str:
     if element.kind == "button":
-        return "button background"
+        return "button background" if element.w >= MIN_BUTTON_WIDTH else "icon background"
     if element.region == "page":
         return "page background"
     return BACKGROUND_LABELS.get(element.region, "section background")

@@ -375,6 +375,16 @@ def test_at_most_four_text_colours_and_four_backgrounds() -> None:
     assert len(pairs) == 16
 
 
+
+def test_a_colour_listed_under_two_roles_is_paired_once() -> None:
+    # Black-and-white brands list black as the primary (buttons) and as the text colour.
+    palette = [
+        color("#111111", "primary", "button background", "body text"),
+        color("#FFFFFF", "background"),
+        color("#111111", "text", "body text"),
+    ]
+    assert [(pair.fg, pair.bg) for pair in palette_contrast(palette)] == [("#111111", "#FFFFFF")]
+
 def test_no_pairs_without_text_colours_or_backgrounds() -> None:
     assert palette_contrast([]) == []
     assert palette_contrast([color("#FFFFFF", "background")]) == []
