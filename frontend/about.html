@@ -388,6 +388,9 @@ DELETE https://api.browser.tinyfish.ai/{session_id}</code></pre>
               <li>Pages behind a login, a paywall or a cookie wall can’t be read.</li>
               <li>Colours and fonts are measured on the homepage only, at one screen size and in its default theme. The browser visits from the United States, so a site that changes by country shows its US version. Cookie banners and pop-ups are hidden before measuring, never accepted.</li>
               <li>Colours inside photos, videos, gradients and illustrations aren’t measured, only the colours of page elements.</li>
+              <li>A brand colour is listed when the homepage really uses it: often enough, or on a button, the logo or a large block on the first screen. A colour shown only in a heading or a badge, or not on the homepage at all, is left out, even when the brand is known for it.</li>
+              <li>A homepage that is a web app, like Spotify’s player, can look different on every visit, and so can its colours.</li>
+              <li>A short company name can belong to more than one official site: “Tata” finds tata.cars before tata.com. Type the fuller name (“Tata group”) or the web address.</li>
               <li>A logo drawn in CSS or set as a background image can be missed. The guide then falls back to the Open Graph image or the favicon, and says which one it used.</li>
               <li>Fonts are named as the site loads them, but a specimen can only show a font that Google Fonts offers. Other fonts are shown in a fallback font, and the guide says so.</li>
               <li>The tone of voice is a language model’s reading of the text. Its quotes are verified; its judgement, such as the traits and the tone scales, is an interpretation.</li>
