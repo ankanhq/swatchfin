@@ -99,6 +99,9 @@ SUBTLE_BORDER = 3.0
 # or as the muted text colour.
 TEXT_SHARE = 0.05
 MUTED_SHARE = 0.10
+# Muted text must be at least this much paler than the text colour (CIELAB lightness): Notion's
+# #0D0D0D next to its black text is the same black to the eye, not a muted grey.
+MUTED_STEP = 15.0
 # A button fill this close to the page background (contrast) is a surface, not a brand colour.
 STANDS_OUT = 1.5
 # A "button" narrower than this is an icon (a social link, a search glass): its colour isn't a brand colour.
@@ -486,8 +489,8 @@ def palette(measurement: Measurement) -> list[Color]:
       already the primary;
     - secondary and accent: the next most used colourful colours that look
       clearly different from the ones before;
-    - muted text: another neutral used for at least 10% of the text, paler
-      than the text colour;
+    - muted text: another neutral used for at least 10% of the text, visibly
+      paler than the text colour;
     - surface: the most used other neutral background (cards, sections);
     - border: the most used border colour not listed yet.
     Each colour is listed once, under its first role (but for black-and-white
@@ -563,6 +566,7 @@ def palette(measurement: Measurement) -> list[Color]:
             and _text_like(use.hex)
             and use.text_on_page >= MUTED_SHARE * text_total
             and contrast_ratio(use.hex, background) < contrast_ratio(text.hex, background)
+            and abs(lightness(use.hex) - lightness(text.hex)) >= MUTED_STEP
         ]
         take("text-muted", max(muted, key=lambda use: use.text_on_page, default=None))
 

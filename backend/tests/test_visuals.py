@@ -143,6 +143,14 @@ def test_the_text_colour_is_the_strongest_of_the_main_text_colours_and_muted_is_
     assert (found["text"], found["text-muted"]) == ("#061B31", "#50617A")
 
 
+def test_muted_text_must_look_paler_than_the_text() -> None:
+    # Notion: black text, and a near-black (#0D0D0D) that nobody would call muted.
+    near_black = measure(*[text("#000000", 300, y=300 + 50 * n) for n in range(3)], text("#0D0D0D", 300, y=500))
+    assert "text-muted" not in roles(near_black)
+    grey = measure(*[text("#000000", 300, y=300 + 50 * n) for n in range(3)], text("#6B6B6B", 300, y=500))
+    assert roles(grey)["text-muted"] == "#6B6B6B"
+
+
 def test_text_on_photos_and_coloured_sections_doesnt_decide_the_text_colour() -> None:
     measurement = measure(
         *[text("#FFFFFF", 300, on_image=True) for _ in range(5)],
