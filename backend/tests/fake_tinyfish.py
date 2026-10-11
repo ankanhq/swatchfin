@@ -245,6 +245,8 @@ class FakeBrowserDriver:
         self.connected: list[str] = []
         self.disconnected = 0
         self.runs: list[str] = []
+        # For each page opened: whether the script waited for the page to write its text.
+        self.waited_for_text: list[bool] = []
         # Set when a script starts running, for tests that stop a guide in the middle of one.
         self.running = asyncio.Event()
 
@@ -259,6 +261,7 @@ class FakeBrowserPage:
 
     async def run(self, url: str, script: str, arg: Any, *, time_limit: float, wait_for_text: bool = False) -> Any:
         self._driver.runs.append(url)
+        self._driver.waited_for_text.append(wait_for_text)
         self._driver.running.set()
         if self._driver.delay:
             await asyncio.sleep(self._driver.delay)

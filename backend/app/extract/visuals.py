@@ -235,8 +235,14 @@ async def read_visuals(
         return deadline - loop.time()
 
     page = await visit.page(time_limit=remaining())
+    # A homepage built with JavaScript (Spotify's web player) loads blank and draws itself a moment
+    # later: wait for its text, or the page would be measured empty.
     raw = await page.run(
-        homepage_url, MEASURE_SCRIPT, MEASURE_OPTIONS, time_limit=min(MEASURE_TIME_LIMIT, max(remaining(), 1))
+        homepage_url,
+        MEASURE_SCRIPT,
+        MEASURE_OPTIONS,
+        time_limit=min(MEASURE_TIME_LIMIT, max(remaining(), 1)),
+        wait_for_text=True,
     )
     try:
         measurement = Measurement.model_validate(raw)
