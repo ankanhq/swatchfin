@@ -382,6 +382,23 @@ def test_an_image_logo_is_found_by_its_address() -> None:
     assert (logo.confidence, logo.rendered, logo.color) == (0.85, (120, 24), None)
 
 
+def test_a_photo_labelled_logo_is_not_a_logo() -> None:
+    # Zomato's homepage has a 1920 × 1080 photo of food with alt="Zomato logo", before its wordmark.
+    photo = LogoCandidate(method="header-img", confidence=0.6, url=f"{HOME}hero.png", label="Zomato logo")
+    wordmark = LogoCandidate(method="header-img", confidence=0.6, url=f"{HOME}wordmark.png", label="Zomato Logo")
+    spots = {
+        "1": LogoSpot(id="1", src=f"{HOME}hero.png", nw=1920, nh=1080),
+        "2": LogoSpot(id="2", src=f"{HOME}wordmark.png", nw=908, nh=192),
+    }
+    assert [logo.url for logo in confirm_logos([photo, wordmark], [], spots)] == [f"{HOME}wordmark.png"]
+    # Drawn as big as a banner on the page, it isn't one either.
+    banner = {"1": LogoSpot(id="1", src=f"{HOME}hero.png", y=80, w=1440, h=640, visible=True)}
+    assert confirm_logos([photo], [], banner) == []
+    # A big file shown at a logo's size is a sharp logo, and stays.
+    sharp = {"2": LogoSpot(id="2", src=f"{HOME}wordmark.png", y=20, w=160, h=34, visible=True, nw=2400, nh=510)}
+    assert [logo.url for logo in confirm_logos([wordmark], [], sharp)] == [f"{HOME}wordmark.png"]
+
+
 def test_logos_only_the_browser_saw_join_the_list() -> None:
     favicon = LogoCandidate("favicon", 0.35, url="https://www.larkspurtea.example/favicon.svg", format="svg")
     seen = [LogoCandidate("inline-svg", 0.9, svg=LOGO_SVG, format="svg", element_id="1"), favicon]
