@@ -615,10 +615,10 @@ def _plain_name(name: str | None, host: str) -> str | None:
     address = re.fullmatch(r"(?:www\.)?([^.\s]+)\.[a-z.]{2,12}", name, re.IGNORECASE)
     if address and name.lower().removeprefix("www.") == host.lower().removeprefix("www."):
         return address.group(1)
+    # The region first: in "Official LEGO Shop US" the shop words come before it.
+    name = _without_region(name, host) or name
     shopless = SHOP_WORDS.sub("", name).strip()
-    if shopless != name and _could_be_name(shopless, host):
-        name = shopless
-    return _without_region(name, host)
+    return shopless if shopless != name and _could_be_name(shopless, host) else name
 
 
 def _without_region(name: str | None, host: str) -> str | None:
