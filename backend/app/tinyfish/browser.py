@@ -58,6 +58,9 @@ LOAD_WAIT_MS = 15_000
 SETTLE_WAIT_MS = 3_000
 # A page built with JavaScript may load first and write its text a moment later.
 TEXT_WAIT_MS = 6_000
+# The waits above stop early enough to leave the script this long to run: a page that never
+# finishes loading (Mailchimp's) mustn't use up the time the measuring needs.
+SCRIPT_TIME = 15.0
 MIN_TEXT_LENGTH = 200
 
 # Sessions still being ended after their guide finished (see BrowserVisit.close).
@@ -171,20 +174,25 @@ class PlaywrightPage:
         right website yet (still blank, or it failed), go there. Then wait
         for the page to load and go quiet, but never longer than the limits
         above, and run the script. With wait_for_text, also wait a few
-        seconds for a page built with JavaScript to write its text.
+        seconds for a page built with JavaScript to write its text. Each wait
+        stops early enough to leave the script SCRIPT_TIME to run.
         """
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + time_limit
         try:
             async with asyncio.timeout(time_limit):
                 page = await self._tab()
                 if not _on_page(page.url, url):
                     await page.goto(url, wait_until="domcontentloaded", timeout=LOAD_WAIT_MS)
-                await _wait_quietly(page.wait_for_load_state("load", timeout=LOAD_WAIT_MS))
-                await _wait_quietly(page.wait_for_load_state("networkidle", timeout=SETTLE_WAIT_MS))
-                if wait_for_text:
+                if wait := wait_ms(LOAD_WAIT_MS, deadline - loop.time()):
+                    await _wait_quietly(page.wait_for_load_state("load", timeout=wait))
+                if wait := wait_ms(SETTLE_WAIT_MS, deadline - loop.time()):
+                    await _wait_quietly(page.wait_for_load_state("networkidle", timeout=wait))
+                if wait_for_text and (wait := wait_ms(TEXT_WAIT_MS, deadline - loop.time())):
                     await _wait_quietly(
                         page.wait_for_function(
                             f"() => (document.body?.innerText || '').trim().length >= {MIN_TEXT_LENGTH}",
-                            timeout=TEXT_WAIT_MS,
+                            timeout=wait,
                         )
                     )
                 return await page.evaluate(script, arg)
@@ -206,6 +214,12 @@ class PlaywrightPage:
             self._page = context.pages[0] if context.pages else await context.new_page()
             await self._page.set_viewport_size(VIEWPORT)
         return self._page
+
+
+def wait_ms(limit_ms: float, seconds_left: float) -> float:
+    """How long a wait may take, in milliseconds: its own limit, but never into the script's time.
+    0 means don't wait at all (Playwright would take a timeout of 0 as "no limit")."""
+    return max(0.0, min(limit_ms, (seconds_left - SCRIPT_TIME) * 1000))
 
 
 async def _wait_quietly(waiting: Any) -> None:

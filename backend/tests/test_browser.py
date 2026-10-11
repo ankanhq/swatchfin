@@ -21,6 +21,7 @@ from app.tinyfish.browser import (
     create_session,
     end_session,
     wait_for_endings,
+    wait_ms,
 )
 from app.tinyfish.client import TinyFishClient, TinyFishError
 from tests.fake_tinyfish import FakeBrowserDriver, FakeTinyFish
@@ -188,3 +189,11 @@ async def test_a_closed_visit_cannot_be_used_again() -> None:
 )
 def test_the_tab_is_reused_only_when_it_shows_the_wanted_page(current: str, wanted: str, same: bool) -> None:
     assert _on_page(current, wanted) is same
+
+
+def test_waiting_for_a_page_leaves_the_script_time_to_run() -> None:
+    # 45 s for a page: the load wait gets its full 15 s, then less as time runs out, then none.
+    assert wait_ms(15_000, 45.0) == 15_000
+    assert wait_ms(15_000, 20.0) == 5_000
+    assert wait_ms(3_000, 15.0) == 0
+    assert wait_ms(3_000, 2.0) == 0
