@@ -204,10 +204,8 @@ async function showGuide(page, job) {
   const mock = isMockGuide(guide);
   const fromProgress = page.dataset.state === 'running';
 
-  // MOCK: until live generation is connected, every run ends with the sample guide.
-  // The notice says so, and names the search when it was for another brand.
-  const searched = typeof job.query === 'string' && job.query !== guide.query ? job.query : '';
-  renderNotice(page, mock ? 'sample' : null, { query: searched });
+  // MOCK: the sample guide says it is mock data (it is only served where sample guides are on).
+  renderNotice(page, mock ? 'sample' : null);
 
   const focused = document.activeElement;
   renderBrandHeader(page, guide, { mock });

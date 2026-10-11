@@ -254,20 +254,19 @@
 
           <!-- Empty state only (data-state="empty"): the address doesn't name a guide. -->
           <div class="sf-guide-header__empty">
-            <p class="sf-guide-header__description">This address doesn’t point to a guide. Start one from a company name or URL, or open the sample to see what a finished guide looks like.</p>
+            <p class="sf-guide-header__description">This address doesn’t point to a guide. Start one from a company name or a web address.</p>
             <div class="sf-guide-header__actions">
               <a class="sf-btn sf-btn--primary" href="./#generate">
                 Start a new guide
                 <svg class="sf-icon sf-icon--16" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#arrow-right"></use></svg>
               </a>
-              <a class="sf-btn sf-btn--secondary" href="guide.html?id=mock">See the sample guide</a>
             </div>
           </div>
         </div>
       </div>
     </header>
 
-    <!-- Filled by guide.js: explains when the page shows the sample guide (mock data).
+    <!-- Filled by guide.js: labels the MOCK sample guide (only served where SAMPLE_GUIDES is on).
          It sits below the header, so the header never moves when it appears. -->
     <div class="sf-container" data-guide-notice></div>
 

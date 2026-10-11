@@ -34,7 +34,8 @@ or Claude unavailable), the guide carries on and records a warning.
 
 Also here: the sample jobs "mock" and "mock-partial" (MOCK), finished jobs
 that show the two sample guides for Northwind Roasters, a fictional brand.
-The About and 404 pages link to the first. Phase 9 decides their future.
+They exist for building the guide page, Lighthouse runs and tests, and are
+served only when SAMPLE_GUIDES is on, never in production (see jobs.py).
 """
 
 import json

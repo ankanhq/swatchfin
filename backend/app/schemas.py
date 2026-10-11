@@ -117,6 +117,10 @@ class Color(Model):
     confidence: Confidence
 
 
+# MOCK: the sample guides' IDs start with this (see pipeline.sample_job_finder).
+MOCK_ID_PREFIX = "bg_MOCK"
+
+
 class ContrastPair(Model):
     fg: Hex
     bg: Hex
@@ -229,6 +233,11 @@ class BrandGuide(Model):
 # ---------------------------------------------------------------------------
 # Jobs (CLAUDE.md, section 7)
 # ---------------------------------------------------------------------------
+
+
+def is_mock(guide: BrandGuide) -> bool:
+    """True for the sample guides, MOCK data for a fictional brand."""
+    return guide.id.startswith(MOCK_ID_PREFIX)
 
 
 class Step(Model):

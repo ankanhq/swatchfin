@@ -128,14 +128,14 @@ Steps 1–5 read the live site with TinyFish: finding the site (for a name), rea
 | [`guide.html?q=Patagonia`](http://localhost:8000/guide.html?q=Patagonia) | A real guide from a company name (uses your TinyFish key) |
 | [`guide.html?q=stripe.com`](http://localhost:8000/guide.html?q=stripe.com) | The same from a URL (the search step is skipped) |
 | [`guide.html?q=nothing-here.invalid`](http://localhost:8000/guide.html?q=nothing-here.invalid) | A guide that stops at "Reading the homepage": `.invalid` addresses never exist |
-| [`guide.html?id=mock`](http://localhost:8000/guide.html?id=mock) | The full sample guide for *Northwind Roasters*, a fictional brand, labelled as mock data (`frontend/mock/MOCK_northwind-roasters.json`) |
-| [`guide.html?id=mock-partial`](http://localhost:8000/guide.html?id=mock-partial) | A partial sample guide: the browser step "timed out", so colours and fonts are missing |
+| [`guide.html?id=mock`](http://localhost:8000/guide.html?id=mock) | With `SAMPLE_GUIDES=true` only: the full sample guide for *Northwind Roasters*, a fictional brand, labelled as mock data (`frontend/mock/MOCK_northwind-roasters.json`) |
+| [`guide.html?id=mock-partial`](http://localhost:8000/guide.html?id=mock-partial) | With `SAMPLE_GUIDES=true` only: a partial sample guide, whose browser step "timed out", so colours and fonts are missing |
 | [`guide.html`](http://localhost:8000/guide.html) | The empty state ("No guide to show") |
 | [`guide.html?id=nope`](http://localhost:8000/guide.html?id=nope) | The "Guide not found" error |
 
 Click **Cancel** while a guide is being made to go back to the start page with your search still in the box; the job is stopped on the server too.
 
-The sample guides follow the exact BrandGuide and job status shapes in `CLAUDE.md` (the tests check this), and every part of them is labelled as mock. Real guides never use them.
+The sample guides follow the exact BrandGuide and job status shapes in `CLAUDE.md` (the tests check this), and every part of them is labelled as mock. They are for building the guide page, Lighthouse runs and tests, so the server serves them only when `SAMPLE_GUIDES=true` is in `.env`. It is off by default and in production, where no guide marked MOCK is ever served, not even one left in the guides folder. Real guides never use them.
 
 The other pages: [`about.html`](http://localhost:8000/about.html) explains how Swatchfin uses TinyFish Search, Fetch and Browser (with a pipeline diagram, limitations and a privacy note), and any missing address shows the 404 page ([localhost:8000/anything](http://localhost:8000/anything)).
 

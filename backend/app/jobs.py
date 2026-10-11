@@ -41,7 +41,7 @@ from typing import Literal
 from pydantic import ValidationError
 
 from app.extract.resolve import ParsedQuery
-from app.schemas import STEP_NAMES, BrandGuide, Job, JobError, Step, StepName, StepState, TinyFishUsage
+from app.schemas import STEP_NAMES, BrandGuide, Job, JobError, Step, StepName, StepState, TinyFishUsage, is_mock
 
 log = logging.getLogger("swatchfin.jobs")
 
@@ -289,7 +289,9 @@ class JobManager:
     """Starts, tracks, cancels and finds guide jobs.
 
     `sample_job` finds the built-in sample jobs ("mock", "mock-partial") by
-    ID; see pipeline.py.
+    ID; see pipeline.py. MOCK: it is given only where sample guides are
+    switched on (SAMPLE_GUIDES). Without it, as in production, no guide
+    marked MOCK is served, not even one left in the guides folder.
     """
 
     def __init__(
@@ -300,7 +302,7 @@ class JobManager:
         max_running: int,
         max_waiting: int,
         timeout_seconds: float,
-        sample_job: Callable[[str], Job | None] = lambda _job_id: None,
+        sample_job: Callable[[str], Job | None] | None = None,
     ) -> None:
         self.store = store
         self._pipeline = pipeline
@@ -335,6 +337,13 @@ class JobManager:
 
     async def get(self, job_id: str) -> Job | None:
         """The job with this ID: one in progress, a finished one, or a sample. None if there is none."""
+        job = await self._find(job_id)
+        if job is not None and job.guide is not None and is_mock(job.guide) and self._sample_job is None:
+            log.warning("refused a guide marked MOCK id=%s: sample guides are off", job_id)
+            return None
+        return job
+
+    async def _find(self, job_id: str) -> Job | None:
         if not is_valid_id(job_id):
             return None
         if (run := self._active.get(job_id)) is not None:
@@ -342,7 +351,7 @@ class JobManager:
         if (job := self._finished.get(job_id)) is not None:
             self._finished.move_to_end(job_id)
             return job
-        if (job := await asyncio.to_thread(self._sample_job, job_id)) is not None:
+        if self._sample_job is not None and (job := await asyncio.to_thread(self._sample_job, job_id)) is not None:
             return job
         if (job := await self.store.load(job_id)) is not None:
             self._remember(job)
