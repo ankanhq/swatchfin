@@ -39,7 +39,7 @@ On the same page, Render lists the settings marked `sync: false` in `render.yaml
 | `GEMINI_API_KEY` | your Gemini key |
 | `GROQ_API_KEY` | your Groq key |
 
-Paste each one, then click the button at the bottom to create everything (Render calls it **Deploy Blueprint** or **Apply**).
+Paste each one, then click the button at the bottom to create everything (Render calls it **Deploy Blueprint** or **Apply**). Spaces, tabs, line breaks and quote marks that come along with a paste are taken out when Swatchfin reads a key, so they can't break it.
 
 Render asks for these values **only this once**. If you skip one, add it later under the service's **Environment** tab (see "Change a key" below).
 
