@@ -14,7 +14,9 @@ Steps 1–5 read the live website with TinyFish; steps 6–7 describe and check 
                       what isn't found is dropped. The palette's text and
                       background pairs get their WCAG contrast grades.
 Nothing is made up to fill a gap: a missing part stays empty, and the
-guide's warnings say why.
+guide's warnings say why. A site with a complete guide from the last 24
+hours isn't read again: the job stops after step 1 and reuses that guide
+(see reuse.py).
 
 The guide's one Browser session is asked for as soon as the website is
 known, so TinyFish starts it while Fetch reads (steps 2–4). It is ended
@@ -60,6 +62,7 @@ from app.extract.visuals import Visuals, confirm_logos, fill_gaps, read_visuals
 from app.extract.voice import DraftVoice, Excerpt, draft_voice, pick_text, source_pages
 from app.jobs import JobRun, LogoStore, Pipeline, StepFailed
 from app.llm import LLM, LLMAnswer, LLMError
+from app.reuse import ago
 from app.schemas import (
     STEP_NAMES,
     Brand,
@@ -154,6 +157,11 @@ def brand_pipeline(
                         "address doesn’t contain that name. If it’s the wrong company, start again with the "
                         "company’s web address."
                     )
+
+        # A complete guide made for this site in the last day is reused instead of reading it again (reuse.py).
+        earlier = await job.earlier_guide(url)
+        if earlier is not None and earlier.guide is not None:
+            return await _reuse(job, earlier.id, earlier.guide, query, logos)
 
         # The browser for step 5 starts now: TinyFish gets it ready while Fetch reads.
         visit: BrowserVisit | None = None
@@ -527,6 +535,34 @@ def _brand_name(homepage: Homepage, query: ParsedQuery) -> str:
     if query.kind == "name" and name_match(query.text, label) >= 0.7:
         return query.text if query.text != query.text.lower() else query.text.title()
     return label.replace("-", " ").title()
+
+
+async def _reuse(job: JobRun, earlier_id: str, earlier: BrandGuide, query: ParsedQuery, logos: LogoStore) -> BrandGuide:
+    """The earlier guide for the same site, as this job's guide (see reuse.py).
+
+    It keeps its own date and sources, so it says when the site was really
+    read. Steps 2–7 are skipped, and say so. Swatchfin's copies of SVG
+    logos are copied to this job's ID too, so this guide doesn't depend on
+    the earlier guide's files.
+    """
+    detail = f"Reused the guide made {ago(earlier.generated_at)}"
+    for name in STEP_NAMES[1:]:
+        job.skip(name, detail)
+    logo = earlier.logo.model_copy(deep=True)
+    for number in range(1, LogoStore.MAX_PER_GUIDE + 1):
+        earlier_url = logos.url(earlier_id, number)
+        assets = [asset for asset in [logo.primary, *logo.alternates] if asset and asset.url == earlier_url]
+        svg = await logos.load(earlier_id, number) if assets else None
+        if svg is None:
+            continue
+        try:
+            await logos.save(job.job.id, number, svg)
+        except OSError:
+            log.warning("couldn't copy a logo for job %s", job.job.id, exc_info=True)
+            continue
+        for asset in assets:
+            asset.url = logos.url(job.job.id, number)
+    return earlier.model_copy(deep=True, update={"id": job.job.id, "query": query.text, "logo": logo})
 
 
 async def _logo(homepage: Homepage, job_id: str, logos: LogoStore, warnings: list[str]) -> Logo:

@@ -265,3 +265,24 @@ def test_old_guide_files_are_removed(tmp_path: Path) -> None:
     assert store.remove_older_than(30) == 1
     assert not old.exists()
     assert recent.exists()
+
+
+async def test_guides_can_be_reused_after_a_restart_while_their_files_last(settings: Settings) -> None:
+    manager = make_manager(settings, reuse_hours=24)
+    done = await finished(manager, manager.start(parse_query("Duolingo")).id)
+    await finished(manager, manager.start(parse_query("fail.invalid")).id)
+    await manager.close()
+
+    restarted = make_manager(settings, reuse_hours=24)
+    assert await restarted.remember_recent() == 2
+    assert await restarted.reuse(parse_query("duolingo")) == done
+    assert await restarted.reuse(parse_query("https://www.duolingo.example/")) == done
+    # A failed guide is never reused.
+    assert await restarted.reuse(parse_query("fail.invalid")) is None
+
+    # A guide file from more than a day ago isn't remembered.
+    two_days_ago = time.time() - 2 * 24 * 60 * 60
+    os.utime(settings.data_dir / "guides" / f"{done.id}.json", (two_days_ago, two_days_ago))
+    later = make_manager(settings, reuse_hours=24)
+    assert await later.remember_recent() == 1
+    assert await later.reuse(parse_query("Duolingo")) is None

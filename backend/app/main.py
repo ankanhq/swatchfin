@@ -20,6 +20,7 @@ import math
 import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urljoin
 
@@ -31,15 +32,15 @@ from starlette.middleware.gzip import GZipMiddleware
 from app.config import Settings, get_settings
 from app.errors import ApiError, add_error_handlers
 from app.export import FORMATS, NothingToExport, export_filename, logo_filename
-from app.extract.resolve import QueryError, parse_query
+from app.extract.resolve import ParsedQuery, QueryError, parse_query
 from app.jobs import GuideStore, JobManager, JobsBusy, LogoStore
 from app.llm import LLM, AnthropicLLM, FallbackLLM, GeminiLLM, GroqLLM, ProviderLLM
 from app.pipeline import brand_pipeline, sample_job_finder
-from app.ratelimit import RateLimiter
+from app.ratelimit import DailyLimit, RateLimiter, Visitors, wait_words
 from app.schemas import BrandGuide, ErrorResponse, GuideCreated, GuideRequest, Health, Job
 from app.static import CacheControlMiddleware, frontend_files
-from app.tinyfish.browser import BrowserDriver, PlaywrightDriver, wait_for_endings
-from app.tinyfish.client import TinyFishClient
+from app.tinyfish.browser import BrowserDriver, PlaywrightDriver, sessions_started_since, wait_for_endings
+from app.tinyfish.client import TinyFishClient, TinyFishError
 
 log = logging.getLogger("swatchfin")
 
@@ -47,6 +48,9 @@ log = logging.getLogger("swatchfin")
 MAX_BODY_BYTES = 16 * 1024
 # How long to wait, when the server stops, for browser sessions still being ended.
 BROWSER_ENDING_WAIT_SECONDS = 15
+# Longest wait, when the server starts, for TinyFish to say how many guides were made today.
+COUNT_TODAY_SECONDS = 15
+DAY_SECONDS = 24 * 60 * 60
 
 # A logo file's name in its address: 1.svg to 5.svg.
 LOGO_FILE = re.compile(r"([1-5])\.svg")
@@ -72,20 +76,6 @@ HAS_SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*:")
 def error_docs(*status_codes: int) -> dict[int | str, dict[str, Any]]:
     """Tells the API docs (/api/docs) which errors an endpoint can answer with."""
     return {code: {"model": ErrorResponse} for code in status_codes}
-
-
-def visitor(request: Request) -> str:
-    """Who is asking: their IP address."""
-    return request.client.host if request.client else "unknown"
-
-
-def wait_words(seconds: float) -> str:
-    """42 -> "42 seconds", 600 -> "10 minutes"."""
-    if seconds < 60:
-        whole = max(1, math.ceil(seconds))
-        return f"{whole} second{'s' if whole != 1 else ''}"
-    minutes = math.ceil(seconds / 60)
-    return f"{minutes} minute{'s' if minutes != 1 else ''}"
 
 
 def not_found() -> ApiError:
@@ -116,10 +106,66 @@ def with_full_addresses(guide: BrandGuide, base_url: str) -> BrandGuide:
     return guide.model_copy(update={"logo": logo})
 
 
-def create_router(jobs: JobManager, logos: LogoStore, settings: Settings) -> APIRouter:
-    """The /api/v1 endpoints. They share the job manager and the rate limits."""
+def create_router(jobs: JobManager, logos: LogoStore, settings: Settings, daily_limit: DailyLimit) -> APIRouter:
+    """The /api/v1 endpoints. They share the job manager and the limits (see ratelimit.py)."""
+    visitors = Visitors(settings.proxy_hops)
     api_limit = RateLimiter(settings.api_requests_per_minute, 60)
-    guide_limit = RateLimiter(settings.new_guides_per_hour, 60 * 60)
+    visitor_limit = RateLimiter(settings.new_guides_per_visitor_per_day, DAY_SECONDS)
+    # Said when a limit is reached: guides that already exist still open.
+    still_open = (
+        f" A site that already has a guide from the last {settings.reuse_hours:g} hours still opens straight away."
+        if settings.reuse_hours
+        else ""
+    )
+
+    def visitor(request: Request) -> str:
+        """Who is asking: their IP address."""
+        client_host = request.client.host if request.client else None
+        return visitors.address(client_host, request.headers.get("x-forwarded-for"))
+
+    def start_new_guide(query: ParsedQuery, who: str) -> Job:
+        """Starts a new guide if the visitor's limit and today's limit allow it.
+
+        In plain English: count the guide against the visitor's 5 a day,
+        then against everyone's 50 a day. If either is used up, refuse with
+        a message that says when to try again. If the guide can't start
+        after all (too busy), or it ends by reusing an earlier guide, both
+        counts are given back.
+        """
+        wait = visitor_limit.hit(who)
+        if wait is not None:
+            raise ApiError(
+                429,
+                "Too many guides for now",
+                f"You can start {visitor_limit.limit} new guides a day, and you’ve reached that. "
+                f"Try again in {wait_words(wait)}.{still_open}",
+                headers={"Retry-After": str(math.ceil(wait))},
+            )
+        wait = daily_limit.take()
+        if wait is not None:
+            visitor_limit.give_back(who)
+            raise ApiError(
+                429,
+                "Swatchfin has reached today’s limit",
+                f"Swatchfin makes up to {daily_limit.limit} new guides a day, and today’s have all been made. "
+                f"Try again in {wait_words(wait)}.{still_open}",
+                headers={"Retry-After": str(math.ceil(wait))},
+            )
+
+        def give_back() -> None:
+            visitor_limit.give_back(who)
+            daily_limit.give_back()
+
+        try:
+            return jobs.start(query, on_reused=give_back)
+        except JobsBusy as error:
+            give_back()
+            raise ApiError(
+                503,
+                "Swatchfin is busy",
+                "A lot of guides are being made right now. Try again in a minute.",
+                headers={"Retry-After": "60"},
+            ) from error
 
     async def limit_api(request: Request) -> None:
         """Runs before every endpoint below: refuses visitors who ask too often."""
@@ -145,32 +191,19 @@ def create_router(jobs: JobManager, logos: LogoStore, settings: Settings) -> API
 
         Answers straight away with the new job's ID. Then ask
         GET /api/v1/guides/{id} for its progress, until it is complete or failed.
+
+        A search for a site with a complete guide from the last 24 hours
+        answers with that guide's ID (its status is already "complete"), and
+        a search that is being made right now answers with that job's ID.
+        Neither counts toward the limits: 5 new guides a day per visitor,
+        and 50 a day for everyone together.
         """
         try:
             query = parse_query(body.query)
         except QueryError as error:
             raise ApiError(422, "This search can’t be used", error.message) from error
 
-        wait = guide_limit.hit(visitor(request))
-        if wait is not None:
-            raise ApiError(
-                429,
-                "Too many guides for now",
-                f"You can start {guide_limit.limit} guides an hour, and you’ve reached that. "
-                f"Try again in {wait_words(wait)}.",
-                headers={"Retry-After": str(math.ceil(wait))},
-            )
-
-        try:
-            job = jobs.start(query)
-        except JobsBusy as error:
-            raise ApiError(
-                503,
-                "Swatchfin is busy",
-                "A lot of guides are being made right now. Try again in a minute.",
-                headers={"Retry-After": "60"},
-            ) from error
-
+        job = await jobs.reuse(query) or start_new_guide(query, visitor(request))
         response.headers["Location"] = f"/api/v1/guides/{job.id}"
         return GuideCreated(id=job.id, status=job.status)
 
@@ -191,7 +224,9 @@ def create_router(jobs: JobManager, logos: LogoStore, settings: Settings) -> API
     async def cancel_guide(job_id: str) -> Response:
         """Stops a job that is still queued or running, and deletes it.
 
-        A finished guide can't be deleted, because anyone with its link could do that.
+        A job that several people asked for at once keeps going until each of
+        them has cancelled it. A finished guide can't be deleted, because
+        anyone with its link could do that.
         """
         result = await jobs.cancel(job_id)
         if result == "not_found":
@@ -314,6 +349,27 @@ def language_models(settings: Settings, http: httpx2.AsyncClient) -> FallbackLLM
     return FallbackLLM(models)
 
 
+async def count_todays_guides(tinyfish: TinyFishClient, daily_limit: DailyLimit) -> None:
+    """Starts the daily limit from the guides already made today, so a restart can't reset it.
+
+    Each guide opens one TinyFish Browser session, so TinyFish's list of
+    today's sessions (UTC) says how many guides were made, including any
+    made before the server last slept or restarted. If TinyFish can't
+    tell, the count starts from 0 and the log says so.
+    """
+    if not tinyfish.configured:
+        return
+    midnight = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    try:
+        async with asyncio.timeout(COUNT_TODAY_SECONDS):
+            made = await sessions_started_since(tinyfish, midnight)
+    except (TinyFishError, TimeoutError) as error:
+        log.warning("couldn't count today's guides at TinyFish (%s): the daily limit starts from 0", error)
+        return
+    daily_limit.start_from(made)
+    log.info("guides made today: %d of %d", daily_limit.used, daily_limit.limit)
+
+
 def create_app(
     settings: Settings | None = None,
     *,
@@ -355,9 +411,12 @@ def create_app(
         max_running=settings.max_running_jobs,
         max_waiting=settings.max_waiting_jobs,
         timeout_seconds=settings.job_timeout_seconds,
+        reuse_hours=settings.reuse_hours,
         # MOCK: the "mock" and "mock-partial" sample guides, only where SAMPLE_GUIDES is on (never in production).
         sample_job=sample_job_finder(settings) if settings.sample_guides else None,
     )
+    # New guides a day for everyone together; counted from TinyFish when the server starts (below).
+    daily_limit = DailyLimit(settings.daily_guide_limit)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -371,6 +430,10 @@ def create_app(
                 removed_logos,
                 settings.guide_retention_days,
             )
+        if recent := await jobs.remember_recent():
+            log.info("%d guides from the last %g hours can be reused", recent, settings.reuse_hours)
+        if settings.use_browser:
+            await count_todays_guides(tinyfish, daily_limit)
         yield
         await jobs.close()
         # Browser sessions still being ended (see tinyfish/browser.py) get a few seconds to finish.
@@ -390,7 +453,7 @@ def create_app(
         redoc_url=None,
         openapi_url="/api/openapi.json",
     )
-    app.include_router(create_router(jobs, logos, settings))
+    app.include_router(create_router(jobs, logos, settings, daily_limit))
     add_error_handlers(app)
 
     # Every request and answer passes through these.

@@ -9,7 +9,8 @@ The websites it "reads" are fictional and all alike:
   those pages. Its Press page is blocked by an anti-bot check. A
   site-limited search also finds its brand guidelines page.
 - A .invalid site can't be reached (.invalid is reserved and never exists).
-- Browser starts a session for any address and ends it when asked.
+- Browser starts a session for any address and ends it when asked, and
+  lists them (newest first, after `earlier_sessions`) in its usage list.
   `sessions_opened` and `sessions_ended` record them, so tests can check
   that every session was ended. `driver` (a FakeBrowserDriver, below)
   stands in for Playwright: measuring a homepage gives browser_measurement(),
@@ -23,6 +24,7 @@ import asyncio
 import json
 import re
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -39,6 +41,8 @@ class FakeTinyFish:
         self.http = httpx2.AsyncClient(transport=httpx2.MockTransport(self.handle))
         self.sessions_opened: list[str] = []
         self.sessions_ended: list[str] = []
+        # Sessions started before the test, for the usage list: ISO start times, newest first.
+        self.earlier_sessions: list[str] = []
         self.driver = FakeBrowserDriver(browser_page)
 
     async def handle(self, request: httpx2.Request) -> httpx2.Response:
@@ -92,7 +96,18 @@ class FakeTinyFish:
         if request.method == "DELETE":
             self.sessions_ended.append(request.url.path.strip("/"))
             return httpx2.Response(204)
+        if request.method == "GET" and request.url.path == "/usage":
+            return httpx2.Response(200, json=self.usage(request.url.params))
         return httpx2.Response(405)
+
+    def usage(self, params: Any) -> dict[str, Any]:
+        """The usage list: `earlier_sessions` (start times, newest first), then any opened in the test."""
+        now = datetime.now(UTC).isoformat()
+        starts = [now] * len(self.sessions_opened) + self.earlier_sessions
+        size, page = int(params.get("limit", 100)), int(params.get("page", 1))
+        items = [{"session_id": f"br-{n}", "start_time": start} for n, start in enumerate(starts)]
+        shown = items[(page - 1) * size : page * size]
+        return {"items": shown, "total": len(items), "page": page, "has_more": page * size < len(items)}
 
     # --- Fetch --------------------------------------------------------------
 

@@ -58,7 +58,7 @@ def fake_tinyfish() -> FakeTinyFish:
 
 @pytest.fixture
 def make_client(make_settings: Callable[..., Settings]) -> Iterator[Callable[..., TestClient]]:
-    """Builds test clients for apps with changed settings, e.g. make_client(new_guides_per_hour=2).
+    """Builds test clients for apps with changed settings, e.g. make_client(new_guides_per_visitor_per_day=2).
 
     Pass tinyfish=FakeTinyFish(delay=5) for a slow TinyFish, so jobs stay running.
     """
