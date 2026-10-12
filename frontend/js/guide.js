@@ -12,8 +12,9 @@
  *
  * What happens, in order:
  * 1. Read the address. ?q=… (from the start page's form) starts a new job,
- *    and the address changes to ?id=… so a reload follows the same job
- *    instead of starting another. ?id=… opens an existing job.
+ *    and the address changes to ?id=…&for=… so a reload follows the same
+ *    job instead of starting another. ?id=… opens an existing job; if the
+ *    server no longer has it, &for=… lets the page offer to make it again.
  *    Cancel on the progress view tells the server to stop the job.
  * 2. Ask for the job's status every 1.5 seconds (api.js) and move the
  *    steps along. A guide that is already finished skips the progress view.
@@ -24,7 +25,7 @@
  * guide-guard.js makes sure the loading state ends after 15 seconds at most.
  */
 
-import { startGuide, watchGuide, cancelGuide, isMockGuide, GuideError } from './api.js';
+import { startGuide, watchGuide, cancelGuide, isMockGuide, GuideError, NOT_FOUND_NEXT_STEP } from './api.js';
 import { observeMotion } from './motion.js';
 import { showToast } from './toast.js';
 import { copyText, parseQuery } from './utils.js';
@@ -98,7 +99,7 @@ async function start(page) {
       }
       return;
     }
-    showJobInAddress(id);
+    showJobInAddress(id, request.query);
   }
 
   setUpCancel(page, id);
@@ -115,7 +116,8 @@ async function start(page) {
     });
   } catch (error) {
     progress.stop();
-    showError(page, error);
+    const remake = remakeOffer(error, request.kind === 'query' ? request.query : request.remake);
+    showError(page, remake?.error ?? error, { retryHref: remake?.retryHref });
     return;
   }
   progress.stop();
@@ -129,8 +131,9 @@ async function start(page) {
 }
 
 /**
- * Reads ?q= or ?id= from the address. ?q= wins when both are there.
- * @returns {{ kind: 'query', query: string } | { kind: 'id', id: string } | { kind: 'invalid', error: string, raw: string } | { kind: 'empty' }}
+ * Reads ?q= or ?id= from the address. ?q= wins when both are there. With
+ * ?id=, &for= is what the guide was made for, if it is a usable search.
+ * @returns {{ kind: 'query', query: string } | { kind: 'id', id: string, remake?: string } | { kind: 'invalid', error: string, raw: string } | { kind: 'empty' }}
  */
 function readRequest() {
   const params = new URLSearchParams(window.location.search);
@@ -143,7 +146,27 @@ function readRequest() {
   }
 
   const id = (params.get('id') ?? '').trim();
-  return id ? { kind: 'id', id } : { kind: 'empty' };
+  if (!id) return { kind: 'empty' };
+  const madeFor = parseQuery(params.get('for') ?? '');
+  return madeFor.ok ? { kind: 'id', id, remake: madeFor.value } : { kind: 'id', id };
+}
+
+/**
+ * For a guide the server no longer has (a free server forgets its guides
+ * when it restarts), the address may still say what it was made for. The
+ * error view then offers to make it again from the live site, instead of
+ * sending people back to the start page.
+ * @param {unknown} error
+ * @param {string | undefined} query What the guide was made for.
+ * @returns {{ error: GuideError, retryHref: string } | null}
+ */
+function remakeOffer(error, query) {
+  if (!(error instanceof GuideError) || error.status !== 404 || !query) return null;
+  const message = error.message.replace(NOT_FOUND_NEXT_STEP, 'Make it again from the live site: it usually takes about a minute.');
+  return {
+    error: new GuideError(error.title, message, { retryLabel: 'Make this guide again', status: 404 }),
+    retryHref: `guide.html?q=${encodeURIComponent(query)}`,
+  };
 }
 
 /**
@@ -164,15 +187,17 @@ function setUpCancel(page, id) {
 }
 
 /**
- * Swaps ?q=… for ?id=… in the address bar, without loading a new page, so
- * reloading or sharing the address shows this job instead of starting a
- * new one.
+ * Swaps ?q=… for ?id=…&for=… in the address bar, without loading a new
+ * page, so reloading or sharing the address shows this job instead of
+ * starting a new one, and can still make it again if the job is gone.
  * @param {string} id
+ * @param {string} query
  */
-function showJobInAddress(id) {
+function showJobInAddress(id, query) {
   const url = new URL(window.location.href);
   url.searchParams.delete('q');
   url.searchParams.set('id', id);
+  url.searchParams.set('for', query);
   window.history.replaceState(null, '', url);
 }
 
