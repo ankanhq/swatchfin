@@ -401,6 +401,28 @@ DELETE https://api.browser.tinyfish.ai/{session_id}</code></pre>
       </div>
     </section>
 
+    <!-- ============ This demo ============ -->
+    <!-- The numbers match DAILY_GUIDE_LIMIT, NEW_GUIDES_PER_VISITOR_PER_DAY and REUSE_HOURS in backend/app/config.py. -->
+    <section class="sf-section sf-section--divided" id="demo-limits" aria-labelledby="demo-limits-title">
+      <div class="sf-container">
+        <div class="row gy-5 gx-lg-5">
+          <div class="col-lg-5" data-reveal>
+            <p class="sf-eyebrow">This demo</p>
+            <h2 id="demo-limits-title">Free to use, with a few limits</h2>
+            <p class="sf-section__lead">Swatchfin runs on a free server and pays for every website it reads, so it shares a daily allowance between everyone who uses it.</p>
+          </div>
+          <div class="col-lg-7" data-reveal>
+            <ul class="sf-about-list">
+              <li>It makes up to 50 new guides a day for everyone together, and 5 a day for each visitor. The day starts at midnight UTC.</li>
+              <li>A site that already has a guide from the last 24 hours opens that guide straight away, with the date it was read. It doesn’t count toward either limit.</li>
+              <li>The server sleeps after 15 quiet minutes, so the first visit after a pause can take about a minute to load.</li>
+              <li>When the server sleeps or restarts, it forgets the guides it has made. An older guide link then shows “Guide not found”, with a button that makes the guide again from the live site.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ============ Privacy ============ -->
     <section class="sf-section sf-section--subtle" id="privacy" aria-labelledby="privacy-title">
       <div class="sf-container">
@@ -418,6 +440,7 @@ DELETE https://api.browser.tinyfish.ai/{session_id}</code></pre>
               <li>Swatchfin asks Gemini not to keep each request, but on Gemini’s free tier Google may still use the text it is sent to improve its products. That text is only what the brand’s own pages show publicly.</li>
               <li>Swatchfin never logs in to a site, fills in its forms or reads anything that isn’t public.</li>
               <li>Each guide is kept on the Swatchfin server for a limited time, so its link keeps working. It contains only what the website shows publicly.</li>
+              <li>To count the guides each visitor starts, the server keeps your IP address in its memory for a day. Swatchfin doesn’t save it or write it to its logs.</li>
               <li>There are no accounts, no cookies and no analytics. Your light or dark theme choice is saved in your own browser and never sent anywhere.</li>
               <li>The pages, fonts, styles and scripts all come from the Swatchfin server. The one exception is a guide page, which connects to Google Fonts to show a brand’s own font in its typography specimen.</li>
               <li>Brand names, logos and text in a guide belong to their owners. Swatchfin shows them to describe the brand, not to grant any right to use them.</li>

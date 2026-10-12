@@ -256,7 +256,12 @@ function requestError(error, failedTitle = 'Couldn’t load the guide') {
   return new GuideError(failedTitle, 'The connection failed. Check that you are online and try again.', { retryable: true });
 }
 
+/** The last sentence of the not-found message: what to do instead. */
+export const NOT_FOUND_NEXT_STEP = 'Generate a new one from the start page.';
+
 /**
+ * The error for a guide ID the server doesn't know. guide.js may swap its
+ * last sentence and button for "Make this guide again" (see remakeOffer).
  * @param {string} id
  * @returns {GuideError}
  */
@@ -264,7 +269,7 @@ function notFound(id) {
   const shown = id.length > 40 ? `${id.slice(0, 40)}…` : id;
   return new GuideError(
     'Guide not found',
-    `There is no guide with the ID “${shown}”. Guides are kept for a limited time, so it may have expired. Generate a new one from the start page.`,
+    `There is no guide with the ID “${shown}”. Swatchfin keeps guides for a limited time, and may clear them sooner when its server restarts. ${NOT_FOUND_NEXT_STEP}`,
     { status: 404 },
   );
 }

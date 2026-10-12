@@ -82,7 +82,8 @@ def not_found() -> ApiError:
     return ApiError(
         404,
         "Guide not found",
-        "There is no guide with this ID. Guides are kept for a limited time, so it may have expired.",
+        "There is no guide with this ID. Swatchfin keeps guides for a limited time, and may clear them sooner "
+        "when its server restarts.",
     )
 
 
