@@ -78,9 +78,19 @@ class Settings(BaseSettings):
     # by the second: about $0.001 a guide). USE_BROWSER=false leaves it out, e.g. while developing.
     use_browser: bool = True
 
-    # Rate limits, per visitor (IP address). See ratelimit.py.
-    new_guides_per_hour: int = Field(20, ge=1)
+    # Limits that protect the TinyFish allowance and the language model credit. See ratelimit.py.
+    # New guides a day for everyone together (UTC days). 50 guides read at most 550 pages,
+    # within Fetch's free 1,000 a day.
+    daily_guide_limit: int = Field(50, ge=1)
+    # New guides a day per visitor (IP address), and API requests a minute per visitor.
+    new_guides_per_visitor_per_day: int = Field(5, ge=1)
     api_requests_per_minute: int = Field(300, ge=1)
+    # A complete guide for the same search or website made within this many hours is reused
+    # instead of made again (see reuse.py). 0 turns reuse off.
+    reuse_hours: float = Field(24, ge=0, le=24 * 30)
+    # How many proxies in front of the app add to the X-Forwarded-For header (see ratelimit.Visitors).
+    # 0 on your computer, where visitors connect directly. Render: see docs/deploy-render.md.
+    proxy_hops: int = Field(0, ge=0, le=5)
 
     @property
     def llm_apis(self) -> list[str]:

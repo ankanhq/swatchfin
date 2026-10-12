@@ -7,6 +7,7 @@ Fetch can't read (see extract/visuals.py).
 
     POST   https://api.browser.tinyfish.ai                -> session_id, cdp_url, base_url
     DELETE https://api.browser.tinyfish.ai/{session_id}   -> 204: the session has ended
+    GET    https://api.browser.tinyfish.ai/usage          -> the account's sessions, newest first
 
 Starting a session takes TinyFish 10–30 seconds. So the pipeline asks for
 one as soon as it knows the website (BrowserVisit.start), while Fetch reads
@@ -28,6 +29,7 @@ the Playwright package is needed here: the browser itself runs at TinyFish.
 import asyncio
 import logging
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any, Protocol
 from urllib.parse import quote, urlsplit
 
@@ -49,6 +51,10 @@ END_TIME_LIMIT = 15.0
 IDLE_TIMEOUT_SECONDS = 180
 CONNECT_TIMEOUT_MS = 20_000
 DISCONNECT_TIME_LIMIT = 5.0
+# The usage list: 100 sessions a page; 5 pages is far more than a day's guides.
+USAGE_PAGE_SIZE = 100
+USAGE_MAX_PAGES = 5
+USAGE_TIME_LIMIT = 10.0
 
 # The window size pages are measured at: a common laptop screen.
 VIEWPORT: Any = {"width": 1440, "height": 900}
@@ -82,6 +88,23 @@ class BrowserSession(BaseModel):
     base_url: str | None = None
 
 
+class UsageItem(BaseModel):
+    """One session in TinyFish's usage list. Only its start time matters here."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    start_time: datetime
+
+
+class UsagePage(BaseModel):
+    """One page of TinyFish's usage list."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    items: list[UsageItem]
+    has_more: bool = False
+
+
 async def create_session(
     client: TinyFishClient, url: str, *, idle_timeout_seconds: int = IDLE_TIMEOUT_SECONDS
 ) -> BrowserSession:
@@ -105,6 +128,38 @@ async def create_session(
 async def end_session(client: TinyFishClient, session_id: str) -> None:
     """Ends a session at once (ending one that has already ended is fine). Raises TinyFishError if it can't."""
     await client.call("DELETE", f"{BROWSER_URL}/{quote(session_id, safe='')}", time_limit=END_TIME_LIMIT)
+
+
+async def sessions_started_since(client: TinyFishClient, since: datetime) -> int:
+    """How many Browser sessions this account started since `since`. Raises TinyFishError if it can't tell.
+
+    Each guide opens one session, so main.py uses this to count the guides
+    already made today when the server starts (ratelimit.DailyLimit). It
+    counts every session on the key, including guides made on your own
+    computer, because they use the same credit.
+
+    In plain English: TinyFish lists sessions newest first, 100 to a page.
+    Count the ones started since `since`, and stop at the first older one.
+    """
+    counted = 0
+    for page in range(1, USAGE_MAX_PAGES + 1):
+        answer = await client.call(
+            "GET",
+            f"{BROWSER_URL}/usage",
+            params={"limit": str(USAGE_PAGE_SIZE), "page": str(page)},
+            time_limit=USAGE_TIME_LIMIT,
+        )
+        try:
+            usage = UsagePage.model_validate(answer)
+        except ValueError as error:
+            raise TinyFishError("unavailable", "usage answer in an unexpected shape") from error
+        for item in usage.items:
+            if item.start_time < since:
+                return counted
+            counted += 1
+        if not usage.has_more:
+            break
+    return counted
 
 
 # ---------------------------------------------------------------------------

@@ -3,6 +3,7 @@
 import json
 import time
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -292,16 +293,132 @@ def test_export_errors(make_client: Callable[..., TestClient]) -> None:
         assert (response.status_code, response.json()["error"]["title"]) == (status, title), url
 
 
-def test_too_many_new_guides(make_client: Callable[..., TestClient]) -> None:
-    client = make_client(new_guides_per_hour=2)
-    start(client, "Duolingo")
+def test_too_many_new_guides_for_one_visitor(make_client: Callable[..., TestClient]) -> None:
+    client = make_client(new_guides_per_visitor_per_day=2)
+    duolingo = start(client, "Duolingo")
     start(client, "Stripe")
     response = client.post("/api/v1/guides", json={"query": "Linear"})
     assert response.status_code == 429
-    assert response.json()["error"]["title"] == "Too many guides for now"
-    assert 3500 < int(response.headers["retry-after"]) <= 3600
-    # A refused query doesn't use up the limit, and status checks still work.
+    assert response.json()["error"] == {
+        "title": "Too many guides for now",
+        "message": "You can start 2 new guides a day, and you’ve reached that. Try again in 24 hours. "
+        "A site that already has a guide from the last 24 hours still opens straight away.",
+    }
+    assert 86_000 < int(response.headers["retry-after"]) <= 86_400
+    # A refused query doesn't use up the limit, a search already made still opens, and status checks still work.
+    assert client.post("/api/v1/guides", json={"query": "Duolingo"}).json()["id"] == duolingo
     assert client.get("/api/v1/guides/mock").status_code == 200
+
+
+def test_new_guides_a_day_for_everyone(make_client: Callable[..., TestClient]) -> None:
+    client = make_client(daily_guide_limit=1, new_guides_per_visitor_per_day=2)
+    start(client, "Duolingo")
+    for _ in range(2):
+        # Refused by today's limit, which gives the visitor's guide back: so the second try is refused
+        # by today's limit again, not by the visitor's.
+        response = client.post("/api/v1/guides", json={"query": "Stripe"})
+        assert response.status_code == 429
+        error = response.json()["error"]
+        assert error["title"] == "Swatchfin has reached today’s limit"
+        assert error["message"].startswith(
+            "Swatchfin makes up to 1 new guides a day, and today’s have all been made. Try again in "
+        )
+        assert 0 < int(response.headers["retry-after"]) <= 86_400
+
+
+def test_todays_guides_are_counted_at_tinyfish_when_the_server_starts(make_client: Callable[..., TestClient]) -> None:
+    """A server that slept or restarted doesn't forget today's guides: each one opened a Browser session."""
+    fake = FakeTinyFish()
+    now = datetime.now(UTC)
+    yesterday = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(hours=1)
+    fake.earlier_sessions = [now.isoformat(), now.isoformat(), yesterday.isoformat()]
+    client = make_client(tinyfish=fake, daily_guide_limit=3)
+    start(client, "Duolingo")
+    response = client.post("/api/v1/guides", json={"query": "Stripe"})
+    assert response.json()["error"]["title"] == "Swatchfin has reached today’s limit"
+
+
+def test_the_visitor_is_read_from_the_proxys_entry(make_client: Callable[..., TestClient]) -> None:
+    """Behind Render's proxy, a made-up first X-Forwarded-For entry doesn't dodge the visitor limit."""
+    client = make_client(proxy_hops=1, new_guides_per_visitor_per_day=1)
+
+    def post(query: str, forwarded_for: str) -> int:
+        response = client.post("/api/v1/guides", json={"query": query}, headers={"X-Forwarded-For": forwarded_for})
+        return response.status_code
+
+    assert post("Duolingo", "198.51.100.20") == 202
+    assert post("Stripe", "203.0.113.7, 198.51.100.20") == 429
+    assert post("Stripe", "198.51.100.99") == 202
+
+
+def test_the_same_search_reuses_the_guide(client: TestClient, wait_for_job: WaitForJob) -> None:
+    first = wait_for_job(client, start(client, "larkspurtea.example"))
+    for query in ("larkspurtea.example", "https://www.larkspurtea.example/", "HTTPS://LARKSPURTEA.example"):
+        response = client.post("/api/v1/guides", json={"query": query})
+        assert response.status_code == 202
+        assert response.json() == {"id": first["id"], "status": "complete"}
+
+
+def test_a_name_for_a_site_with_a_guide_reuses_it(
+    make_client: Callable[..., TestClient], wait_for_job: WaitForJob
+) -> None:
+    fake = FakeTinyFish()
+    client = make_client(tinyfish=fake, new_guides_per_visitor_per_day=2)
+    first = wait_for_job(client, start(client, "https://www.larkspurtea.example/"))
+    sessions = len(fake.sessions_opened)
+
+    reused = wait_for_job(client, start(client, "Larkspur Tea"))
+    assert reused["id"] != first["id"]
+    assert reused["status"] == "complete"
+    assert [step["status"] for step in reused["steps"]] == ["done"] + ["skipped"] * 6
+    assert reused["steps"][1]["detail"] == "Reused the guide made a few minutes ago"
+    # Only the search was made: no pages read, no browser opened.
+    assert reused["tinyfish_usage"] == {"search_calls": 1, "fetch_urls": 0, "browser_sessions": 0}
+    assert len(fake.sessions_opened) == sessions
+
+    guide = reused["guide"]
+    assert guide["id"] == reused["id"]
+    assert guide["query"] == "Larkspur Tea"
+    # It keeps its own date and sources: it never claims to be fresher than it is.
+    assert guide["generated_at"] == first["guide"]["generated_at"]
+    assert guide["sources"] == first["guide"]["sources"]
+    # Swatchfin's copy of the SVG logo was copied to the new guide.
+    logo_url = guide["logo"]["primary"]["url"]
+    assert logo_url == f"/api/v1/guides/{reused['id']}/logos/1.svg"
+    assert client.get(logo_url).text == client.get(first["guide"]["logo"]["primary"]["url"]).text
+
+    # The reused guide didn't count toward the visitor's 2 a day.
+    start(client, "Stripe")
+    # And the name now opens the reused guide straight away.
+    assert start(client, "larkspur tea") == reused["id"]
+
+
+def test_two_people_asking_at_once_share_a_job(
+    make_client: Callable[..., TestClient], wait_for_job: WaitForJob
+) -> None:
+    client = make_client(tinyfish=FakeTinyFish(delay=5))
+    job_id = start(client, "Larkspur Tea")
+    assert start(client, "larkspur tea") == job_id
+    wait_for_job(client, job_id, until=("running",))
+
+    # One of them cancels: the other's guide carries on. When both have cancelled, it stops.
+    assert client.delete(f"/api/v1/guides/{job_id}").status_code == 204
+    assert client.get(f"/api/v1/guides/{job_id}").json()["status"] == "running"
+    assert client.delete(f"/api/v1/guides/{job_id}").status_code == 204
+    assert client.get(f"/api/v1/guides/{job_id}").status_code == 404
+
+
+def test_failed_guides_and_reuse_turned_off_make_a_new_guide(
+    make_client: Callable[..., TestClient], wait_for_job: WaitForJob
+) -> None:
+    client = make_client()
+    failed = wait_for_job(client, start(client, "nothing-here.invalid"))
+    assert failed["status"] == "failed"
+    assert start(client, "nothing-here.invalid") != failed["id"]
+
+    client = make_client(reuse_hours=0)
+    first = wait_for_job(client, start(client, "Larkspur Tea"))
+    assert start(client, "Larkspur Tea") != first["id"]
 
 
 def test_too_many_requests(make_client: Callable[..., TestClient]) -> None:

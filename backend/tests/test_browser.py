@@ -8,6 +8,7 @@ starts), the session is ended, once.
 
 import asyncio
 import json
+from datetime import UTC, datetime, timedelta
 
 import httpx2
 import pytest
@@ -20,6 +21,7 @@ from app.tinyfish.browser import (
     _on_page,
     create_session,
     end_session,
+    sessions_started_since,
     wait_for_endings,
     wait_ms,
 )
@@ -197,3 +199,20 @@ def test_waiting_for_a_page_leaves_the_script_time_to_run() -> None:
     assert wait_ms(15_000, 20.0) == 5_000
     assert wait_ms(3_000, 15.0) == 0
     assert wait_ms(3_000, 2.0) == 0
+
+
+async def test_sessions_started_today_are_counted_across_pages() -> None:
+    fake = FakeTinyFish()
+    now = datetime.now(UTC)
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    fake.earlier_sessions = [now.isoformat()] * 130 + [(midnight - timedelta(minutes=1)).isoformat()] * 80
+    assert await sessions_started_since(client_for(fake), midnight) == 130
+    # Two pages of 100 were enough: it stopped at the first session from yesterday.
+    assert len(fake.calls("api.browser.tinyfish.ai")) == 2
+
+
+async def test_an_unexpected_usage_answer_is_an_error() -> None:
+    fake = FakeTinyFish()
+    fake.earlier_sessions = ["not a time"]
+    with pytest.raises(TinyFishError):
+        await sessions_started_since(client_for(fake), datetime.now(UTC))
