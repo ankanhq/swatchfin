@@ -137,14 +137,23 @@ class Visitors:
     proxies in front of the app, the visitor's real address is the entry
     `proxy_hops` places from the end.
 
-    The first time a request with the header arrives, the log says how many
-    entries it had (never the addresses), so the right PROXY_HOPS can be
-    checked after a deploy (see docs/deploy-render.md).
+    Render's own proxies add 3 entries (checked live: a visitor who sends no
+    header arrives with 3), so production uses PROXY_HOPS=3.
+
+    Each time a request arrives with a number of entries not seen since the
+    server started, the log says how many it had (never the addresses), so
+    PROXY_HOPS can be checked after a deploy: an ordinary request shows how
+    many the proxies add, and one with a made-up entry shows one more (see
+    docs/deploy-render.md). Fewer entries than PROXY_HOPS is logged as a
+    warning: then the setting is too high.
     """
+
+    # At most this many different entry counts are logged, so made-up headers can't fill the log.
+    MAX_LOGGED = 5
 
     def __init__(self, proxy_hops: int) -> None:
         self.proxy_hops = proxy_hops
-        self._logged = False
+        self._logged: set[int] = set()
 
     def address(self, client_host: str | None, forwarded_for: str | None) -> str:
         """The visitor's address, from the connection and the X-Forwarded-For header."""
@@ -152,9 +161,10 @@ class Visitors:
             entries = [entry.strip() for entry in forwarded_for.split(",")]
             # Fewer entries than proxies shouldn't happen; the first one is then the best there is.
             position = max(1, len(entries) - self.proxy_hops + 1)  # counting from 1 at the start
-            if not self._logged:
-                self._logged = True
-                log.info(
+            if len(entries) not in self._logged and len(self._logged) < self.MAX_LOGGED:
+                self._logged.add(len(entries))
+                log.log(
+                    logging.WARNING if len(entries) < self.proxy_hops else logging.INFO,
                     "X-Forwarded-For had %d entries; the visitor is entry %d (PROXY_HOPS=%d)",
                     len(entries),
                     position,

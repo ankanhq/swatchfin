@@ -94,7 +94,7 @@ class Settings(BaseSettings):
     # A complete guide for the same search or website made within this many hours is reused
     # instead of made again (see reuse.py). 0 turns reuse off.
     reuse_hours: float = Field(24, ge=0, le=24 * 30)
-    # How many proxies in front of the app add to the X-Forwarded-For header (see ratelimit.Visitors).
+    # How many entries the proxies in front of the app add to the X-Forwarded-For header (see ratelimit.Visitors).
     # 0 on your computer, where visitors connect directly. Render: see docs/deploy-render.md.
     proxy_hops: int = Field(0, ge=0, le=5)
 
