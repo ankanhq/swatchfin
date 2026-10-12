@@ -98,9 +98,9 @@ def export_filename(guide: BrandGuide, suffix: str) -> str:
     return f"{brand_slug(guide)}-{suffix}"
 
 
-def logo_filename(guide: BrandGuide, number: int) -> str:
-    """A download name for a logo Swatchfin copied: "stripe-logo.svg", then "stripe-logo-2.svg"."""
-    return export_filename(guide, "logo.svg" if number == 1 else f"logo-{number}.svg")
+def logo_filename(guide: BrandGuide, number: int, extension: str = "svg") -> str:
+    """A download name for a logo Swatchfin copied: "stripe-logo.svg", then "stripe-logo-2.svg" ("amazon-logo.png")."""
+    return export_filename(guide, f"logo.{extension}" if number == 1 else f"logo-{number}.{extension}")
 
 
 def web_address(url: str | None) -> str | None:

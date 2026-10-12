@@ -498,8 +498,9 @@ def _styles_warnings(visuals: Visuals, homepage: Homepage) -> list[str]:
     if visuals.blank_logos:
         count = visuals.blank_logos
         warnings.append(
-            f"{count} logo{'s' if count != 1 else ''} drawn in the code of {host} came out blank or as one plain "
-            f"shape when copied, so {'they were' if count != 1 else 'it was'} left out."
+            f"{count} version{'s' if count != 1 else ''} of the logo on {host} came out blank or as one plain "
+            f"shape, or {'their files are' if count != 1 else 'its file is'} missing, so "
+            f"{'they were' if count != 1 else 'it was'} left out."
         )
     return warnings
 
@@ -549,27 +550,28 @@ async def _reuse(job: JobRun, earlier_id: str, earlier: BrandGuide, query: Parse
     """The earlier guide for the same site, as this job's guide (see reuse.py).
 
     It keeps its own date and sources, so it says when the site was really
-    read. Steps 2–7 are skipped, and say so. Swatchfin's copies of SVG
-    logos are copied to this job's ID too, so this guide doesn't depend on
-    the earlier guide's files.
+    read. Steps 2–7 are skipped, and say so. Swatchfin's own copies of
+    logos (SVG and PNG) are copied to this job's ID too, so this guide
+    doesn't depend on the earlier guide's files.
     """
     detail = f"Reused the guide made {ago(earlier.generated_at)}"
     for name in STEP_NAMES[1:]:
         job.skip(name, detail)
     logo = earlier.logo.model_copy(deep=True)
     for number in range(1, LogoStore.MAX_PER_GUIDE + 1):
-        earlier_url = logos.url(earlier_id, number)
-        assets = [asset for asset in [logo.primary, *logo.alternates] if asset and asset.url == earlier_url]
-        svg = await logos.load(earlier_id, number) if assets else None
-        if svg is None:
-            continue
-        try:
-            await logos.save(job.job.id, number, svg)
-        except OSError:
-            log.warning("couldn't copy a logo for job %s", job.job.id, exc_info=True)
-            continue
-        for asset in assets:
-            asset.url = logos.url(job.job.id, number)
+        for extension in LogoStore.MEDIA_TYPES:
+            earlier_url = logos.url(earlier_id, number, extension)
+            assets = [asset for asset in [logo.primary, *logo.alternates] if asset and asset.url == earlier_url]
+            content = await logos.load(earlier_id, number, extension) if assets else None
+            if content is None:
+                continue
+            try:
+                await logos.save(job.job.id, number, content)
+            except (OSError, ValueError):
+                log.warning("couldn't copy a logo for job %s", job.job.id, exc_info=True)
+                continue
+            for asset in assets:
+                asset.url = logos.url(job.job.id, number, extension)
     return earlier.model_copy(deep=True, update={"id": job.job.id, "query": query.text, "logo": logo})
 
 
@@ -580,6 +582,8 @@ async def _logo(homepage: Homepage, job_id: str, logos: LogoStore, warnings: lis
     with SVG code in the page has no address, so its code is cleaned
     (extract/svg.py) and saved, and the guide points to Swatchfin's copy.
     One that can't be cleaned into something safe and visible is left out.
+    A logo drawn with a CSS background is saved as the PNG the browser
+    photographed in step 5; without a photo (no browser), it is left out.
     """
     host = _short_host(homepage.host)
     assets: list[LogoAsset] = []
@@ -590,22 +594,26 @@ async def _logo(homepage: Homepage, job_id: str, logos: LogoStore, warnings: lis
         if candidate.url is not None:
             assets.append(_logo_asset(candidate, candidate.url, homepage.url))
             continue
-        svg = clean_svg(candidate.svg or "", color=candidate.color)
-        if svg is None:
-            if candidate is homepage.logos[0]:
+        content: str | bytes | None
+        if candidate.method == "css-background":
+            content = candidate.image
+        else:
+            content = clean_svg(candidate.svg or "", color=candidate.color)
+            if content is None and candidate is homepage.logos[0]:
                 warnings.append(
                     f"The logo on {host} is drawn with code that Swatchfin couldn’t copy safely, so the next best "
                     "image is shown instead."
                 )
+        if content is None:
             continue
         try:
-            await logos.save(job_id, copies + 1, svg)
-        except OSError:
+            await logos.save(job_id, copies + 1, content)
+        except (OSError, ValueError):
             log.warning("couldn't save a logo copy for job %s", job_id, exc_info=True)
             continue
         copies += 1
-        assets.append(_logo_asset(candidate, logos.url(job_id, copies), homepage.url))
-        if not assets[1:] and uses_current_color(svg) and candidate.color is None:
+        assets.append(_logo_asset(candidate, logos.url(job_id, copies, LogoStore.extension(content)), homepage.url))
+        if isinstance(content, str) and not assets[1:] and uses_current_color(content) and candidate.color is None:
             warnings.append(
                 f"The logo on {host} takes its colour from the page around it, so Swatchfin’s copy is drawn in "
                 "black. Its colour on the page couldn’t be measured."

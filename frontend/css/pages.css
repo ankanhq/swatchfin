@@ -1498,14 +1498,16 @@
   }
 }
 
+/* minmax(0, 1fr): a big logo file (a 2048 px app icon) mustn't widen its column past the page. */
 .sf-logo-card__tiles {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--sf-space-3);
 }
 
 @media (min-width: 576px) {
   .sf-logo-card__tiles {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1539,6 +1541,8 @@
 .sf-logo-tile {
   position: relative;
   display: grid;
+  /* One cell exactly the tile's inside, so the logo's max-width and max-height have something to fit. */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
   aspect-ratio: 16 / 10;
   margin: 0;

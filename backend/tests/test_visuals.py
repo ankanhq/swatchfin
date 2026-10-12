@@ -5,6 +5,8 @@ shape measure_page.js returns. See fake_tinyfish.browser_measurement()
 for a whole homepage.
 """
 
+import base64
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -17,7 +19,8 @@ from app.extract.visuals import (
     LogoSpot,
     Measurement,
     browser_homepage,
-    check_drawings,
+    capture_backgrounds,
+    check_logos,
     checked_measurement,
     confirm_logos,
     fill_gaps,
@@ -27,7 +30,14 @@ from app.extract.visuals import (
     typography,
 )
 from app.tinyfish.browser import BrowserUnavailable
-from tests.fake_tinyfish import FakeBrowserDriver, FakeTinyFish, browser_measurement, browser_page, drawn_logo
+from tests.fake_tinyfish import (
+    TINY_PNG,
+    FakeBrowserDriver,
+    FakeTinyFish,
+    browser_measurement,
+    browser_page,
+    drawn_logo,
+)
 
 HOME = "https://www.larkspurtea.example/"
 
@@ -487,8 +497,9 @@ async def test_the_homepage_is_measured_once_it_has_drawn_its_text() -> None:
     # A homepage built with JavaScript is blank when it has loaded; measured then, it has no colours or fonts.
     driver = FakeBrowserDriver(browser_page)
     await _visuals(None, [], driver)
-    assert driver.runs == [HOME, "about:blank"]  # then the logo copy is drawn in a blank tab
-    assert driver.waited_for_text == [True, False]
+    # Then the logo copy is drawn in a blank tab, and each image file is opened to check it.
+    assert driver.runs == [HOME, "about:blank", f"{HOME}apple-touch-icon.png", f"{HOME}favicon.svg", f"{HOME}share.jpg"]
+    assert driver.waited_for_text == [True, False, False, False, False]
 
 
 @pytest.mark.anyio
@@ -600,11 +611,15 @@ class Drawer:
         self.sent: list[Any] = []
 
     async def run(self, url: str, script: str, arg: Any, *, time_limit: float, wait_for_text: bool = False) -> Any:
-        assert url == "about:blank"
-        self.sent.append(arg)
+        self.sent.append((url, arg))
         if isinstance(self.drawings, Exception):
             raise self.drawings
+        if url != "about:blank":  # an image file, opened in the tab
+            return [drawn_logo(paper=True)]
         return self.drawings
+
+    async def photo(self, selector: str, *, time_limit: float) -> bytes:
+        raise BrowserUnavailable("no photos here")
 
     async def close(self) -> None:
         pass
@@ -630,18 +645,20 @@ def drawing_logos() -> list[LogoCandidate]:
 )
 async def test_a_logo_copy_that_isnt_a_logo_is_left_out(drawing: dict[str, Any]) -> None:
     page = Drawer([drawing, drawn_logo()])
-    logos, left_out = await check_drawings(page, drawing_logos(), time_limit=5)
+    logos, left_out = await check_logos(page, drawing_logos(), time_limit=5)
     assert [logo.element_id or logo.url for logo in logos] == ["2", f"{HOME}apple-touch-icon.png"]
     assert left_out == 1
-    # Each copy was drawn as Swatchfin would serve it, without the page's variables.
-    [sent] = page.sent
-    assert len(sent["svgs"]) == 2 and all("var(" not in svg for svg in sent["svgs"])
+    # Each copy was drawn as Swatchfin would serve it, without the page's variables, in a blank tab; then the
+    # image file was opened in the tab.
+    (blank, sent), (opened, _arg) = page.sent
+    assert (blank, opened) == ("about:blank", f"{HOME}apple-touch-icon.png")
+    assert len(sent["items"]) == 2 and all("var(" not in item["svg"] for item in sent["items"])
 
 
 @pytest.mark.anyio
 async def test_logo_copies_with_letters_holes_or_colours_are_kept() -> None:
     page = Drawer([drawn_logo(), drawn_logo(main_colour=1.0, fill=0.8, holes=0.12)])
-    logos, left_out = await check_drawings(page, drawing_logos(), time_limit=5)
+    logos, left_out = await check_logos(page, drawing_logos(), time_limit=5)
     assert (len(logos), left_out) == (3, 0)
 
 
@@ -649,7 +666,7 @@ async def test_logo_copies_with_letters_holes_or_colours_are_kept() -> None:
 @pytest.mark.parametrize("answer", [BrowserUnavailable("page about:blank: closed"), [{"nope": 1}], [drawn_logo()]])
 async def test_when_the_check_cant_run_every_logo_is_kept(answer: Any) -> None:
     # The browser failed, answered in the wrong shape, or with the wrong number of drawings.
-    logos, left_out = await check_drawings(Drawer(answer), drawing_logos(), time_limit=5)
+    logos, left_out = await check_logos(Drawer(answer), drawing_logos(), time_limit=5)
     assert (len(logos), left_out) == (3, 0)
 
 
@@ -657,5 +674,139 @@ async def test_when_the_check_cant_run_every_logo_is_kept(answer: Any) -> None:
 async def test_a_copy_with_nothing_painted_is_left_out_without_drawing_it() -> None:
     lost = '<svg viewBox="0 0 120 24" fill="none"><path d="M0 0h120v24H0z" class="ink"/></svg>'
     page = Drawer([])
-    logos, left_out = await check_drawings(page, [LogoCandidate("inline-svg", 0.9, svg=lost)], time_limit=5)
+    logos, left_out = await check_logos(page, [LogoCandidate("inline-svg", 0.9, svg=lost)], time_limit=5)
     assert (logos, left_out, page.sent) == ([], 1, [])
+
+
+# ---------------------------------------------------------------------------
+# Sale and deal colours, and the logo's and header's colours
+# ---------------------------------------------------------------------------
+
+
+def badge(fill: str, *, y: float = 300, **extra: Any) -> dict[str, Any]:
+    """A "Limited time deal" badge (measure_page.js marks its words as a promotion)."""
+    return {"tag": "span", "kind": "box", "region": "main", "x": 100, "y": y, "w": 120, "h": 24, "bg": fill,
+            "promo": True, **extra}  # fmt: skip
+
+
+def test_a_sale_or_deal_badge_colour_is_never_the_primary_or_the_link_colour() -> None:
+    # Amazon's deal red: many badges and red "-45%" links, the page's most used colourful colour.
+    deals = [badge("#CC0C39", y=300 + 40 * n) for n in range(10)]
+    measurement = measure(
+        *deals,
+        text("#CC0C39", 30, kind="link", promo=True),
+        text("#CC0C39", 20, kind="link"),
+        text("#2162A1", 40, kind="link"),
+        text("#0F1111", 400),
+    )
+    colors = {color.role: color for color in palette(measurement)}
+    # The most used colourful colour that isn't a deal colour leads instead: here, the blue of the links.
+    assert colors["primary"].hex == "#2162A1"
+    assert "link" not in colors  # the red links aren't the link colour either
+    listed = [color for color in colors.values() if color.hex == "#CC0C39"]
+    assert all("sale or deal badge" in color.usage for color in listed)
+    # Even as a badge drawn as a button, it isn't the buttons' colour.
+    as_buttons = measure(*[badge("#CC0C39", kind="button", w=160, h=44, y=300 + 60 * n) for n in range(4)])
+    assert roles(as_buttons).get("primary") != "#CC0C39"
+
+
+def test_without_coloured_buttons_the_logo_and_the_header_lead() -> None:
+    header = {"tag": "div", "kind": "box", "region": "header", "x": 600, "y": 10, "w": 45, "h": 38, "bg": "#FEBD69"}
+    section = {
+        "tag": "section",
+        "kind": "box",
+        "region": "main",
+        "x": 0,
+        "y": 1200,
+        "w": 1440,
+        "h": 600,
+        "bg": "#3A7D44",
+    }
+    measurement = measure(header, section, text("#111111", 400))
+    # The header's colour beats a bigger colourful section further down...
+    assert roles(measurement)["primary"] == "#FEBD69"
+    # ...and the logo's own colour (Amazon's orange, read from its photo) beats both.
+    colors = {color.role: color for color in palette(measurement, logo_colours=["#FF6200"])}
+    assert colors["primary"].hex == "#FF6200"
+    assert colors["primary"].usage == ["logo"]
+    # Real buttons still decide first.
+    assert roles(measure(header, section, button("#0057B8"), text("#111111", 400)))["primary"] == "#0057B8"
+
+
+# ---------------------------------------------------------------------------
+# Logos drawn with CSS, photographed, and image files checked
+# ---------------------------------------------------------------------------
+
+
+class Camera(Drawer):
+    """A browser page that photographs elements (a 1 × 1 PNG), or fails to."""
+
+    def __init__(self, drawings: Any, *, fails: bool = False) -> None:
+        super().__init__(drawings)
+        self.fails = fails
+        self.photographed: list[str] = []
+
+    async def photo(self, selector: str, *, time_limit: float) -> bytes:
+        self.photographed.append(selector)
+        if self.fails:
+            raise BrowserUnavailable("photo: nothing shown")
+        return TINY_PNG
+
+
+CSS_LOGO = LogoCandidate("css-background", 0.8, format="png", element_id="7")
+SPRITE = LogoSpot(id="7", x=18, y=17, w=98, h=34, visible=True, background=True)
+
+
+@pytest.mark.anyio
+async def test_a_logo_drawn_with_css_is_photographed_then_checked() -> None:
+    favicon = LogoCandidate("favicon", 0.2, url=f"{HOME}favicon.ico", format="ico")
+    page = Camera([drawn_logo(colours=["#FF6200"])])
+    logos = await capture_backgrounds(page, [replace(CSS_LOGO), favicon], {"7": SPRITE}, time_limit=5)
+    assert page.photographed == ['[data-sf-id="7"]']
+    assert logos[0].image == TINY_PNG
+    kept, left_out = await check_logos(page, logos, time_limit=5)
+    assert (len(kept), left_out) == (2, 0)
+    # The photo was drawn in a blank tab, as a PNG; its colours stay with it, for the palette.
+    (blank, sent), (opened, _arg) = page.sent
+    assert (blank, opened) == ("about:blank", f"{HOME}favicon.ico")
+    assert sent["items"] == [{"src": "data:image/png;base64," + base64.b64encode(TINY_PNG).decode()}]
+    assert kept[0].colours == ["#FF6200"]
+    assert logo_colours(kept, {"7": SPRITE}) == ["#FF6200"]
+
+
+@pytest.mark.anyio
+async def test_a_logo_drawn_with_css_that_cant_be_photographed_is_left_out() -> None:
+    hidden = {"7": SPRITE.model_copy(update={"visible": False, "w": 0, "h": 0})}
+    page = Camera([])
+    assert await capture_backgrounds(page, [replace(CSS_LOGO)], hidden, time_limit=5) == []
+    assert page.photographed == []  # hidden: not even tried
+    assert await capture_backgrounds(Camera([], fails=True), [replace(CSS_LOGO)], {"7": SPRITE}, time_limit=5) == []
+
+
+class FileDrawer(Drawer):
+    """A browser page whose image files answer with the given drawing."""
+
+    def __init__(self, file_drawing: dict[str, Any]) -> None:
+        super().__init__([])
+        self.file_drawing = file_drawing
+
+    async def run(self, url: str, script: str, arg: Any, *, time_limit: float, wait_for_text: bool = False) -> Any:
+        self.sent.append((url, arg))
+        return [self.file_drawing]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("drawing", "kept"),
+    [
+        ({"loaded": False, "status": 404}, False),  # the file is missing
+        (drawn_logo(ink=0.0), False),  # blank (a JPG all of its own background colour, say)
+        ({"loaded": False, "status": 403}, True),  # the site refused a browser opening the file on its own
+        ({"loaded": False, "status": 0}, True),  # unknown
+        (drawn_logo(paper=True), True),  # a logo on white in a JPG
+    ],
+)
+async def test_image_files_are_checked_too(drawing: dict[str, Any], kept: bool) -> None:
+    header = LogoCandidate("header-img", 0.8, url=f"{HOME}img/logo.jpg", format="jpg", element_id="2")
+    logos, left_out = await check_logos(FileDrawer(drawing), [header], time_limit=5)
+    assert (len(logos), left_out) == ((1, 0) if kept else (0, 1))

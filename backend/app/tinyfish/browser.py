@@ -27,6 +27,7 @@ the Playwright package is needed here: the browser itself runs at TinyFish.
 """
 
 import asyncio
+import base64
 import logging
 from collections.abc import Callable
 from datetime import datetime
@@ -68,6 +69,42 @@ TEXT_WAIT_MS = 6_000
 # finishes loading (Mailchimp's) mustn't use up the time the measuring needs.
 SCRIPT_TIME = 15.0
 MIN_TEXT_LENGTH = 200
+# Before a photo: hide the backgrounds around the element, so only the element itself is in it, wait
+# (at most 3 s) for the pictures it paints with, and give back where it is on the page and how sharp to
+# take it: twice the pixels when its picture has the detail for it (an SVG, or a bitmap drawn at half
+# its own size or less), else its own size (more pixels of a small bitmap would only blur it).
+ISOLATE_SCRIPT = """async (selector) => {
+  const target = document.querySelector(selector);
+  if (!target) return null;
+  const style = document.createElement('style');
+  style.id = 'sf-photo-style';
+  style.textContent = '[data-sf-photo-around], [data-sf-photo-around]::before, [data-sf-photo-around]::after '
+    + '{ background: transparent !important; box-shadow: none !important; border-color: transparent !important; }';
+  document.head.append(style);
+  for (let node = target.parentElement; node; node = node.parentElement) node.setAttribute('data-sf-photo-around', '');
+  const urls = [...getComputedStyle(target).backgroundImage.matchAll(/url\\("?([^")]+)"?\\)/g)].map((m) => m[1]);
+  const images = urls.map((url) => {
+    const image = new Image();
+    image.src = url;
+    return image;
+  });
+  const loads = images.map((image) => image.decode().catch(() => null));
+  await Promise.race([Promise.all(loads), new Promise((resolve) => setTimeout(resolve, 3000))]);
+  await new Promise((resolve) => setTimeout(resolve, 150)); // let the page draw the change
+  const rect = target.getBoundingClientRect();
+  if (rect.width < 1 || rect.height < 1) return null;
+  const drawnWidth = parseFloat(getComputedStyle(target).backgroundSize) || 0; // "auto" draws it at its own size
+  const detailed = images.some((image, i) => /\\.svg([?#]|$)|^data:image\\/svg/i.test(urls[i])
+    || (drawnWidth > 0 && image.naturalWidth >= 2 * drawnWidth));
+  const scale = detailed ? 2 : 1;
+  return { x: rect.left + scrollX, y: rect.top + scrollY, width: rect.width, height: rect.height, scale };
+}"""
+TRANSPARENT = {"r": 0, "g": 0, "b": 0, "a": 0}
+# After it: the page as it was.
+RESTORE_SCRIPT = """() => {
+  document.getElementById('sf-photo-style')?.remove();
+  for (const node of document.querySelectorAll('[data-sf-photo-around]')) node.removeAttribute('data-sf-photo-around');
+}"""
 
 # Sessions still being ended after their guide finished (see BrowserVisit.close).
 _ENDING: set[asyncio.Task[None]] = set()
@@ -174,6 +211,11 @@ class BrowserPage(Protocol):
         """Opens `url` (unless it is already open), waits for it to load, runs `script` and returns its result."""
         ...
 
+    async def photo(self, selector: str, *, time_limit: float) -> bytes:
+        """A PNG photo of one element of the page already open, on a see-through background.
+        Raises BrowserUnavailable if it can't be taken."""
+        ...
+
     async def close(self) -> None:
         """Disconnects. Never raises."""
         ...
@@ -255,6 +297,42 @@ class PlaywrightPage:
             raise BrowserUnavailable(f"page {url}: {error.message[:200]}") from error
         except TimeoutError as error:
             raise BrowserUnavailable(f"page {url}: no answer within {time_limit:.0f}s") from error
+
+    async def photo(self, selector: str, *, time_limit: float) -> bytes:
+        """In plain English: in the page that is open, hide the backgrounds of
+        the elements around the chosen one (only in this private browser),
+        then ask Chrome for a picture of just that element's box, with nothing
+        behind it (see-through), at twice the pixels when its picture has the
+        detail for it. Then put everything back as it was. Chrome's own
+        screenshot command is used: it takes half a second, where
+        Playwright's took six on a big page.
+        """
+        try:
+            async with asyncio.timeout(time_limit):
+                page = await self._tab()
+                try:
+                    box = await page.evaluate(ISOLATE_SCRIPT, selector)
+                    if not box:
+                        raise BrowserUnavailable(f"photo: nothing shown at {selector}")
+                    clip = {key: float(box[key]) for key in ("x", "y", "width", "height")}
+                    clip["scale"] = 2 if box.get("scale") == 2 else 1
+                    cdp = await page.context.new_cdp_session(page)
+                    try:
+                        await cdp.send("Emulation.setDefaultBackgroundColorOverride", {"color": TRANSPARENT})
+                        shot = await cdp.send(
+                            "Page.captureScreenshot",
+                            {"format": "png", "clip": clip, "captureBeyondViewport": True},
+                        )
+                    finally:
+                        await cdp.send("Emulation.setDefaultBackgroundColorOverride", {})
+                        await cdp.detach()
+                finally:
+                    await page.evaluate(RESTORE_SCRIPT)
+                return base64.b64decode(shot["data"])
+        except PlaywrightError as error:
+            raise BrowserUnavailable(f"photo {selector}: {error.message[:200]}") from error
+        except (TimeoutError, KeyError, ValueError) as error:
+            raise BrowserUnavailable(f"photo {selector}: no picture within {time_limit:.0f}s") from error
 
     async def close(self) -> None:
         try:

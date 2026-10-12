@@ -1,6 +1,7 @@
 """The /api/v1 endpoints, called the way the guide page and other tools call them."""
 
 import json
+import re
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -13,7 +14,7 @@ from app.config import Settings
 from app.main import create_app
 from app.schemas import STEP_NAMES, BrandGuide, Job, Step, TinyFishUsage
 from tests.fake_llm import FakeLLM, larkspur_draft
-from tests.fake_tinyfish import FakeTinyFish
+from tests.fake_tinyfish import TINY_PNG, FakeTinyFish, browser_page
 
 WaitForJob = Callable[..., dict[str, Any]]
 
@@ -260,6 +261,46 @@ def test_a_logo_copied_from_the_page_is_served_locked_down(client: TestClient, w
     assert response.headers["cache-control"] == "public, max-age=86400"
     assert response.text.startswith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 24"')
     assert "<script" not in response.text and "aria-label" not in response.text
+
+
+def test_a_logo_drawn_with_css_is_served_as_the_browsers_photo(
+    make_client: Callable[..., TestClient], wait_for_job: WaitForJob
+) -> None:
+    # In the browser, the header logo is a CSS background (Amazon's sprite), not the SVG Fetch read.
+    def answer(url: str, arg: Any) -> Any:
+        result = browser_page(url, arg)
+        if isinstance(arg, dict) and "structureSelectors" in arg:
+            result["structure"] = re.sub(
+                r"<svg .*?</svg>",
+                '<span class="site-logo" data-sf-id="1" data-sf-background=""></span>',
+                result["structure"],
+                count=1,
+                flags=re.S,
+            )
+            result["logos"] = [{"id": "1", "x": 24, "y": 18, "w": 120, "h": 24, "visible": True, "background": True}]
+        return result
+
+    tinyfish = FakeTinyFish()
+    tinyfish.driver.answer = answer
+    client = make_client(tinyfish=tinyfish)
+    job = wait_for_job(client, start(client, "Larkspur Tea"))
+    logo = job["guide"]["logo"]["primary"]
+    assert (logo["method"], logo["format"], logo["url"]) == (
+        "css-background",
+        "png",
+        f"/api/v1/guides/{job['id']}/logos/1.png",
+    )
+    assert tinyfish.driver.photos == ['[data-sf-id="1"]']
+    assert job["guide"]["schema_version"] == "1.1"
+
+    response = client.get(logo["url"])
+    assert response.status_code == 200
+    assert response.content == TINY_PNG
+    assert response.headers["content-type"] == "image/png"
+    assert response.headers["content-security-policy"] == "default-src 'none'; sandbox"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["content-disposition"] == 'inline; filename="larkspurtea-logo.png"'
+    assert client.get(logo["url"].replace(".png", ".svg")).status_code == 404
 
 
 def test_logo_addresses_that_dont_exist(client: TestClient, wait_for_job: WaitForJob) -> None:

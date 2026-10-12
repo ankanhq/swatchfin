@@ -12,6 +12,7 @@ import { brandName } from './brand.js';
 const METHOD_LABELS = {
   'header-img': 'Image in the page header',
   'inline-svg': 'Inline SVG in the page header',
+  'css-background': 'CSS image in the page header, photographed in a browser',
   'og-image': 'Open Graph image',
   favicon: 'Favicon',
 };
@@ -226,6 +227,7 @@ function ratio(a, b) {
 const VERSION_LABELS = {
   'header-img': 'Header image',
   'inline-svg': 'Inline SVG',
+  'css-background': 'CSS image',
   'og-image': 'Open Graph image',
   favicon: 'Favicon',
 };

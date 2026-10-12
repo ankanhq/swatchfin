@@ -11,7 +11,8 @@
  * 2. looks at the page's elements and records, for each one that shows
  *    text, a background or a border: its kind (heading, button, link...),
  *    where it is, its size, its colours (as solid #RRGGBB, see-through
- *    colours blended onto what is behind them) and its font;
+ *    colours blended onto what is behind them), its font, and whether its
+ *    few words are a sale or deal ("Limited time deal", "-45%");
  * 3. checks a grid of points on the first screen and records which
  *    background colour is drawn at each one (photos and videos count as
  *    images), for the "share of the visible area";
@@ -19,7 +20,9 @@
  * 5. copies the <head>, header, nav, footer and logo parts of the page as
  *    HTML, the same parts Fetch reads, with a number on each image and SVG
  *    so Python can find their size, visibility and colour on the page, and
- *    the colours each part of an SVG is drawn in written on the part;
+ *    the colours each part of an SVG is drawn in written on the part. A
+ *    logo drawn with a CSS background (one picture cut from a "sprite") is
+ *    numbered too, so the browser can photograph it later;
  * 6. copies the page's visible text and its links.
  *
  * Everything it returns is checked again in Python: a page's own scripts
@@ -160,6 +163,10 @@ async (options) => {
      ------------------------------------------------------------------------ */
 
   const SKIP = new Set(['script', 'style', 'noscript', 'template', 'svg', 'iframe', 'head', 'link', 'meta', 'br', 'wbr']);
+  // Words of a sale or a deal. A badge with them ("Limited time deal", "-45%", "Up to 60% off") shows
+  // a promotion's colour, never the brand's main one (see palette() in visuals.py).
+  const PROMOTION = /\b(deals?|sale|offers?|discounts?|coupons?|cashback|clearance|limited[ -]time|lightning|bestsellers?)\b|\d\s?%|%\s?off\b/i;
+  const PROMOTION_MAX_CHARS = 80;
   const NAMED = new Set(['body', 'header', 'nav', 'footer', 'main', 'h1', 'h2', 'h3', 'p', 'a', 'button', 'input', 'select', 'textarea', 'hr']);
   const CODE = 'code, pre, kbd, samp';
   const buttons = new Set();
@@ -282,6 +289,8 @@ async (options) => {
     const behind = backdrop(element.parentElement).colour;
     const here = backdrop(element);
     const colour = toRgba(style.color);
+    // A short badge or label: its own words, or for a filled box the few words inside it.
+    const words = text || (filled ? (element.innerText || '').trim() : '');
     elements.push({
       tag,
       kind,
@@ -302,6 +311,7 @@ async (options) => {
       font: text ? style.fontFamily.slice(0, 300) : null,
       weight: Math.round(Number(style.fontWeight)) || 400, // a variable font in mid-animation can be 512.5
       size: parseFloat(style.fontSize) || 0,
+      promo: words.length > 0 && words.length <= PROMOTION_MAX_CHARS && PROMOTION.test(words),
     });
   }
 
@@ -438,6 +448,64 @@ async (options) => {
   }
 
   const logos = [];
+  /*
+   * Logos drawn with a CSS background instead of an <img> or <svg>: Amazon's is
+   * one picture cut from a "sprite" of many. An element counts when it shows
+   * one background picture at a logo's size, has no image of its own, and is
+   * labelled as a logo (it or one of the 3 elements around it) or sits in a
+   * link to the homepage. It is numbered like an image and marked
+   * data-sf-background; homepage.py then judges it like any other logo.
+   * Looked for first, so a page full of images can't use up the numbers.
+   */
+  const HOME_PATH = /^\/([a-z]{2}([-_][a-z]{2})?\/?)?$/i;
+  let backgrounds = 0;
+  function isHomeLink(link) {
+    try {
+      const url = new URL(link.href, location.href);
+      return url.origin === location.origin && HOME_PATH.test(url.pathname);
+    } catch {
+      return false;
+    }
+  }
+  for (const part of parts) {
+    if (part === document.head) continue;
+    for (const element of [part, ...part.querySelectorAll('*')]) {
+      if (backgrounds >= 10) break;
+      if (element.hasAttribute('data-sf-background')) continue; // parts can overlap
+      if (element.closest('svg') || element.matches('img') || element.querySelector('img, svg')) continue;
+      const style = getComputedStyle(element);
+      // One picture: not a gradient, and not several layers.
+      if (!/^url\(/.test(style.backgroundImage) || /\)\s*,/.test(style.backgroundImage)) continue;
+      const rect = element.getBoundingClientRect();
+      if (rect.width < 16 || rect.height < 8 || rect.width > 600 || rect.height > 200 || !isVisible(element)) continue;
+      let labelled = false;
+      for (let node = element, depth = 0; node && depth < 4; node = node.parentElement, depth += 1) {
+        const words = `${node.id} ${node.getAttribute('class') || ''} ${node.getAttribute('aria-label') || ''}`;
+        if (/logo|wordmark|brandmark/i.test(words)) labelled = true;
+      }
+      const link = element.closest('a[href]');
+      if (!labelled && !(link && isHomeLink(link))) continue;
+      const id = String(logos.length + 1);
+      element.setAttribute('data-sf-id', id);
+      element.setAttribute('data-sf-background', '');
+      backgrounds += 1;
+      logos.push({
+        id,
+        x: Math.round(rect.left + window.scrollX),
+        y: Math.round(rect.top + window.scrollY),
+        w: Math.round(rect.width),
+        h: Math.round(rect.height),
+        visible: true,
+        color: null,
+        src: '',
+        current_src: '',
+        nw: 0,
+        nh: 0,
+        background: true,
+      });
+    }
+  }
+
   for (const part of parts) {
     if (part === document.head) continue;
     const found = part.matches('img, svg') ? [part] : [...part.querySelectorAll('img, svg')];

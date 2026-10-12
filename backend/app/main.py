@@ -53,7 +53,7 @@ COUNT_TODAY_SECONDS = 15
 DAY_SECONDS = 24 * 60 * 60
 
 # A logo file's name in its address: 1.svg to 5.svg.
-LOGO_FILE = re.compile(r"([1-5])\.svg")
+LOGO_FILE = re.compile(r"([1-5])\.(svg|png)")
 # Headers for a logo copied from a website's code. The file is cleaned SVG
 # (extract/svg.py), and on top of that the browser is told not to load or
 # run anything at all, even when the file is opened on its own.
@@ -290,27 +290,29 @@ def create_router(jobs: JobManager, logos: LogoStore, settings: Settings, daily_
 
     @router.get(
         "/guides/{job_id}/logos/{file_name}",
-        summary="Download a logo copied from a website's code",
+        summary="Download a logo copied from a website's page",
         response_class=Response,
-        responses={200: {"content": {"image/svg+xml": {}}}, **error_docs(404, 429)},
+        responses={200: {"content": {"image/svg+xml": {}, "image/png": {}}}, **error_docs(404, 429)},
     )
     async def get_logo(job_id: str, file_name: str) -> Response:
-        """A logo that a website draws with SVG code in its page instead of linking to an image file.
+        """A logo that a website draws in its page instead of linking to an image file of its own.
 
-        Swatchfin keeps a cleaned copy (only shapes, colours and text) for each guide.
+        Swatchfin keeps its own copy for each guide: a logo drawn with SVG code as a
+        cleaned SVG (only shapes, colours and text), and a logo drawn with a CSS
+        background as the PNG the browser photographed.
         """
         match = LOGO_FILE.fullmatch(file_name)
-        number = int(match.group(1)) if match else 0
-        svg = await logos.load(job_id, number) if number else None
-        job = await jobs.get(job_id) if svg is not None else None
-        if svg is None or job is None or job.guide is None:
+        number, extension = (int(match.group(1)), match.group(2)) if match else (0, "svg")
+        content = await logos.load(job_id, number, extension) if number else None
+        job = await jobs.get(job_id) if content is not None else None
+        if content is None or job is None or job.guide is None:
             raise ApiError(
                 404, "Logo not found", "There is no logo at this address. It may have expired with its guide."
             )
-        filename = logo_filename(job.guide, number)
+        filename = logo_filename(job.guide, number, extension)
         return Response(
-            svg,
-            media_type="image/svg+xml",
+            content,
+            media_type=LogoStore.MEDIA_TYPES[extension],
             headers={**LOGO_HEADERS, "Content-Disposition": f'inline; filename="{filename}"'},
         )
 

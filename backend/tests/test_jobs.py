@@ -15,7 +15,7 @@ from app.jobs import GuideStore, JobManager, JobRun, JobsBusy, LogoStore, Pipeli
 from app.pipeline import SKIPPED_SEARCH_DETAIL, VOICE_OFF_DETAIL, brand_pipeline, sample_job_finder
 from app.schemas import STEP_NAMES, BrandGuide, Job
 from app.tinyfish.client import TinyFishClient
-from tests.fake_tinyfish import FakeTinyFish
+from tests.fake_tinyfish import TINY_PNG, FakeTinyFish
 
 pytestmark = pytest.mark.anyio
 
@@ -286,3 +286,22 @@ async def test_guides_can_be_reused_after_a_restart_while_their_files_last(setti
     later = make_manager(settings, reuse_hours=24)
     assert await later.remember_recent() == 1
     assert await later.reuse(parse_query("Duolingo")) is None
+
+
+async def test_logo_copies_are_kept_as_svg_or_png(tmp_path: Path) -> None:
+    logos = LogoStore(tmp_path)
+    await logos.save("bg_abc", 1, "<svg></svg>")
+    await logos.save("bg_abc", 2, TINY_PNG)
+    assert (logos.url("bg_abc", 1), logos.url("bg_abc", 2, "png")) == (
+        "/api/v1/guides/bg_abc/logos/1.svg",
+        "/api/v1/guides/bg_abc/logos/2.png",
+    )
+    assert await logos.load("bg_abc", 1) == "<svg></svg>"
+    assert await logos.load("bg_abc", 2, "png") == TINY_PNG
+    assert await logos.load("bg_abc", 2, "svg") is None
+    assert await logos.load("bg_abc", 2, "exe") is None
+    # Bytes that aren't a PNG, or are far too big for a logo, are refused.
+    for bad in (b"GIF89a...", TINY_PNG + b"\0" * LogoStore.MAX_PNG_BYTES):
+        with pytest.raises(ValueError):
+            await logos.save("bg_abc", 3, bad)
+    assert sorted(os.listdir(tmp_path)) == ["bg_abc-1.svg", "bg_abc-2.png"]
