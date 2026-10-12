@@ -29,7 +29,7 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from selectolax.lexbor import LexborHTMLParser, LexborNode
 
-from app.extract.resolve import main_label, name_match, public_host, same_site, site_domain
+from app.extract.resolve import main_label, name_match, public_host, site_domain
 from app.extract.svg import detail
 from app.schemas import LogoFormat, LogoMethod
 from app.tinyfish.client import TinyFishClient
@@ -94,6 +94,13 @@ MIN_LOGO_SIZE = 12
 ICON_MAX_DETAIL = 40
 ICON_MAX_SIZE = 24  # pixels, or 1.5 em (an icon sized to the text around it)
 ICON_WORD = re.compile(r"icon|chevron|caret|arrow|check|close|menu|hamburger|search", re.IGNORECASE)
+# Words of a promotion in an image's label or file name ("Free Delivery | Easy Returns", "sale-banner.png").
+# Away from the link home, such an image is an advert, not the logo.
+PROMOTION_WORDS = frozenset(
+    {"delivery", "returns", "sale", "offer", "offers", "banner", "banners", "promo", "promotion", "promotions",
+     "deal", "deals", "discount", "discounts", "coupon", "coupons", "shipping", "cashback", "clearance",
+     "advertise", "advertising", "sponsored"}
+)  # fmt: skip
 
 # Words for parts of the page that hold the main navigation.
 TOP_WORDS = ("header", "navbar", "masthead", "topbar", "nav")
@@ -128,10 +135,15 @@ class LogoCandidate:
 
     method: LogoMethod
     confidence: float
-    # An image address, or None for a logo drawn as inline SVG.
+    # An image address, or None for a logo drawn as inline SVG or with a CSS background.
     url: str | None = None
     # Inline SVG markup as found on the page. Untrusted: cleaned by svg.py before use.
     svg: str | None = None
+    # A logo drawn with a CSS background ("css-background"), as the browser photographed it: PNG bytes.
+    image: bytes | None = None
+    # Its most used bright colours as the browser drew it (set in step 5 for logos drawn with CSS and
+    # image files): the palette counts them as the logo's colours.
+    colours: list[str] = field(default_factory=list)
     format: LogoFormat | None = None
     # The logo's own label (alt text, aria-label or title), which may be the brand's name.
     label: str = ""
@@ -376,7 +388,8 @@ def _logos_on_page(tree: LexborHTMLParser, base: str, homepage: Homepage) -> lis
     found: list[tuple[float, LogoCandidate]] = []
     seen: set[str] = set()
 
-    for node in tree.css("img, svg"):
+    # A CSS background logo is only in the browser's copy of the page (see measure_page.js).
+    for node in tree.css("img, svg, [data-sf-background]"):
         if node.tag == "svg" and _has_ancestor(node, "svg"):
             continue
         if _too_small(node):
@@ -389,19 +402,27 @@ def _logos_on_page(tree: LexborHTMLParser, base: str, homepage: Homepage) -> lis
         in_top = _in_top(node)
         if node.tag == "svg" and _ui_icon(node) and not _labelled_logo(node, homepage.host):
             continue
+        if not in_home_link and _promotion(node):
+            continue
 
         if in_home_link:
             confidence = CONFIDENCE_HOME_LINK_LOGO if is_logo or names_brand else CONFIDENCE_HOME_LINK
         elif is_logo and in_top:
             confidence = CONFIDENCE_TOP_LOGO + (0.05 if names_brand else 0)
-        elif is_logo and names_brand:
+        elif is_logo and _names_brand_itself(node, brand):
+            # Away from the header and the link home, the image itself must say the brand's name: a
+            # card on Amazon's homepage labelled "Logo", in an element named "a-amazon-image", is another
+            # company's logo or an advert.
             confidence = CONFIDENCE_NAMED_LOGO
         else:
             continue
 
-        candidate = (
-            _svg_candidate(node, tree, confidence) if node.tag == "svg" else _img_candidate(node, base, confidence)
-        )
+        if node.tag == "svg":
+            candidate = _svg_candidate(node, tree, confidence)
+        elif node.attributes.get("data-sf-background") is not None:
+            candidate = _background_candidate(node, confidence)
+        else:
+            candidate = _img_candidate(node, base, confidence)
         if candidate is None:
             continue
         candidate.label = _own_label(node)
@@ -410,7 +431,7 @@ def _logos_on_page(tree: LexborHTMLParser, base: str, homepage: Homepage) -> lis
         # brand isn't enough ("Stripe Sessions logo" is an event's logo).
         if not in_home_link and not _labels_the_brand(candidate.label, homepage.host, exact=not in_top):
             continue
-        key = candidate.url or candidate.svg or ""
+        key = candidate.url or candidate.svg or f"css:{candidate.element_id}"
         if key in seen:
             continue
         seen.add(key)
@@ -484,6 +505,15 @@ def _svg_candidate(node: LexborNode, tree: LexborHTMLParser, confidence: float) 
     )
 
 
+def _background_candidate(node: LexborNode, confidence: float) -> LogoCandidate | None:
+    """A logo drawn with a CSS background. It has no file of its own (often it is one part of a picture
+    of many), so the browser photographs it in step 5 (visuals.capture_backgrounds)."""
+    element_id = node.attributes.get("data-sf-id")
+    if not element_id:
+        return None
+    return LogoCandidate("css-background", confidence, format="png", element_id=element_id)
+
+
 def _img_candidate(node: LexborNode, base: str, confidence: float) -> LogoCandidate | None:
     """An <img> logo. Lazy-loading pages keep the real address in data-src or srcset."""
     attributes = node.attributes
@@ -549,10 +579,38 @@ def _in_home_link(node: LexborNode, base: str, host: str, home_paths: set[str]) 
     if url is None:
         return False
     parts = urlsplit(url)
-    if not parts.hostname or not same_site(parts.hostname, site_domain(host)):
+    # The same host, with or without "www.": the start of advertising.flipkart.com isn't the way home.
+    if not parts.hostname or parts.hostname.removeprefix("www.") != host.lower().removeprefix("www."):
         return False
     path = parts.path or "/"
     return path in home_paths or re.fullmatch(r"/[a-z]{2}([-_][a-z]{2})?/?", path, re.IGNORECASE) is not None
+
+
+def _promotion(node: LexborNode) -> bool:
+    """True when an image's label or file name reads like a promotion: "Free Delivery | Easy Returns"."""
+    spaced = re.sub(r"([a-z])([A-Z])", r"\1 \2", _own_words(node))  # "FreeDelivery" -> "Free Delivery"
+    words = {word.lower() for word in re.split(r"[^A-Za-z0-9]+", spaced) if word}
+    return not PROMOTION_WORDS.isdisjoint(words)
+
+
+def _names_brand_itself(node: LexborNode, brand: str) -> bool:
+    """True when an image's own label or file name contains the brand's name ("Stripe logo", "stripe-logo.svg")."""
+    return len(brand) >= 3 and brand in re.sub(r"[^a-z0-9]", "", _own_words(node).lower())
+
+
+def _own_words(node: LexborNode) -> str:
+    """What an image says about itself: its alt text, label, title and file name, and the label of the link
+    it is in (not the classes around it)."""
+    title = node.css_first("title") if node.tag == "svg" else None
+    link = _closest(node, "a")
+    return " ".join(
+        [
+            *(node.attributes.get(name) or "" for name in ("alt", "aria-label", "title")),
+            title.text(deep=True) if title is not None else "",
+            _file_name(node.attributes.get("src") or node.attributes.get("data-src") or ""),
+            *((link.attributes.get(name) or "" for name in ("aria-label", "title")) if link is not None else ()),
+        ]
+    )
 
 
 def _in_language_menu(link: LexborNode) -> bool:

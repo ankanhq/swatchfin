@@ -43,7 +43,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import ValidationError
 
@@ -279,33 +279,56 @@ class GuideStore:
 
 
 class LogoStore:
-    """Logos copied from a website's own code (cleaned inline SVG), one file each:
-    backend/data/logos/<job id>-<number>.svg. Served by GET /api/v1/guides/{id}/logos/{number}.svg.
+    """Logos Swatchfin made its own copy of, one file each: backend/data/logos/<job id>-<number>.<svg|png>.
+
+    A logo drawn with SVG code in the page is saved cleaned, as .svg. A logo
+    drawn with a CSS background (Amazon's, cut from a picture of many) is
+    saved as the browser photographed it, as .png. Served by
+    GET /api/v1/guides/{id}/logos/{number}.svg or .png.
     """
 
     # Where a saved logo is served. The pipeline puts this address in the guide.
-    URL = "/api/v1/guides/{job_id}/logos/{number}.svg"
+    URL = "/api/v1/guides/{job_id}/logos/{number}.{extension}"
     # A guide keeps at most this many logos (the main one and four others).
     MAX_PER_GUIDE = 5
+    # The kinds of file kept, by file ending.
+    MEDIA_TYPES: ClassVar[dict[str, str]] = {"svg": "image/svg+xml", "png": "image/png"}
+    # A photographed logo must be a PNG file, and not a huge one.
+    PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+    MAX_PNG_BYTES = 2_000_000
 
     def __init__(self, folder: Path) -> None:
         self.folder = folder
 
-    def _path(self, job_id: str, number: int) -> Path:
-        # job_id has passed is_valid_id() and number is 1–5, so the name can't reach another folder.
-        return self.folder / f"{job_id}-{number}.svg"
+    def _path(self, job_id: str, number: int, extension: str) -> Path:
+        # job_id has passed is_valid_id(), number is 1–5 and extension is svg or png, so the name can't
+        # reach another folder.
+        return self.folder / f"{job_id}-{number}.{extension}"
 
-    def url(self, job_id: str, number: int) -> str:
-        return self.URL.format(job_id=job_id, number=number)
+    def url(self, job_id: str, number: int, extension: str = "svg") -> str:
+        return self.URL.format(job_id=job_id, number=number, extension=extension)
 
-    async def save(self, job_id: str, number: int, svg: str) -> None:
-        await asyncio.to_thread(_write_file, self._path(job_id, number), svg)
+    @staticmethod
+    def extension(content: str | bytes) -> str:
+        """The file ending a copy is saved with: SVG code is text, a photographed logo is PNG bytes."""
+        return "svg" if isinstance(content, str) else "png"
 
-    async def load(self, job_id: str, number: int) -> str | None:
-        if not is_valid_id(job_id) or not 1 <= number <= self.MAX_PER_GUIDE:
+    async def save(self, job_id: str, number: int, content: str | bytes) -> None:
+        """Saves a copy. Raises ValueError for bytes that aren't a PNG file of a sensible size."""
+        if isinstance(content, bytes) and (
+            not content.startswith(self.PNG_SIGNATURE) or len(content) > self.MAX_PNG_BYTES
+        ):
+            raise ValueError("not a PNG file of a logo's size")
+        await asyncio.to_thread(_write_file, self._path(job_id, number, self.extension(content)), content)
+
+    async def load(self, job_id: str, number: int, extension: str = "svg") -> str | bytes | None:
+        if not is_valid_id(job_id) or not 1 <= number <= self.MAX_PER_GUIDE or extension not in self.MEDIA_TYPES:
             return None
+        path = self._path(job_id, number, extension)
         try:
-            return await asyncio.to_thread(self._path(job_id, number).read_text, encoding="utf-8")
+            if extension == "svg":
+                return await asyncio.to_thread(path.read_text, encoding="utf-8")
+            return await asyncio.to_thread(path.read_bytes)
         except FileNotFoundError:
             return None
         except OSError:
@@ -314,14 +337,17 @@ class LogoStore:
 
     def remove_older_than(self, days: int) -> int:
         """Deletes logo files last changed more than `days` days ago (with their guides). Returns how many."""
-        return _remove_old_files(self.folder, "*.svg", days)
+        return sum(_remove_old_files(self.folder, f"*.{extension}", days) for extension in self.MEDIA_TYPES)
 
 
-def _write_file(path: Path, text: str) -> None:
+def _write_file(path: Path, content: str | bytes) -> None:
     """Writes to a temporary file, then renames it: a reader never sees half a file."""
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".tmp")
-    temporary.write_text(text, encoding="utf-8")
+    if isinstance(content, bytes):
+        temporary.write_bytes(content)
+    else:
+        temporary.write_text(content, encoding="utf-8")
     os.replace(temporary, path)
 
 

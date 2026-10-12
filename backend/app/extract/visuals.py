@@ -12,9 +12,11 @@ Browser session (tinyfish/browser.py) to:
    with a role (palette() below), and its typography (typography()).
 3. Check the logo Fetch found: is it really on the page, visible, how big,
    and in what colour (confirm_logos()). A logo drawn with SVG code is
-   copied with the colours the browser really drew it in, and each copy is
-   drawn in a blank tab: one that comes out blank or as one plain shape is
-   left out (check_drawings(), with check_logos.js).
+   copied with the colours the browser really drew it in; a logo drawn with
+   a CSS background is photographed (capture_backgrounds()). Then every
+   logo, SVG copy, photo or image file, is drawn once more: one that comes
+   out blank or as one plain shape is left out (check_logos(), with
+   check_logos.js), and the main logo's own colours are read from it.
 4. Fill the gaps Fetch leaves on sites built with JavaScript, like
    Duolingo: the logo, icons, description and text of the homepage as the
    browser drew it, and up to 3 pages Fetch couldn't read.
@@ -26,6 +28,7 @@ element on the page really uses it, and each one says where.
 """
 
 import asyncio
+import base64
 import logging
 import math
 import re
@@ -76,10 +79,18 @@ TEXT_SCRIPT = """() => ({
   text: (document.body ? document.body.innerText : '').slice(0, 100000),
 })"""
 
-# The logo check (check_logos.js), run in a blank tab where no website's rules apply.
+# The logo check (check_logos.js), run in a blank tab where no website's rules apply, or in a tab
+# showing the image file being checked.
 CHECK_SCRIPT = Path(__file__).with_name("check_logos.js").read_text(encoding="utf-8")
 BLANK_PAGE = "about:blank"
-CHECK_SIZE = 96  # pixels, the copy's longer side
+# The picture's longer side, in pixels: its own size, but at least CHECK_SIZE and at most CHECK_MAX_SIZE.
+CHECK_SIZE = 96
+CHECK_MAX_SIZE = 400
+# Image files checked at most (the main logo and the next ones), and the time each may take.
+MAX_FILES_CHECKED = 4
+FILE_CHECK_TIME = 5.0
+# An image file that is missing (the website answered "not found") can't be a logo.
+MISSING = frozenset({404, 410})
 # A copy with less ink than this share of its picture is blank...
 BLANK_INK = 0.005
 # ...and one that is one colour filling this much of its box, without holes, is one plain shape
@@ -88,9 +99,12 @@ PLAIN_COLOUR = 0.95
 PLAIN_FILL = 0.7
 PLAIN_HOLES = 0.01
 
-# Time limits, in seconds: measuring the homepage, checking the logo copies, and reading each other page.
+# Time limits, in seconds: measuring the homepage, photographing logos drawn with CSS, checking the
+# logos, and reading each other page.
 MEASURE_TIME_LIMIT = 45.0
-CHECK_TIME_LIMIT = 10.0
+PHOTO_TIME_LIMIT = 8.0
+MAX_PHOTOS = 2
+CHECK_TIME_LIMIT = 20.0
 MIN_CHECK_TIME = 3.0
 PAGE_TIME_LIMIT = 15.0
 # Pages Fetch couldn't read that the browser tries, at most.
@@ -174,6 +188,8 @@ class MeasuredElement(_Data):
     font: Annotated[str, Field(max_length=300)] | None = None
     weight: int = 400
     size: float = 0
+    # Its few words are a sale or a deal ("Limited time deal", "-45%"): a promotion's colour.
+    promo: bool = False
 
 
 class LogoSpot(_Data):
@@ -191,6 +207,8 @@ class LogoSpot(_Data):
     # The image file's own size in pixels (0 when unknown).
     nw: int = 0
     nh: int = 0
+    # A logo drawn with a CSS background, not an image or SVG (see measure_page.js).
+    background: bool = False
 
 
 class Samples(_Data):
@@ -295,11 +313,15 @@ class _PageText(_Data):
 
 
 class Drawing(_Data):
-    """What check_logos.js saw when it drew one logo copy (shares from 0 to 1)."""
+    """What check_logos.js saw when it drew one logo (shares from 0 to 1)."""
 
     loaded: bool = False
+    # For an image file the tab opened: the website's answer (404 when it is missing), 0 when unknown.
+    status: int = 0
     width: int = 0
     height: int = 0
+    # The picture is filled edge to edge with one colour, which was set aside as its paper.
+    paper: bool = False
     # Solid pixels, as a share of the whole picture.
     ink: float = 0
     # Solid pixels, as a share of the box around them.
@@ -308,10 +330,19 @@ class Drawing(_Data):
     main_colour: float = 0
     # See-through holes inside the box, as a share of it.
     holes: float = 0
+    # Its most used bright colours, exactly as drawn.
+    colours: Annotated[list[Hex], Field(max_length=3)] = []
 
-    def problem(self) -> str | None:
-        """Why this copy isn't a usable logo, or None when it is."""
+    def problem(self, *, file: bool = False) -> str | None:
+        """Why this picture isn't a usable logo, or None when it is.
+
+        For an image file on the website (`file`), only a missing file counts as one
+        that can't be shown: another reason (the site refusing a browser that opens
+        the file on its own) says nothing about the guide page, so it is kept.
+        """
         if not self.loaded:
+            if file and self.status not in MISSING:
+                return None
             return "it can’t be shown as an image"
         if self.ink < BLANK_INK:
             return "it came out blank"
@@ -336,7 +367,7 @@ class Visuals:
     # Where each numbered image or SVG was on the page (see LogoSpot).
     spots: dict[str, LogoSpot]
     # Fetch's logo candidates checked on the page (confirm_logos), plus any only the browser saw,
-    # best first, and how many logo drawings were left out as blank (check_drawings).
+    # best first, and how many logos were left out as blank or plain shapes (check_logos).
     logos: list[LogoCandidate] = field(default_factory=list)
     blank_logos: int = 0
     # Pages Fetch couldn't read that the browser did, and the ones it couldn't either.
@@ -377,17 +408,21 @@ async def read_visuals(
 
     seen = browser_homepage(homepage_url, measurement)
     spots = {spot.id: spot for spot in measurement.logos}
+    checked = confirm_logos(list(logos), seen.logos, spots)
+    blank = 0
+    # Photos first, while the homepage is still open; the check then opens other tabs' contents.
+    if remaining() >= MIN_CHECK_TIME:
+        checked = await capture_backgrounds(page, checked, spots, time_limit=min(PHOTO_TIME_LIMIT, remaining()))
+    if remaining() >= MIN_CHECK_TIME:
+        checked, blank = await check_logos(page, checked, time_limit=min(CHECK_TIME_LIMIT, remaining()))
     visuals = Visuals(
-        colors=palette(measurement, logo_colours=logo_colours(seen.logos, spots)),
+        colors=palette(measurement, logo_colours=logo_colours(checked, spots)),
         typography=typography(measurement),
         homepage=seen,
         spots=spots,
-        logos=confirm_logos(list(logos), seen.logos, spots),
+        logos=checked,
+        blank_logos=blank,
     )
-    if remaining() >= MIN_CHECK_TIME:
-        visuals.logos, visuals.blank_logos = await check_drawings(
-            page, visuals.logos, time_limit=min(CHECK_TIME_LIMIT, remaining())
-        )
 
     for skipped in retry:
         kind = skipped.kind
@@ -455,7 +490,7 @@ def fill_gaps(fetched: Homepage, seen: Homepage) -> list[str]:
 # The logo, confirmed on the page
 # ---------------------------------------------------------------------------
 
-PAGE_LOGOS = ("inline-svg", "header-img")
+PAGE_LOGOS = ("inline-svg", "header-img", "css-background")
 # A logo near the top of the page, at least this big, is confirmed.
 CONFIRM_MAX_Y = 400
 CONFIRM_MIN_WIDTH = 16
@@ -510,66 +545,132 @@ def confirm_logos(
     return _top(sorted(merged, key=lambda candidate: -candidate.confidence))
 
 
-async def check_drawings(
+async def capture_backgrounds(
+    page: BrowserPage, logos: list[LogoCandidate], spots: dict[str, LogoSpot], *, time_limit: float
+) -> list[LogoCandidate]:
+    """The logos, with a photo of each logo drawn with a CSS background (at most MAX_PHOTOS of them).
+
+    In plain English: Amazon draws its logo as one part of a big picture of
+    many (a "sprite"), set as the background of an element. There is no file
+    to link to and no code to copy, so the browser photographs that element
+    on the homepage, with nothing behind it, and the photo (a PNG) is the
+    logo. One that is hidden, or can't be photographed, is left out.
+    """
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + time_limit
+    kept: list[LogoCandidate] = []
+    photos = 0
+    for candidate in logos:
+        if candidate.method != "css-background":
+            kept.append(candidate)
+            continue
+        spot = spots.get(candidate.element_id or "")
+        if photos == MAX_PHOTOS or not _shown(spot) or deadline - loop.time() < 1:
+            continue
+        photos += 1
+        try:
+            candidate.image = await page.photo(
+                f'[data-sf-id="{candidate.element_id}"]', time_limit=deadline - loop.time()
+            )
+        except BrowserUnavailable as error:
+            log.info("couldn't photograph a logo drawn with CSS: %s", str(error)[:200])
+            continue
+        kept.append(candidate)
+    return kept
+
+
+async def check_logos(
     page: BrowserPage, logos: list[LogoCandidate], *, time_limit: float
 ) -> tuple[list[LogoCandidate], int]:
-    """The logos without the SVG drawings whose copy isn't a usable logo, and how many were left out.
+    """The logos without those that aren't a usable logo, and how many were left out.
 
-    In plain English: make the copy of each logo drawn with SVG code that
-    Swatchfin would serve (svg.py), and draw them all in a blank tab of the
-    browser (check_logos.js). A copy that can't be shown, comes out blank, or
-    comes out as one plain shape (a white square, because the colours the
-    page gave it were lost) is left out, so the next best version is used:
-    another drawing, the phone app icon or the tab icon. If the check itself
-    can't run, every logo is kept as it is.
+    In plain English: draw every logo the guide would show, as it would show
+    it (check_logos.js): the copy of each logo drawn with SVG code (svg.py)
+    and each photo of a logo drawn with CSS, in a blank tab of the browser;
+    then each image file (up to MAX_FILES_CHECKED), by opening the file
+    itself in the tab. One that comes out blank, or as one plain shape (a
+    white square, because the colours the page gave it were lost), or a file
+    the website says is missing, is left out, so the next best version is
+    used. The bright colours of each logo that stays are kept with it (for
+    the palette). When a check can't run, the logo is kept as it is.
     """
-    copies: list[tuple[int, str]] = []
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + time_limit
     unusable: set[int] = set()
+
+    # SVG copies and photos, together in a blank tab.
+    pictures: list[tuple[int, dict[str, str]]] = []
     for index, candidate in enumerate(logos):
-        if candidate.method != "inline-svg":
-            continue
-        copy = clean_svg(candidate.svg or "", color=candidate.color)
-        if copy is None:
-            unusable.add(index)  # nothing safe and painted is left in it: blank
-        else:
-            copies.append((index, copy))
-    if copies:
-        try:
-            raw = await page.run(
-                BLANK_PAGE, CHECK_SCRIPT, {"svgs": [copy for _index, copy in copies], "size": CHECK_SIZE},
-                time_limit=time_limit,
-            )  # fmt: skip
-            drawings = TypeAdapter(list[Drawing]).validate_python(raw)
-        except (BrowserUnavailable, ValidationError) as error:
-            log.info("couldn't check the logo drawings: %s", str(error)[:200])
-            drawings = []
-        if len(drawings) == len(copies):
-            for (index, _copy), drawing in zip(copies, drawings, strict=True):
-                if (problem := drawing.problem()) is not None:
-                    log.info("left out logo drawing %d of %d: %s", index + 1, len(logos), problem)
-                    unusable.add(index)
-            log.info("checked %d logo drawing(s) in a blank tab", len(copies))
+        if candidate.method == "inline-svg":
+            copy = clean_svg(candidate.svg or "", color=candidate.color)
+            if copy is None:
+                unusable.add(index)  # nothing safe and painted is left in it: blank
+            else:
+                pictures.append((index, {"svg": copy}))
+        elif candidate.method == "css-background" and candidate.image:
+            pictures.append((index, {"src": "data:image/png;base64," + base64.b64encode(candidate.image).decode()}))
+    if pictures:
+        drawings = await _draw(page, BLANK_PAGE, [item for _index, item in pictures], deadline - loop.time())
+        for (index, _item), drawing in zip(pictures, drawings or [], strict=False):
+            _judge(logos, index, drawing, unusable, file=False)
+        if drawings:
+            log.info("checked %d logo drawing(s) in a blank tab", len(pictures))
+
+    # Image files, each opened in the tab.
+    files = [index for index, candidate in enumerate(logos) if candidate.url][:MAX_FILES_CHECKED]
+    for index in files:
+        if deadline - loop.time() < 1:
+            break
+        url = logos[index].url or ""
+        drawings = await _draw(page, url, [{"here": True}], min(FILE_CHECK_TIME, deadline - loop.time()))
+        if drawings:
+            _judge(logos, index, drawings[0], unusable, file=True)
+
     kept = [candidate for index, candidate in enumerate(logos) if index not in unusable]
     return kept, len(unusable)
 
 
-def logo_colours(logos: list[LogoCandidate], spots: dict[str, LogoSpot]) -> list[str]:
-    """The colours of the page's logo, when it is drawn with SVG code and shown near the top.
+async def _draw(page: BrowserPage, url: str, items: list[dict[str, Any]], time_limit: float) -> list[Drawing] | None:
+    """check_logos.js's numbers for each item, drawn in the tab at `url`; None when it couldn't run."""
+    try:
+        options = {"items": items, "size": CHECK_SIZE, "maxSize": CHECK_MAX_SIZE}
+        raw = await page.run(url, CHECK_SCRIPT, options, time_limit=time_limit)
+        drawings = TypeAdapter(list[Drawing]).validate_python(raw)
+    except (BrowserUnavailable, ValidationError) as error:
+        log.info("couldn't check logos at %s: %s", url[:100], str(error)[:200])
+        return None
+    return drawings if len(drawings) == len(items) else None
 
-    In plain English: the best logo candidate the browser saw, if it is an
-    inline SVG on screen at a real size: the colours written in its code,
-    and the colour the page gives it when it is drawn in "currentColor"
-    (Airbnb's pink). A logo that is an image file gives none: its colours
-    are inside the file, which TinyFish doesn't read.
+
+def _judge(logos: list[LogoCandidate], index: int, drawing: Drawing, unusable: set[int], *, file: bool) -> None:
+    """Leaves out a logo whose drawing has a problem; otherwise keeps the colours it is drawn in."""
+    problem = drawing.problem(file=file)
+    if problem is not None:
+        log.info("left out logo %d of %d (%s): %s", index + 1, len(logos), logos[index].method, problem)
+        unusable.add(index)
+    elif drawing.loaded:
+        logos[index].colours = list(drawing.colours)
+
+
+def logo_colours(logos: list[LogoCandidate], spots: dict[str, LogoSpot]) -> list[str]:
+    """The colours of the page's logo, when it is shown near the top of the page.
+
+    In plain English: the best logo candidate, if it is on screen at a real
+    size near the top: for a logo drawn with SVG code, the colours written in
+    its code and the colour the page gives it when it is drawn in
+    "currentColor" (Airbnb's pink); for a logo drawn with CSS or an image
+    file, the bright colours check_logos.js saw in it (Amazon's orange).
     """
-    if not logos or logos[0].method != "inline-svg" or not logos[0].svg:
+    if not logos or logos[0].method not in PAGE_LOGOS:
         return []
-    spot = spots.get(logos[0].element_id or "")
+    top = logos[0]
+    spot = spots.get(top.element_id or "") or _spot_by_address(top, spots)
     if spot is None or not _shown(spot) or spot.y > CONFIRM_MAX_Y:
         return []
-    found = [_six_digits(code) for code in SVG_COLOUR.findall(logos[0].svg)]
-    if spot.color and uses_current_color(logos[0].svg):
+    found = [_six_digits(code) for code in SVG_COLOUR.findall(top.svg or "")]
+    if top.svg and spot.color and uses_current_color(top.svg):
         found.append(spot.color)
+    found.extend(top.colours)
     return list(dict.fromkeys(code.upper() for code in found))
 
 
@@ -614,6 +715,7 @@ def _checked(candidate: LogoCandidate, spot: LogoSpot | None, twin: LogoCandidat
         confidence=round(confidence, 2),
         url=candidate.url,
         svg=twin.svg if candidate.svg and twin is not None and twin.svg else candidate.svg,
+        image=candidate.image,
         format=candidate.format,
         label=candidate.label,
         element_id=candidate.element_id,
@@ -623,6 +725,8 @@ def _checked(candidate: LogoCandidate, spot: LogoSpot | None, twin: LogoCandidat
 
 
 def _logo_key(candidate: LogoCandidate) -> str:
+    if candidate.method == "css-background":
+        return f"css:{candidate.element_id}"
     return candidate.url or f"svg:{fingerprint(candidate.svg or '')}"
 
 
@@ -649,6 +753,10 @@ def _top(ranked: list[LogoCandidate]) -> list[LogoCandidate]:
 
 # What each colour was used for, by the kind and place of the element.
 BACKGROUND_LABELS = {"header": "header background", "nav": "navigation background", "footer": "footer background"}
+# Uses on sale and deal badges, and in the logo.
+PROMOTION_BACKGROUND = "sale or deal badge"
+PROMOTION_TEXT = "sale or deal text"
+LOGO_USE = "logo"
 TEXT_LABELS = {"header": "navigation text", "nav": "navigation text", "footer": "footer text"}
 
 
@@ -691,6 +799,16 @@ class _Use:
     def button_weight(self) -> float:
         return self.uses["button background"] + 0.5 * self.uses["button border"] + 0.3 * self.uses["button text"]
 
+    def header_weight(self) -> float:
+        return self.uses["header background"] + self.uses["navigation background"]
+
+    def promotional(self) -> bool:
+        """True for a sale or deal colour: one that fills a sale or deal badge, or is used mostly on
+        promotions. Unless it is on the brand's real buttons or in its logo or header, it is never the
+        primary, and never the link colour."""
+        promotion = self.uses[PROMOTION_BACKGROUND] + self.uses[PROMOTION_TEXT]
+        return self.uses[PROMOTION_BACKGROUND] > 0 or (promotion > 0 and promotion >= 0.5 * _brand_weight(self))
+
     def absorb(self, other: "_Use") -> None:
         self.uses.update(other.uses)
         self.elements += other.elements
@@ -712,7 +830,10 @@ def palette(measurement: Measurement, *, logo_colours: Iterable[str] = ()) -> li
       the page background, the one that stands out most from it;
     - primary: the colourful colour the buttons use most; else a strong
       neutral button fill (black buttons, even when black is also the text
-      colour: it is then listed twice); else the most used colourful colour;
+      colour: it is then listed twice); else a colourful colour of the logo
+      or the header's background (Amazon's orange, from its logo); else the
+      most used colourful colour. A colour used mostly on sale and deal
+      badges ("Limited time deal", "-45%") is never the primary;
     - link: the colourful colour of links in the main content, if it is not
       already the primary;
     - secondary and accent: the next most used colourful colours that look
@@ -753,6 +874,10 @@ def palette(measurement: Measurement, *, logo_colours: Iterable[str] = ()) -> li
 
     free = [use for use in uses.values() if use.hex not in taken]
     colourful = [use for use in free if chroma(use.hex) >= COLOURFUL]
+    # The logo's colourful colours are marked; those used nowhere else on the page come back.
+    logo_only = _logo_uses(uses, logo_colours)
+    not_promotion = [use for use in colourful if not use.promotional()]
+    # Sale and deal badges never count as buttons (see _collect), so a colour on real buttons can lead.
     with_buttons = [use for use in colourful if use.button_weight() > 0]
     # Black-and-white brands (Nike, Figma) fill their buttons with their text colour, so it may be taken.
     strong_fills = [
@@ -763,16 +888,18 @@ def palette(measurement: Measurement, *, logo_colours: Iterable[str] = ()) -> li
         and contrast_ratio(use.hex, background) >= 3
         and _text_like(use.hex)
     ]
+    marks = [use for use in [*colourful, *logo_only] if use.in_logo or use.header_weight() > 0]
     primary = (
         max(with_buttons, key=_Use.button_weight, default=None)
         or max(strong_fills, key=_Use.button_weight, default=None)
-        or max(colourful, key=_brand_weight, default=None)
+        or max(marks, key=lambda use: (use.in_logo, use.header_weight(), _brand_weight(use)), default=None)
+        or max(not_promotion, key=_brand_weight, default=None)
     )
     if primary is not None:
         roles["primary"] = primary
         taken.add(primary.hex)
 
-    links = [use for use in colourful if use.links > 0 and use.hex not in taken]
+    links = [use for use in not_promotion if use.links > 0 and use.hex not in taken]
     take("link", max(links, key=lambda use: use.links, default=None))
 
     brand = [use for use in roles.values() if use.hex != background and chroma(use.hex) >= COLOURFUL]
@@ -792,7 +919,7 @@ def palette(measurement: Measurement, *, logo_colours: Iterable[str] = ()) -> li
 
     # Rarely used colours on something important fill the brand roles still empty.
     notes: dict[ColorRole, str] = {}
-    candidates = [*colourful, *_logo_uses(uses, logo_colours)]
+    candidates = [*colourful, *(use for use in logo_only if use.hex not in taken)]
     for role in ("primary", *EXTRA_BRAND_ROLES):
         if role in roles:
             continue
@@ -800,6 +927,7 @@ def palette(measurement: Measurement, *, logo_colours: Iterable[str] = ()) -> li
             use
             for use in candidates
             if use.hex not in taken
+            and not (role == "primary" and use.promotional())
             and _rarely_used(use, measurement.samples.total) is not None
             and all(delta_e(use.hex, other.hex) >= DISTINCT_BRAND for other in brand)
         ]
@@ -874,17 +1002,22 @@ def _collect(measurement: Measurement, background: str) -> dict[str, _Use]:
         if element.w < 1 or element.h < 1:
             continue
         place = 1.0 if element.y < screen else 0.6 if element.y < 3 * screen else 0.3
-        icon = element.kind == "button" and element.w < MIN_BUTTON_WIDTH
-        button = element.kind == "button" and not icon
+        # A sale or deal badge ("Limited time deal", "-45%") shows a promotion's colour: it is listed as
+        # that, and never counts as a button, a link, a large block or the page's text.
+        promo = element.promo
+        icon = element.kind == "button" and element.w < MIN_BUTTON_WIDTH and not promo
+        button = element.kind == "button" and not icon and not promo
 
         if element.color and element.text:
             weight = min(element.text * max(element.size, 8) / 16, MAX_TEXT_WEIGHT) * place
             if element.kind == "heading":
                 weight *= 1.5
             use = use_of(element.color)
-            use.uses[_text_label(element)] += weight
+            use.uses[PROMOTION_TEXT if promo else _text_label(element)] += weight
             use.elements += 1
-            on_page = not element.on_image and element.back and delta_e(element.back, background) < SAME_COLOUR
+            on_page = (
+                not promo and not element.on_image and element.back and delta_e(element.back, background) < SAME_COLOUR
+            )
             if on_page:
                 use.text_on_page += weight
                 if element.kind == "link" and element.region == "main":
@@ -893,12 +1026,12 @@ def _collect(measurement: Measurement, background: str) -> dict[str, _Use]:
         if element.bg:
             weight = math.sqrt(element.w * min(element.h, 2 * screen)) * place * (3 if button else 1)
             use = use_of(element.bg)
-            use.uses[_background_label(element)] += weight
+            use.uses[PROMOTION_BACKGROUND if promo else _background_label(element)] += weight
             use.elements += 1
             use.buttons += button
             if button and element.region != "footer":
                 use.key_buttons += element.w >= KEY_BUTTON_WIDTH and element.h >= KEY_BUTTON_HEIGHT
-            elif element.kind == "box" and element.region not in ("footer", "page"):
+            elif element.kind == "box" and not promo and element.region not in ("footer", "page"):
                 use.first_screen_block = use.first_screen_block or _first_screen_block(element, measurement.viewport)
 
         if element.border:
@@ -1000,6 +1133,7 @@ def _logo_uses(uses: dict[str, _Use], logo_colours: Iterable[str]) -> list[_Use]
             twin = _Use(hex=hex_code)
             only_in_logo.append(twin)
         twin.in_logo = True
+        twin.uses[LOGO_USE] += 1.0
     return only_in_logo
 
 
@@ -1065,7 +1199,7 @@ def _color(
         ]
     confidence = CONFIDENCE[role][0 if plenty else 1]
     if note:
-        labels = [f"rarely used: {note}", *(label for label in labels if label != "logo")]
+        labels = [f"rarely used: {note}", *(label for label in labels if label != LOGO_USE)]
         confidence = RARELY_USED_CONFIDENCE
     return Color(
         hex=use.hex,

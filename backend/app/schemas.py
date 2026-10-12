@@ -20,7 +20,9 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-SCHEMA_VERSION = "1.0"
+# 1.1 added the logo method "css-background" (a logo drawn with CSS, photographed in the browser).
+# Guides saved as 1.0 still read: every 1.0 guide is also a valid 1.1 guide.
+SCHEMA_VERSION = "1.1"
 
 # ---------------------------------------------------------------------------
 # Small building blocks
@@ -42,7 +44,7 @@ Channel = Annotated[int, Field(ge=0, le=255)]
 ColorRole = Literal["primary", "secondary", "accent", "background", "surface", "text", "text-muted", "link", "border"]
 FontRole = Literal["heading", "body", "ui", "mono"]
 LogoFormat = Literal["svg", "png", "webp", "jpg", "ico"]
-LogoMethod = Literal["header-img", "inline-svg", "og-image", "favicon"]
+LogoMethod = Literal["header-img", "inline-svg", "css-background", "og-image", "favicon"]
 WcagLevel = Literal["AAA", "AA", "AA-large", "fail"]
 TinyFishApi = Literal["search", "fetch", "browser"]
 # The APIs of the language models that can draft a tone of voice (see llm.py).
@@ -225,7 +227,7 @@ class TinyFishUsage(Model):
 class BrandGuide(Model):
     """A finished brand guide: everything Swatchfin found about one brand."""
 
-    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    schema_version: Literal["1.0", "1.1"] = SCHEMA_VERSION
     id: Id
     status: Literal["complete"] = "complete"
     query: str

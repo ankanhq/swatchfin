@@ -341,3 +341,68 @@ def test_a_detailed_logo_named_like_an_icon_is_kept() -> None:
     shape = "M1 1h2v2H1z" * 12
     mark = f'<svg height="32" viewBox="0 0 24 24" class="octicon octicon-mark"><path d="{shape}"/></svg>'
     assert len(svg_logos(build(HEAD + f'<header><a href="/">{mark}</a></header>'))) == 1
+
+
+# ---------------------------------------------------------------------------
+# Logos drawn with CSS, promotions and other companies' logos
+# ---------------------------------------------------------------------------
+
+
+def test_a_logo_drawn_with_a_css_background_is_a_candidate() -> None:
+    # Amazon's logo: one part of a sprite, the background of a <span> in the header (marked by measure_page.js).
+    header = (
+        '<header><div id="nav-logo"><a href="/ref=nav_logo" id="nav-logo-sprites" class="nav-logo-link" '
+        'aria-label="Larkspur.example"><span class="nav-sprite nav-logo-base" data-sf-id="3" data-sf-background="">'
+        '</span><span class="nav-logo-locale">.example</span></a></div></header>'
+    )
+    [logo, *_icons] = build(HEAD + header).logos
+    assert (logo.method, logo.format, logo.element_id, logo.url, logo.svg) == ("css-background", "png", "3", None, None)
+    assert logo.confidence == 0.75  # labelled as a logo in the header, and naming the brand
+
+
+@pytest.mark.parametrize(
+    "image",
+    [
+        '<img src="/img/21xR0WDeOlL.png" alt="Free Delivery | Easy Returns">',
+        '<img src="/img/summer-sale-banner.png" alt="">',
+        '<img src="/img/FreeShippingOffer.png" alt="Larkspur Tea">',
+        '<img src="/img/advert.png" alt="Advertise on Larkspur Tea">',
+    ],
+)
+def test_a_promotion_in_the_header_is_not_a_logo(image: str) -> None:
+    header = f'<header><div class="site-logo">{image}</div></header>'
+    assert [logo.method for logo in build(HEAD + header).logos if logo.method == "header-img"] == []
+
+
+def test_the_logo_in_the_home_link_is_kept_whatever_its_file_is_called() -> None:
+    header = '<header><a href="/"><img src="/img/logo-sale-edition.png" alt="Larkspur Tea"></a></header>'
+    first = build(HEAD + header).logos[0]
+    assert first.url == "https://www.larkspur.example/img/logo-sale-edition.png"
+
+
+def test_away_from_the_header_a_logo_must_name_the_brand_itself() -> None:
+    # Amazon's homepage cards: images labelled "Logo" in elements named after the site's image component.
+    card = (
+        '<footer><div class="card_logo"><img class="a-larkspur-image card_logo" src="/img/21xR.png" alt="Logo">'
+        "</div></footer>"
+    )
+    assert [logo for logo in build(HEAD + card).logos if logo.method == "header-img"] == []
+    # Its own label, file name, or the label of its link (Notion's footer wordmark), naming the brand: kept.
+    for named in (
+        '<img class="card_logo" src="/img/21xR.png" alt="Larkspur logo">',
+        '<img class="card_logo" src="/img/larkspur-logo.png" alt="">',
+        '<a href="/product" aria-label="Larkspur – Home"><img class="card_logo" src="/img/21xR.png" alt=""></a>',
+    ):
+        found = [logo for logo in build(HEAD + f"<footer>{named}</footer>").logos if logo.method == "header-img"]
+        assert len(found) == 1, named
+
+
+def test_the_start_of_another_subdomain_is_not_the_way_home() -> None:
+    # Flipkart's "Advertise" icon links to advertising.flipkart.com/.
+    header = (
+        '<header><a href="https://ads.larkspur.example/"><img src="/img/megaphone.svg" alt="Megaphone"></a></header>'
+    )
+    assert [logo for logo in build(HEAD + header).logos if logo.method == "header-img"] == []
+    # The same site with or without "www." is.
+    header = '<header><a href="https://larkspur.example/"><img src="/img/mark.svg" alt=""></a></header>'
+    assert [logo.confidence for logo in build(HEAD + header).logos if logo.method == "header-img"] == [0.8]

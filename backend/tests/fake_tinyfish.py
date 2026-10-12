@@ -159,8 +159,8 @@ def browser_page(url: str, arg: Any) -> Any:
     page's text."""
     if isinstance(arg, dict) and "structureSelectors" in arg:
         return browser_measurement(url)
-    if isinstance(arg, dict) and "svgs" in arg:
-        return [drawn_logo() for _svg in arg["svgs"]]
+    if isinstance(arg, dict) and "items" in arg:
+        return [drawn_logo() for _item in arg["items"]]
     host, path = urlsplit(url).hostname or "", urlsplit(url).path
     return {"url": url, "title": f"{_name(host)} — {path.strip('/').title()}", "text": _page_text(host, path)}
 
@@ -257,6 +257,11 @@ def _name(host: str) -> str:
 
 # Answers a script run on a page: (url, arg) -> what the script returns.
 PageAnswer = Callable[[str, Any], Any]
+# What the fake browser's photos are: a real 1 × 1 PNG file.
+TINY_PNG = bytes.fromhex(
+    "89504e470d0a1a0a0000000d4948445200000001000000010806000000"
+    "1f15c4890000000d4944415478da63f8cfc0f01f0005000201a5f2c1d90000000049454e44ae426082"
+)
 
 
 class FakeBrowserDriver:
@@ -273,6 +278,8 @@ class FakeBrowserDriver:
         self.waited_for_text: list[bool] = []
         # Set when a script starts running, for tests that stop a guide in the middle of one.
         self.running = asyncio.Event()
+        # The elements photographed (CSS selectors).
+        self.photos: list[str] = []
 
     async def connect(self, cdp_url: str) -> "FakeBrowserPage":
         self.connected.append(cdp_url)
@@ -290,6 +297,10 @@ class FakeBrowserPage:
         if self._driver.delay:
             await asyncio.sleep(self._driver.delay)
         return self._driver.answer(url, arg)
+
+    async def photo(self, selector: str, *, time_limit: float) -> bytes:
+        self._driver.photos.append(selector)
+        return TINY_PNG
 
     async def close(self) -> None:
         self._driver.disconnected += 1

@@ -1,58 +1,111 @@
 /*
- * Swatchfin's logo check. It runs in a blank tab of the guide's TinyFish
- * Browser (no website's rules apply there) and draws each cleaned copy of
- * an inline SVG logo, exactly as Swatchfin will serve it, to see whether it
- * really shows a logo. Python sends it with Playwright's page.evaluate()
- * (see visuals.py) and decides from the numbers it returns.
+ * Swatchfin's logo check. It runs in the guide's TinyFish Browser and draws
+ * each logo, exactly as the guide will show it, to see whether it really
+ * shows a logo. Python sends it with Playwright's page.evaluate() (see
+ * visuals.py) and decides from the numbers it returns.
  *
- * In plain English, for each copy it:
- * 1. loads the SVG as an image, the way the guide page will show it;
- * 2. draws it on a hidden canvas, its longer side `size` pixels;
- * 3. counts the solid pixels ("ink"), how much of their bounding box they
+ * Each item is one of:
+ * - { svg }: the cleaned copy of a logo drawn with SVG code (checked in a blank tab);
+ * - { src }: a picture's address. For a photo the browser took (a logo drawn
+ *   with CSS) it is a data: address, checked in a blank tab. For an image file
+ *   on the website, the tab first opens that file itself, so the picture is
+ *   from the page's own site and the browser lets this script read it.
+ * - { here: true }: the picture the tab is showing (an image file it opened).
+ *
+ * In plain English, for each picture it:
+ * 1. loads it, the way the guide page will show it;
+ * 2. draws it on a hidden canvas at its own size, but with its longer side
+ *    between `size` and `maxSize` pixels (a photo keeps its exact colours);
+ * 3. sets aside its own background, when the picture is filled edge to edge
+ *    with one colour (a logo on white in a JPG): that colour counts as paper;
+ * 4. counts the solid pixels ("ink"), how much of their bounding box they
  *    fill, how many of them share one colour, and the see-through holes
- *    inside that box (the inside of an "o", or letters cut out of a badge).
+ *    inside that box (the inside of an "o", or letters cut out of a badge);
+ * 5. lists the logo's most used bright colours: for each family of similar
+ *    colours, the exact colour most of its pixels have.
  *
- * A blank copy has almost no ink. A white square (Notion's logo without the
- * colours the page's CSS gives it) is one colour that fills its whole box,
- * with no holes. A real logo has letters, holes or several colours.
+ * A blank picture has almost no ink. A white square (Notion's logo without
+ * the colours the page's CSS gives it) is one colour that fills its whole
+ * box, with no holes. A real logo has letters, holes or several colours.
  */
-async ({ svgs, size }) => {
-  /** Loads an SVG as an image; rejects if it can't be shown. */
-  function load(markup) {
+async ({ items, size, maxSize }) => {
+  /** Loads a picture; rejects if it can't be shown. */
+  function load(src) {
     return new Promise((resolve, reject) => {
       const image = new Image();
-      const url = URL.createObjectURL(new Blob([markup], { type: 'image/svg+xml' }));
-      const timer = setTimeout(() => reject(new Error('timed out')), 3000);
+      const timer = setTimeout(() => reject(new Error('timed out')), 4000);
       image.onload = () => {
         clearTimeout(timer);
-        resolve({ image, url });
+        resolve(image);
       };
       image.onerror = () => {
         clearTimeout(timer);
-        URL.revokeObjectURL(url);
         reject(new Error('not an image'));
       };
-      image.src = url;
+      image.src = src;
     });
   }
 
-  /** The numbers for one copy (see the top of this file). */
-  async function inspect(markup) {
-    const { image, url } = await load(markup);
+  /** How far apart two colours are, channel by channel. */
+  function distance(data, i, colour) {
+    return Math.max(Math.abs(data[i] - colour[0]), Math.abs(data[i + 1] - colour[1]), Math.abs(data[i + 2] - colour[2]));
+  }
+
+  /** The picture's own background: the one colour its whole edge is filled with, or null. */
+  function paperOf(data, width, height) {
+    const edge = [];
+    for (let x = 0; x < width; x += 1) edge.push(x, (height - 1) * width + x);
+    for (let y = 1; y < height - 1; y += 1) edge.push(y * width, y * width + width - 1);
+    const groups = new Map();
+    let solid = 0;
+    for (const at of edge) {
+      const i = at * 4;
+      if (data[i + 3] < 250) continue;
+      solid += 1;
+      const group = ((data[i] >> 4) << 8) | ((data[i + 1] >> 4) << 4) | (data[i + 2] >> 4);
+      groups.set(group, (groups.get(group) || []).concat(i));
+    }
+    if (solid < edge.length * 0.98) return null;
+    const [, members] = [...groups.entries()].sort((a, b) => b[1].length - a[1].length)[0];
+    if (members.length < edge.length * 0.95) return null;
+    return [0, 1, 2].map((c) => members.reduce((sum, i) => sum + data[i + c], 0) / members.length);
+  }
+
+  /** "#RRGGBB" for the pixel at data[i]. */
+  function hex(data, i) {
+    return '#' + [0, 1, 2].map((c) => data[i + c].toString(16).padStart(2, '0')).join('').toUpperCase();
+  }
+
+  /** The numbers for one picture (see the top of this file). */
+  async function inspect(item) {
+    let src = item.here ? location.href : item.src;
+    let blob = null;
+    if (item.svg) {
+      blob = URL.createObjectURL(new Blob([item.svg], { type: 'image/svg+xml' }));
+      src = blob;
+    }
+    let image;
+    try {
+      image = await load(src);
+    } finally {
+      if (blob) setTimeout(() => URL.revokeObjectURL(blob), 0);
+    }
     const ratio = image.naturalWidth && image.naturalHeight ? image.naturalWidth / image.naturalHeight : 1;
-    const width = Math.max(1, Math.round(ratio >= 1 ? size : size * ratio));
-    const height = Math.max(1, Math.round(ratio >= 1 ? size / ratio : size));
+    const longest = Math.min(maxSize, Math.max(size, image.naturalWidth || 0, image.naturalHeight || 0));
+    const width = Math.max(1, Math.round(ratio >= 1 ? longest : longest * ratio));
+    const height = Math.max(1, Math.round(ratio >= 1 ? longest / ratio : longest));
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext('2d', { willReadFrequently: true });
     context.drawImage(image, 0, 0, width, height);
-    URL.revokeObjectURL(url);
     const data = context.getImageData(0, 0, width, height).data;
+    const paper = paperOf(data, width, height);
 
-    // Ink: pixels at least half solid. Their bounding box, and their colours in 512 groups.
+    // Ink: pixels at least half solid and not the paper. Their bounding box, and their colours.
     const solid = new Uint8Array(width * height);
-    const colours = new Map();
+    const groups = new Map();
+    const families = new Map(); // bright colours: family -> (exact colour -> pixels)
     let ink = 0;
     let left = width;
     let top = height;
@@ -61,7 +114,7 @@ async ({ svgs, size }) => {
     for (let y = 0; y < height; y += 1) {
       for (let x = 0; x < width; x += 1) {
         const i = (y * width + x) * 4;
-        if (data[i + 3] < 128) continue;
+        if (data[i + 3] < 128 || (paper && distance(data, i, paper) <= 24)) continue;
         solid[y * width + x] = 1;
         ink += 1;
         left = Math.min(left, x);
@@ -69,14 +122,21 @@ async ({ svgs, size }) => {
         top = Math.min(top, y);
         bottom = Math.max(bottom, y);
         const group = ((data[i] >> 5) << 6) | ((data[i + 1] >> 5) << 3) | (data[i + 2] >> 5);
-        colours.set(group, (colours.get(group) || 0) + 1);
+        groups.set(group, (groups.get(group) || 0) + 1);
+        // Solid, clearly coloured pixels (edges blend into what is around them), in families of similar colours.
+        const spread = Math.max(data[i], data[i + 1], data[i + 2]) - Math.min(data[i], data[i + 1], data[i + 2]);
+        if (data[i + 3] >= 250 && spread >= 60) {
+          const family = ((data[i] >> 4) << 8) | ((data[i + 1] >> 4) << 4) | (data[i + 2] >> 4);
+          const exact = families.get(family) || new Map();
+          exact.set(hex(data, i), (exact.get(hex(data, i)) || 0) + 1);
+          families.set(family, exact);
+        }
       }
     }
-    if (ink === 0) return { loaded: true, width, height, ink: 0, fill: 0, main_colour: 0, holes: 0 };
+    const base = { loaded: true, width, height, paper: Boolean(paper) };
+    if (ink === 0) return { ...base, ink: 0, fill: 0, main_colour: 0, holes: 0, colours: [] };
 
     // Holes: see-through pixels inside the box that can't be reached from its edge.
-    const boxWidth = right - left + 1;
-    const boxHeight = bottom - top + 1;
     const reached = new Uint8Array(width * height);
     const queue = [];
     const visit = (x, y) => {
@@ -106,25 +166,37 @@ async ({ svgs, size }) => {
     for (let y = top; y <= bottom; y += 1) {
       for (let x = left; x <= right; x += 1) outside += reached[y * width + x];
     }
-    const box = boxWidth * boxHeight;
+    const box = (right - left + 1) * (bottom - top + 1);
     const round = (n) => Math.round(n * 1000) / 1000;
+    const colours = [...families.values()]
+      .map((exact) => {
+        const total = [...exact.values()].reduce((sum, count) => sum + count, 0);
+        const [code] = [...exact.entries()].sort((a, b) => b[1] - a[1])[0];
+        return [code, total];
+      })
+      .filter(([, total]) => total >= ink * 0.03)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([code]) => code);
     return {
-      loaded: true,
-      width,
-      height,
+      ...base,
       ink: round(ink / (width * height)),
       fill: round(ink / box),
-      main_colour: round(Math.max(...colours.values()) / ink),
+      main_colour: round(Math.max(...groups.values()) / ink),
       holes: round((box - ink - outside) / box),
+      colours,
     };
   }
 
+  // The answer the website gave when this tab opened an image file (404 when it is missing).
+  const opened = performance.getEntriesByType('navigation')[0];
+  const status = opened && opened.responseStatus ? opened.responseStatus : 0;
   const results = [];
-  for (const markup of svgs) {
+  for (const item of items) {
     try {
-      results.push(await inspect(markup));
+      results.push(await inspect(item));
     } catch {
-      results.push({ loaded: false });
+      results.push({ loaded: false, status });
     }
   }
   return results;
