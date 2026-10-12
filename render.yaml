@@ -45,7 +45,7 @@ services:
         value: "5"
       - key: REUSE_HOURS
         value: "24"
-      # How many of Render's proxies add to X-Forwarded-For. Checked after the first deploy
-      # (docs/deploy-render.md, "Check the visitor address").
+      # How many entries Render's proxies add to X-Forwarded-For: 3, checked live after the first deploy
+      # (a request with no header of its own arrived with 3). See docs/deploy-render.md, "Check the visitor address".
       - key: PROXY_HOPS
-        value: "1"
+        value: "3"

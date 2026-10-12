@@ -72,17 +72,20 @@ Send the address to Claude Code: it goes into the README, the About page's socia
 
 ## 6. Check the visitor address
 
-Behind Render, every request reaches Swatchfin through Render's proxy. The proxy writes the visitor's real address in a header called `X-Forwarded-For`, but it also keeps any address a visitor makes up and sends in the same header. Swatchfin therefore reads the entry Render's proxy adds, counting from the end of the list. `PROXY_HOPS` says how many entries from the end to go (`render.yaml` starts it at `1`).
+Behind Render, every request reaches Swatchfin through Render's proxies. They write the visitor's real address in a header called `X-Forwarded-For`, but they also keep any address a visitor makes up and sends in the same header. Swatchfin therefore reads the entry the proxies add for the visitor, counting from the end of the list. `PROXY_HOPS` says how many entries from the end to go.
 
-To check it, Claude Code sends one request with a made-up first entry. In **Logs**, find the line that starts with `X-Forwarded-For had`, for example:
+**Checked on 12 October 2026:** an ordinary request (one that sent no header of its own) arrived with 3 entries, so Render's proxies add 3 and the visitor is the first of them. `render.yaml` sets `PROXY_HOPS` to `3`. (With the first setting, `1`, Swatchfin read the last proxy's address instead, so every visitor shared one limit of 5 guides a day.)
+
+To check it again after a deploy, open the site once, then have Claude Code send one request with a made-up first entry. In **Logs**, find the lines that start with `X-Forwarded-For had`:
 
 ```
-INFO swatchfin.ratelimit: X-Forwarded-For had 2 entries; the visitor is entry 2 (PROXY_HOPS=1)
+INFO swatchfin.ratelimit: X-Forwarded-For had 3 entries; the visitor is entry 1 (PROXY_HOPS=3)
+INFO swatchfin.ratelimit: X-Forwarded-For had 4 entries; the visitor is entry 2 (PROXY_HOPS=3)
 ```
 
-and copy it back. The line shows how many entries there were, never the addresses. If Render adds more than one entry, `PROXY_HOPS` changes in `render.yaml`, and the next deploy picks it up.
+The first is your ordinary visit: the visitor is entry 1. The second is the request with the made-up entry: the visitor is entry 2, so the made-up entry 1 was ignored. The lines show how many entries there were, never the addresses. If the numbers differ, copy the lines back: `PROXY_HOPS` changes in `render.yaml`, and the next deploy picks it up. A `WARNING` line means a request had fewer entries than `PROXY_HOPS`, so the setting is too high.
 
-The line is written once each time the server starts, by the first request that has the header, so check it right after a deploy.
+Each number of entries is written once each time the server starts, so check right after a deploy.
 
 ## Living with the free plan
 

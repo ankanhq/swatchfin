@@ -1,6 +1,9 @@
 """Rate limits (app/ratelimit.py), with a fake clock instead of waiting."""
 
+import logging
 from datetime import UTC, datetime
+
+import pytest
 
 from app.ratelimit import DailyLimit, RateLimiter, Visitors, wait_words
 
@@ -112,6 +115,27 @@ def test_two_proxies_read_the_entry_two_from_the_end() -> None:
     assert visitors.address("10.0.0.5", "203.0.113.7, 198.51.100.20, 172.70.1.1") == "198.51.100.20"
     # Fewer entries than proxies: the first is the best there is.
     assert visitors.address("10.0.0.5", "198.51.100.20") == "198.51.100.20"
+
+
+def test_on_render_the_visitor_is_the_first_of_the_three_entries_its_proxies_add() -> None:
+    visitors = Visitors(proxy_hops=3)
+    # An ordinary request: the visitor's address, then two of Render's own.
+    assert visitors.address("10.0.0.5", "198.51.100.20, 172.70.1.1, 10.200.0.9") == "198.51.100.20"
+    # A made-up first entry is ignored.
+    assert visitors.address("10.0.0.5", "203.0.113.7, 198.51.100.20, 172.70.1.1, 10.200.0.9") == "198.51.100.20"
+
+
+def test_each_new_number_of_entries_is_logged_once(caplog: pytest.LogCaptureFixture) -> None:
+    visitors = Visitors(proxy_hops=3)
+    with caplog.at_level(logging.INFO, logger="swatchfin.ratelimit"):
+        for header in ("a, b, c", "d, e, f", "x, a, b, c", "a"):
+            visitors.address("10.0.0.5", header)
+    assert [(record.levelname, record.getMessage()) for record in caplog.records] == [
+        ("INFO", "X-Forwarded-For had 3 entries; the visitor is entry 1 (PROXY_HOPS=3)"),
+        ("INFO", "X-Forwarded-For had 4 entries; the visitor is entry 2 (PROXY_HOPS=3)"),
+        ("WARNING", "X-Forwarded-For had 1 entries; the visitor is entry 1 (PROXY_HOPS=3)"),
+    ]
+    assert all("a" not in record.getMessage().split() for record in caplog.records)  # never the addresses
 
 
 def test_wait_words() -> None:
