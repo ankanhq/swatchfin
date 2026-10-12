@@ -293,8 +293,8 @@ def language_models(settings: Settings, http: httpx2.AsyncClient) -> FallbackLLM
     """
     keys = {
         "anthropic": settings.anthropic_api_key,
-        "groq": settings.groq_api_key,
         "gemini": settings.gemini_api_key,
+        "groq": settings.groq_api_key,
     }
     with_keys = [(api, key) for api in settings.llm_apis if (key := keys[api]) is not None]
     models: list[ProviderLLM] = []
@@ -303,12 +303,12 @@ def language_models(settings: Settings, http: httpx2.AsyncClient) -> FallbackLLM
             # Claude retries a busy moment only when no other model comes after it.
             last = api == with_keys[-1][0]
             models.append(AnthropicLLM(key, settings.anthropic_model, max_retries=1 if last else 0))
-        elif api == "groq":
-            models.append(GroqLLM(key, settings.groq_model, http))
-        else:
+        elif api == "gemini":
             models.append(GeminiLLM(key, settings.gemini_model, http))
+        else:
+            models.append(GroqLLM(key, settings.groq_model, http))
     if not models:
-        log.warning("no ANTHROPIC_API_KEY, GROQ_API_KEY or GEMINI_API_KEY: guides won't have a tone of voice")
+        log.warning("no ANTHROPIC_API_KEY, GEMINI_API_KEY or GROQ_API_KEY: guides won't have a tone of voice")
         return None
     log.info("tone of voice: %s", ", then ".join(model.model for model in models))
     return FallbackLLM(models)

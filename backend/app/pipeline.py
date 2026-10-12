@@ -9,7 +9,7 @@ Steps 1–5 read the live website with TinyFish; steps 6–7 describe and check 
                       fonts and logo, and reads what Fetch couldn't.
 6. analysing_voice    A language model reads the text from steps 2, 4 and 5
                       and drafts the tone of voice and key messages, quoting
-                      the site: Claude, or Groq or Gemini when it can't answer.
+                      the site: Claude, or Gemini or Groq when it can't answer.
 7. verifying          Every quote is looked for, word for word, in that text;
                       what isn't found is dropped. The palette's text and
                       background pairs get their WCAG contrast grades.
@@ -91,8 +91,8 @@ STYLES_MIN_TIME = 15.0
 # Step 6 when there is no key for any language model, or none gives a usable answer.
 VOICE_OFF_DETAIL = "No language model API key on this Swatchfin server."
 VOICE_OFF_WARNING = (
-    "Tone of voice and key messaging weren’t analysed: this Swatchfin server has no API key for Anthropic, Groq "
-    "or Gemini."
+    "Tone of voice and key messaging weren’t analysed: this Swatchfin server has no API key for Anthropic, "
+    "Gemini or Groq."
 )
 VOICE_FAILED_DETAIL = "Couldn’t analyse the text"
 # Step 6 gets at most this long, for every model it asks (see llm.FallbackLLM), and is left out with

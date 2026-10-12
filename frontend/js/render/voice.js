@@ -62,8 +62,8 @@ export function renderVoice(guide) {
 
 /**
  * "Drafted by claude-sonnet-5-5, through Anthropic’s API.": which language
- * model wrote this section. Swatchfin asks Claude first, then Groq, then
- * Gemini, so this says which one answered. Null when the guide doesn't say.
+ * model wrote this section. Swatchfin asks Claude first, then Gemini, then
+ * Groq, so this says which one answered. Null when the guide doesn't say.
  * @param {unknown} value { api, model }
  * @returns {HTMLElement | null}
  */

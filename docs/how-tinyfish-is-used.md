@@ -86,7 +86,7 @@ Then, in Python, each colour gets one role. The background is what the page itse
 
 Steps 6 and 7 don't call TinyFish, but they rest on its work. The text TinyFish read (the homepage's markdown, the other pages' markdown, and the visible text of any page only Browser could read) is the one source of truth for the tone of voice:
 
-- **Step 6** ([`extract/voice.py`](../backend/app/extract/voice.py), [`llm.py`](../backend/app/llm.py)) sends that text to a language model, cleaned and cut to at most 36,000 characters: Claude, or, when Claude can't answer, Groq and then Gemini, with the same text. No model browses: each can only quote what TinyFish read.
+- **Step 6** ([`extract/voice.py`](../backend/app/extract/voice.py), [`llm.py`](../backend/app/llm.py)) sends that text to a language model, cleaned and cut to at most 36,000 characters: Claude, or, when Claude can't answer, Gemini and then Groq, with the same text. No model browses: each can only quote what TinyFish read.
 - **Step 7** ([`extract/verify.py`](../backend/app/extract/verify.py)) looks for every quote in the same text, word for word, and drops what isn't there. A quote found on a different page than the one the model named is credited to the page it is really on, so every source link in a guide points to a page TinyFish read.
 
 ## When something goes wrong
@@ -102,7 +102,7 @@ Steps 6 and 7 don't call TinyFish, but they rest on its work. The text TinyFish 
 | The browser is busy, out of credit, or can't open the page | Step 5 is skipped with a warning; the guide keeps everything Fetch read |
 | The guide is cancelled or runs out of time | The browser session is ended anyway (and ends itself after 3 idle minutes if that ever fails) |
 | A discovery search that stays busy | The homepage's own links are used, with a warning |
-| Claude busy, slow, rate-limited, out of credit or refusing | The same text goes to Groq, then to Gemini; the guide names the model that wrote its tone of voice |
+| Claude busy, slow, rate-limited, out of credit or refusing | The same text goes to Gemini, then to Groq; the guide names the model that wrote its tone of voice |
 | No language model key, every model failing, or a quote not on the page | The tone of voice (or that part of it) is left out with a warning; everything TinyFish read stays |
 
 The API key is sent only from the server, in the `X-API-Key` header. It is kept as a secret string, so it never appears in logs or error messages. Swatchfin never fetches a brand's website itself: every read goes through TinyFish, which also refuses private network addresses.
@@ -142,6 +142,6 @@ The same three sites, with tone of voice from `claude-sonnet-5-5`:
 - Fetch gives up on a page after 110 s at most; Swatchfin allows 40 s for the homepage and 30 s for other pages, so a guide stays inside its 150-second limit with room for the browser and voice steps.
 - Browser: $0.002 a minute from the wallet, billed by the second; at most 5 sessions at once per account (Swatchfin makes at most 2 guides at once). The three guides above used 17–33 seconds of browser time each: **$0.0006–$0.0011 a guide**, about a tenth of a cent, or roughly 1,000 guides per dollar. `USE_BROWSER=false` in `.env` leaves the browser out (for example while developing).
 
-- Language models (not TinyFish): usually one Claude call per guide, about $0.02–0.03 with `claude-sonnet-5-5` and about twice that with `claude-opus-5-5`. Groq and Gemini, asked only when Claude can't answer, cost nothing on their free tiers. Step 6 gets at most 75 seconds of a guide's 150 for all of them.
+- Language models (not TinyFish): usually one Claude call per guide, about $0.02–0.03 with `claude-sonnet-5-5` and about twice that with `claude-opus-5-5`. Gemini and Groq, asked only when Claude can't answer, cost nothing on their free tiers. Step 6 gets at most 75 seconds of a guide's 150 for all of them.
 
 Docs: [Search](https://docs.tinyfish.ai/search-api) · [Fetch](https://docs.tinyfish.ai/fetch-api) · [Browser](https://docs.tinyfish.ai/browser-api)

@@ -414,7 +414,7 @@ DELETE https://api.browser.tinyfish.ai/{session_id}</code></pre>
             <ul class="sf-about-list">
               <li>The name or URL you type is sent to TinyFish, which searches for the site and reads its public pages.</li>
               <!-- The only place the website names the AI providers (backend/app/llm.py). If they change, change it here. -->
-              <li>The text of those pages is sent to a language model that drafts the tone of voice and messaging. Swatchfin asks Anthropic’s Claude API first. If Claude can’t answer, the same text goes to Groq’s API, and if Groq can’t either, to Google’s Gemini API. Each guide says which one wrote it.</li>
+              <li>The text of those pages is sent to a language model that drafts the tone of voice and messaging. Swatchfin asks Anthropic’s Claude API first. If Claude can’t answer, the same text goes to Google’s Gemini API, and if Gemini can’t either, to Groq’s API. Each guide says which one wrote it.</li>
               <li>Swatchfin asks Gemini not to keep each request, but on Gemini’s free tier Google may still use the text it is sent to improve its products. That text is only what the brand’s own pages show publicly.</li>
               <li>Swatchfin never logs in to a site, fills in its forms or reads anything that isn’t public.</li>
               <li>Each guide is kept on the Swatchfin server for a limited time, so its link keeps working. It contains only what the website shows publicly.</li>
