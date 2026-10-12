@@ -11,13 +11,23 @@
   Type a company name or paste a website URL. Swatchfin reads the live site and returns a structured, verified brand guide: logo, colour palette, typography, tone of voice and key messaging.
 </p>
 
+<p align="center">
+  <a href="https://swatchfin.onrender.com"><strong>Try it live: swatchfin.onrender.com</strong></a>
+  <br>
+  <sub>A free server: if nobody has visited for 15 minutes, the first page takes about a minute to wake up.</sub>
+</p>
+
 <p align="center"><sub>Built for the TinyFish Student Bounty Drop 001, "Brand Guide Generator".</sub></p>
+
+<p align="center">
+  <img src="docs/screenshots/guide-notion.png" alt="Swatchfin's brand guide for Notion: the Notion logo on light and dark tiles, where it was found, and other versions of it" width="900">
+</p>
 
 ---
 
 ## Features
 
-Swatchfin is in active development. Today it finds a brand's site, reads its homepage and up to nine more pages with TinyFish, opens the homepage in a real browser, and returns its name, description, logo (confirmed on the page, including logos drawn with SVG code), colour palette with roles, WCAG contrast checks, typography, tone of voice and key messaging (every claim backed by a quote found word for word on the site) and sources. Every guide downloads as JSON, CSS, a Tailwind theme, W3C Design Tokens and a voice prompt.
+Swatchfin finds a brand's site, reads its homepage and up to nine more pages with TinyFish, opens the homepage in a real browser, and returns its name, description, logo (confirmed on the page, including logos drawn with SVG code), colour palette with roles, WCAG contrast checks, typography, tone of voice and key messaging (every claim backed by a quote found word for word on the site) and sources. Every guide downloads as JSON, CSS, a Tailwind theme, W3C Design Tokens and a voice prompt.
 
 - **Name or URL in, brand guide out.** Give it `duolingo` or `https://www.duolingo.com` and it finds the official site itself.
 - **Logo**: found in the page header, inline SVG, Open Graph image or favicon, with a download link. A logo drawn with SVG code is copied in the colours the browser really drew it in, and a copy that comes out blank or as a plain shape is left out; interface icons (checkmarks, arrows) are never taken as logos, and the site's icon is the logo of last resort.
@@ -28,6 +38,18 @@ Swatchfin is in active development. Today it finds a brand's site, reads its hom
 - **Key messaging**: tagline, mission, value propositions and audience, each linked to the page it came from.
 - **No invented data**: every quote is checked against the fetched text. If something can't be extracted, the guide says so with a warning instead of making it up.
 - **Exports for other tools**: JSON, CSS custom properties, a Tailwind CSS v4 theme, W3C Design Tokens and a ready-to-paste "write in this brand's voice" prompt. Print-ready page for PDF.
+
+## Screenshots
+
+Real guides, made from the live sites on 12 October 2026. More in [`docs/screenshots/`](docs/screenshots/); `tools/screenshots.py` takes them again.
+
+| Stripe: colour palette, each colour with a role and where the site uses it | Stripe: WCAG contrast for the pairs the site uses for text |
+|---|---|
+| <img src="docs/screenshots/guide-stripe-colours.png" alt="Stripe's colour palette in Swatchfin: primary #533AFD, secondary, accent, background, surface, text, muted text and border, each with HEX, RGB, confidence and usage" width="440"> | <img src="docs/screenshots/guide-stripe-contrast.png" alt="Stripe's contrast matrix in Swatchfin: text colours against background colours, each pair with its ratio and a WCAG badge" width="440"> |
+
+| Patagonia: tone of voice, every trait backed by a quote found word for word | The start page, and a guide on a phone |
+|---|---|
+| <img src="docs/screenshots/guide-patagonia-voice.png" alt="Patagonia's tone of voice in Swatchfin: a summary, traits with verified quotes and links to their pages, four tone scales, and do and don't lists" width="440"> | <img src="docs/screenshots/landing.png" alt="Swatchfin's start page: a field for a company name or URL, a Generate button, example chips and an example guide card for a fictional brand" width="440"><br><br><img src="docs/screenshots/guide-notion-phone.png" alt="Swatchfin's Notion guide on a phone" width="200"> |
 
 ## How TinyFish is used
 
@@ -195,7 +217,9 @@ On 12 October 2026 Swatchfin made guides for 13 sites, each checked by hand agai
 | champaca.in (an independent bookshop) | `#A3AB3B` olive buttons | Yrsa, PT Sans | none found |
 | patagonia.com | `#000000` black buttons, `#1B2B79` navy hero | Ridgeway Sans | “MADE FOR THE MOMENT. BUILT FOR A LIFETIME.” |
 
-Every logo is the brand's own, and 134 of 136 quotes were found word for word (the two that weren't were dropped, with a warning). Fixed along the way: homepages built with JavaScript measured before they had drawn (Spotify), buttons painted by an element inside them (Airbnb, IKEA, Spotify), colours hidden under album covers and photos, black-and-white brands without a primary colour (Nike, Figma), near-black “muted” text, a rarely used colour on the logo, a real button or a large first-screen block now listed with confidence 0.5 and a usage note, a photo labelled “Zomato logo” taken as the logo, one odd element or a slow page costing a guide all its colours (Tata, Mailchimp), taglines that are only in the page title (Nike, Tata), promotions as taglines, template galleries and customer stories read as the brand's pages, and names like “Nike.com” and “Official LEGO® Shop”.
+Every logo was the brand's own, and 134 of 136 quotes were found word for word (the two that weren't were dropped, with a warning). Fixed along the way: homepages built with JavaScript measured before they had drawn (Spotify), buttons painted by an element inside them (Airbnb, IKEA, Spotify), colours hidden under album covers and photos, black-and-white brands without a primary colour (Nike, Figma), near-black “muted” text, a rarely used colour on the logo, a real button or a large first-screen block now listed with confidence 0.5 and a usage note, a photo labelled “Zomato logo” taken as the logo, one odd element or a slow page costing a guide all its colours (Tata, Mailchimp), taglines that are only in the page title (Nike, Tata), promotions as taglines, template galleries and customer stories read as the brand's pages, and names like “Nike.com” and “Official LEGO® Shop”.
+
+**Found after the deploy (Phase 10):** on the live site, Notion's logo came out as a blank white square, and its first "other version" was a checkmark. Notion paints the dark parts of its logo with a CSS variable from its own stylesheet, which the copy lost, and the checkmark sat in a language-menu link to `/en-US`, which looked like a link home. Logos drawn with SVG code are now copied in the colours the browser really draws them in, every copy is drawn in a blank browser tab and left out if it comes out blank or as one plain shape, simple icons and language-menu links are never taken as logos, and the site's icon is the logo of last resort. Checked again on notion.so, stripe.com and patagonia.com (full guides), and on nike.com, figma.com, airbnb.com, linear.app, spotify.com, mailchimp.com and lego.com (the logo steps): every logo is the brand's own, in its real colours. Stripe's wordmark, for one, is now `#061B31`, the colour it is drawn in, where the copy used to fall back to `#031323`.
 
 Still true, and said on the About page: a colour the homepage shows only in a heading or not at all (Patagonia's orange `#FA4616` is one campaign heading today; Zomato's red isn't on its homepage) isn't listed; a web-app homepage like Spotify's changes between visits; and a short name can match the wrong site (“Tata” finds tata.cars; type “Tata group” or the address).
 
@@ -266,6 +290,16 @@ The site serves everything from its own origin: no CDN or font service is needed
 The guide page shows each detected font in that font when it can. It only asks Google Fonts for a family and weight that exist there, which it checks against `google-fonts.json`. A brand's self-hosted font is never requested; the specimen uses the fallback fonts and says so.
 
 The social preview image (`frontend/assets/og-image.png`) is built from `tools/og-image.html`. The command is at the top of that file.
+
+The README's screenshots are taken by `tools/screenshots.py` (Python, with Playwright's own Chromium: `python -m playwright install chromium` the first time), from finished guides on a running Swatchfin. The command is at the top of that file.
+
+### Deploy your own
+
+The whole app runs as one free web service on Render, set up from [`render.yaml`](render.yaml). [docs/deploy-render.md](docs/deploy-render.md) walks through it step by step: connecting the repo, pasting the four keys, checking the visitor address, and what the free plan forgets.
+
+## Demo
+
+[docs/demo-script.md](docs/demo-script.md) is the script for the demo video: four brands (Notion, Stripe, Patagonia, and Duolingo by name), what to click and what to say, in about three minutes.
 
 ## Credits
 
