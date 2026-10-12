@@ -7,8 +7,9 @@ Steps 1–5 read the live website with TinyFish; steps 6–7 describe and check 
 4. reading_pages      Fetch reads them.
 5. reading_styles     Browser draws the homepage and measures its colours,
                       fonts and logo, and reads what Fetch couldn't.
-6. analysing_voice    Claude reads the text from steps 2, 4 and 5 and drafts
-                      the tone of voice and key messages, quoting the site.
+6. analysing_voice    A language model reads the text from steps 2, 4 and 5
+                      and drafts the tone of voice and key messages, quoting
+                      the site: Claude, or Groq or Gemini when it can't answer.
 7. verifying          Every quote is looked for, word for word, in that text;
                       what isn't found is dropped. The palette's text and
                       background pairs get their WCAG contrast grades.
@@ -22,15 +23,17 @@ guide goes: finished, failed, cancelled or out of time.
 
 The text read in steps 2, 4 and 5 stays in memory for steps 6 and 7; the
 guide itself lists every page under its sources, with the API that read it.
-Step 6 logs what Claude used and cost, once per guide (see llm.py); the
-guide doesn't mention cost.
+Step 6 logs what the language model used and cost, once per guide (see
+llm.py); the guide names the model that wrote its tone of voice, but not
+the cost.
 
 In plain English, each step reports its progress on the job ("running",
 then "done" with a short line for people). When something stops the
 guide (no website at the address, TinyFish unavailable), the step raises
 StepFailed with a message that says what happened and what to try. When
 something only leaves a gap (a page blocked, a search busy, the browser
-or Claude unavailable), the guide carries on and records a warning.
+or every language model unavailable), the guide carries on and records a
+warning.
 
 Also here: the sample jobs "mock" and "mock-partial" (MOCK), finished jobs
 that show the two sample guides for Northwind Roasters, a fictional brand.
@@ -56,12 +59,13 @@ from app.extract.verify import CheckedVoice, check_voice, palette_contrast
 from app.extract.visuals import Visuals, confirm_logos, fill_gaps, read_visuals
 from app.extract.voice import DraftVoice, Excerpt, draft_voice, pick_text, source_pages
 from app.jobs import JobRun, LogoStore, Pipeline, StepFailed
-from app.llm import LLM, LLMError
+from app.llm import LLM, LLMAnswer, LLMError
 from app.schemas import (
     STEP_NAMES,
     Brand,
     BrandGuide,
     ContrastPair,
+    DraftedBy,
     Job,
     Logo,
     LogoAsset,
@@ -84,12 +88,16 @@ BROWSER_FAILED_DETAIL = "Couldn’t open the homepage in a browser"
 # Step 5 gets at most this long, and is left out with less than the minimum left for it.
 STYLES_TIME_LIMIT = 75.0
 STYLES_MIN_TIME = 15.0
-# Step 6 when there is no Anthropic key, or Claude gives no usable answer.
-VOICE_OFF_DETAIL = "No Anthropic API key on this Swatchfin server."
-VOICE_OFF_WARNING = "Tone of voice and key messaging weren’t analysed: this Swatchfin server has no Anthropic API key."
+# Step 6 when there is no key for any language model, or none gives a usable answer.
+VOICE_OFF_DETAIL = "No language model API key on this Swatchfin server."
+VOICE_OFF_WARNING = (
+    "Tone of voice and key messaging weren’t analysed: this Swatchfin server has no API key for Anthropic, Groq "
+    "or Gemini."
+)
 VOICE_FAILED_DETAIL = "Couldn’t analyse the text"
-# Step 6 gets at most this long, and is left out with less than the minimum left for it.
-VOICE_TIME_LIMIT = 60.0
+# Step 6 gets at most this long, for every model it asks (see llm.FallbackLLM), and is left out with
+# less than the minimum left for it.
+VOICE_TIME_LIMIT = 75.0
 VOICE_MIN_TIME = 25.0
 # Kept in hand at the end of a job, for the last steps and saving the guide.
 TIME_MARGIN = 10.0
@@ -120,7 +128,7 @@ def brand_pipeline(
 
     `logos` keeps the cleaned copies of logos drawn with SVG code in the page.
     `browser` drives TinyFish Browser; None leaves step 5 out (USE_BROWSER=false).
-    `llm` is the language model for step 6; None (no Anthropic key) leaves it out.
+    `llm` is the language model for step 6 (llm.FallbackLLM: several in a row); None (no key) leaves it out.
     `time_limit` is the job's time limit, so steps 5 and 6 can finish within it.
     """
 
@@ -196,21 +204,22 @@ def brand_pipeline(
         # 6. analysing_voice
         brand_name = _brand_name(homepage, query)
         read = source_pages(homepage, pages.pages)
-        draft: DraftVoice | None = None
+        answer: LLMAnswer[DraftVoice] | None = None
         async with job.step("analysing_voice") as step:
             excerpts = pick_text(read)
             time_left = time_limit - (time.monotonic() - started) - TIME_MARGIN
-            draft = await _analyse_voice(job, llm, brand_name, homepage, excerpts, warnings, time_left)
-            if draft is not None and llm is not None:
-                step.detail = _voice_detail(excerpts, llm.model)
+            answer = await _analyse_voice(job, llm, brand_name, homepage, excerpts, warnings, time_left)
+            if answer is not None:
+                step.detail = _voice_detail(excerpts, answer.usage.model)
 
         # 7. verifying
         checked: CheckedVoice | None = None
         contrast: list[ContrastPair] = []
         async with job.step("verifying") as step:
             contrast = palette_contrast(visuals.colors if visuals else [])
-            if draft is not None:
-                checked = check_voice(draft, read)
+            if answer is not None:
+                checked = check_voice(answer.data, read)
+                checked.voice.drafted_by = DraftedBy(api=answer.usage.api, model=answer.usage.model)
                 warnings.extend(checked.warnings)
             if checked is None and not contrast:
                 job.skip("verifying", "No quotes or colours to check")
@@ -363,9 +372,9 @@ async def _analyse_voice(
     excerpts: list[Excerpt],
     warnings: list[str],
     time_left: float,
-) -> DraftVoice | None:
-    """Step 6's work (extract/voice.py). None when there is no draft: the step is then marked skipped,
-    and a warning says why. The guide carries on either way."""
+) -> LLMAnswer[DraftVoice] | None:
+    """Step 6's work (extract/voice.py): the draft, and which model wrote it. None when there is no draft:
+    the step is then marked skipped, and a warning says why. The guide carries on either way."""
     host = _short_host(homepage.host)
     if llm is None:
         job.skip("analysing_voice", VOICE_OFF_DETAIL)
@@ -383,6 +392,7 @@ async def _analyse_voice(
     try:
         answer = await draft_voice(llm, brand, host, excerpts, time_limit=min(time_left, VOICE_TIME_LIMIT))
     except LLMError as error:
+        log.info("voice for %s (job %s): no usable answer: %s", host, job.job.id, error.reason)
         if error.usage is not None:
             log.info("voice for %s (job %s), answer not used: %s", host, job.job.id, error.usage.describe())
         job.skip("analysing_voice", VOICE_FAILED_DETAIL)
@@ -397,8 +407,9 @@ async def _analyse_voice(
             "Tone of voice and key messaging weren’t analysed: something went wrong. Try again in a moment."
         )
         return None
-    log.info("voice for %s (job %s): %s", host, job.job.id, answer.usage.describe())
-    return answer.data
+    after = f" (after {'; '.join(answer.failures)})" if answer.failures else ""
+    log.info("voice for %s (job %s): %s%s", host, job.job.id, answer.usage.describe(), after)
+    return answer
 
 
 def _stopped_by(error: TinyFishError) -> StepFailed:
@@ -478,7 +489,7 @@ def _styles_warnings(visuals: Visuals, homepage: Homepage) -> list[str]:
 
 
 def _voice_detail(excerpts: list[Excerpt], model: str) -> str:
-    """The line under step 6: "Analysed the text of 7 pages with claude-sonnet-5-5"."""
+    """The line under step 6: "Analysed the text of 7 pages with claude-sonnet-5-5" (the model that answered)."""
     count = len(excerpts)
     return f"Analysed the text of {count} page{'s' if count != 1 else ''} with {model}"
 

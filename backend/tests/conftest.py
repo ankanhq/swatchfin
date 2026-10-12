@@ -27,7 +27,7 @@ def anyio_backend() -> str:
 
 @pytest.fixture
 def make_settings(tmp_path: Path) -> Callable[..., Settings]:
-    """Builds test settings: the fake TinyFish's key, no Anthropic key, a temporary data
+    """Builds test settings: the fake TinyFish's key, no language model keys, a temporary data
     folder and the MOCK sample guides switched on (many tests use them; production never
     does). Pass any setting to change it, e.g. make_settings(max_running_jobs=1)."""
 
@@ -36,6 +36,8 @@ def make_settings(tmp_path: Path) -> Callable[..., Settings]:
             "data_dir": tmp_path / "data",
             "tinyfish_api_key": "test-key",
             "anthropic_api_key": None,
+            "groq_api_key": None,
+            "gemini_api_key": None,
             "sample_guides": True,
         }
         return Settings(_env_file=None, **{**values, **overrides})  # type: ignore[call-arg]

@@ -68,7 +68,7 @@ async def test_a_company_name_goes_through_all_seven_steps(settings: Settings) -
         "discovering_pages": "done",
         "reading_pages": "done",
         "reading_styles": "done",
-        "analysing_voice": "skipped",  # no Anthropic key in the test settings
+        "analysing_voice": "skipped",  # no language model key in the test settings
         "verifying": "done",
     }
     assert [step.detail for step in job.steps] == [

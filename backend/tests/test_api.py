@@ -36,7 +36,7 @@ def test_start_then_follow_a_guide_to_the_end(client: TestClient, wait_for_job: 
     assert job["status"] == "complete"
     assert job["query"] == "Larkspur Tea"
     assert job["error"] is None
-    # Steps 1–5 read the (fake) site; 6 needs an Anthropic key (the tests have none); 7 grades the contrast.
+    # Steps 1–5 read the (fake) site; 6 needs a language model key (the tests have none); 7 grades the contrast.
     assert [step["status"] for step in job["steps"]] == ["done"] * 5 + ["skipped", "done"]
     assert job["guide"]["id"] == created["id"]
     assert job["guide"]["brand"]["domain"] == "larkspurtea.example"
@@ -239,7 +239,7 @@ def test_export_a_real_guide(client: TestClient, wait_for_job: WaitForJob) -> No
     assert f"Made by Swatchfin from the live site {job['guide']['brand']['url']} on " in css.text
     tokens = client.get(f"/api/v1/guides/{job['id']}/export?format=tokens").json()
     assert tokens["$extensions"]["io.github.ankanhq.swatchfin"]["logo"] == f"http://testserver{logo_path}"
-    # The tests have no Anthropic key, so this guide has no tone of voice to write a prompt from.
+    # The tests have no language model key, so this guide has no tone of voice to write a prompt from.
     voice = client.get(f"/api/v1/guides/{job['id']}/export?format=voice")
     assert voice.status_code == 409
     assert voice.json()["error"]["title"] == "No tone of voice to export"

@@ -30,12 +30,25 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # API keys. Without the TinyFish key, guides stop with a message. Without the Anthropic key,
-    # guides have no tone of voice or key messages, and their warnings say so.
+    # API keys. Without the TinyFish key, guides stop with a message. The tone of voice and key
+    # messages need at least one of the Anthropic, Groq and Gemini keys; without any, guides have
+    # none, and their warnings say so.
     tinyfish_api_key: SecretStr | None = None
     anthropic_api_key: SecretStr | None = None
-    # The Claude model that reads a brand's text for its tone of voice (see llm.py), e.g. claude-opus-5-5.
+    groq_api_key: SecretStr | None = None
+    gemini_api_key: SecretStr | None = None
+    # The models that read a brand's text for its tone of voice (see llm.py).
+    # Claude, e.g. claude-opus-5-5.
     anthropic_model: str = Field("claude-sonnet-5-5", pattern=r"^[a-z0-9][a-z0-9.\-]{1,63}$")
+    # A Groq model with strict structured outputs and low reasoning effort, e.g. openai/gpt-oss-20b.
+    groq_model: str = Field("openai/gpt-oss-120b", pattern=r"^[a-z0-9][a-z0-9./\-]{1,63}$")
+    # A Gemini model, e.g. gemini-3.6-flash.
+    gemini_model: str = Field("gemini-3.8-flash", pattern=r"^[a-z0-9][a-z0-9.\-]{1,63}$")
+    # The order they are asked in: when one gives no usable answer, the next one is asked.
+    # Leave one out to never use it. A model without a key is left out anyway.
+    llm_order: str = Field(
+        "anthropic,groq,gemini", pattern=r"^ *(anthropic|groq|gemini) *(, *(anthropic|groq|gemini) *){0,2}$"
+    )
 
     # Where the website files are, and where generated guides are saved.
     frontend_dir: Path = REPO_ROOT / "frontend"
@@ -66,6 +79,11 @@ class Settings(BaseSettings):
     # Rate limits, per visitor (IP address). See ratelimit.py.
     new_guides_per_hour: int = Field(20, ge=1)
     api_requests_per_minute: int = Field(300, ge=1)
+
+    @property
+    def llm_apis(self) -> list[str]:
+        """LLM_ORDER as a list, each name once: "anthropic, groq" -> ["anthropic", "groq"]."""
+        return list(dict.fromkeys(name.strip() for name in self.llm_order.split(",")))
 
 
 @lru_cache

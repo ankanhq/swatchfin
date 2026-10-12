@@ -92,7 +92,8 @@
       "reserved_bold": 30
     },
     "do": ["Name the origin, farm or roast date when you talk about a coffee.", "Write short sentences and leave room between ideas.", "Talk to the reader as a regular: use “we” and “you”, not “customers”.", "Promise only what you deliver, such as “ships on Wednesday”."],
-    "dont": ["Don’t use urgency or countdown language.", "Don’t lean on vague words like “premium” or “artisanal” without a detail to back them up.", "Don’t use exclamation marks to add energy.", "Don’t build headlines around coffee puns."]
+    "dont": ["Don’t use urgency or countdown language.", "Don’t lean on vague words like “premium” or “artisanal” without a detail to back them up.", "Don’t use exclamation marks to add energy.", "Don’t build headlines around coffee puns."],
+    "drafted_by": { "api": "gemini", "model": "gemini-3.8-flash" }
   },
   "messaging": {
     "tagline": {

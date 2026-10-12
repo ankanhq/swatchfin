@@ -2155,6 +2155,18 @@
   font-size: var(--sf-text-md);
 }
 
+/* "Drafted by claude-sonnet-5-5, through Anthropic’s API." */
+.sf-voice__byline {
+  margin: var(--sf-space-3) 0 0;
+  font-size: var(--sf-text-sm);
+  color: var(--sf-color-text-muted);
+}
+
+.sf-voice__byline code {
+  overflow-wrap: anywhere;
+  color: var(--sf-color-text);
+}
+
 .sf-traits {
   display: grid;
   gap: var(--sf-space-3);

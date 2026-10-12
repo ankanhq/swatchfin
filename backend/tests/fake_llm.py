@@ -1,9 +1,10 @@
 """A fake language model for the tests: it answers at once, with an answer given in advance.
 
-In plain English: FakeLLM has the same ask() as the real AnthropicLLM
-(app/llm.py), but it never calls Anthropic. It returns the answer it was
+In plain English: FakeLLM has the same ask() as the real models in
+app/llm.py, but it never calls a provider. It returns the answer it was
 built with, or raises the LLMError it was given, and keeps every request
-in `calls` so a test can check what would have been sent.
+in `calls` so a test can check what would have been sent. Several can be
+put in a row with FallbackLLM, as main.py does with the real ones.
 
 larkspur_draft() is an answer for the fake TinyFish's Larkspur Tea site.
 """
@@ -14,16 +15,27 @@ from typing import Any
 from pydantic import BaseModel
 
 from app.extract.voice import DraftQuote, DraftSpectrum, DraftStatement, DraftTrait, DraftValueProp, DraftVoice
-from app.llm import AnswerT, LLMAnswer, LLMError, LLMUsage
+from app.llm import AnswerT, Api, LLMAnswer, LLMError, LLMUsage
 
 
 class FakeLLM:
-    model = "fake-model"
-
-    def __init__(self, answer: BaseModel | LLMError | None = None, *, delay: float = 0) -> None:
+    def __init__(
+        self,
+        answer: BaseModel | LLMError | None = None,
+        *,
+        delay: float = 0,
+        api: Api = "anthropic",
+        model: str = "fake-model",
+    ) -> None:
         self.answer = answer
         self.delay = delay
+        self.api: Api = api
+        self.model = model
         self.calls: list[dict[str, Any]] = []
+        self.closed = False
+
+    async def close(self) -> None:
+        self.closed = True
 
     async def ask(
         self, *, system: str, prompt: str, answer: type[AnswerT], max_tokens: int, time_limit: float
@@ -35,7 +47,7 @@ class FakeLLM:
             raise self.answer
         if not isinstance(self.answer, answer):
             raise LLMError("the fake model has no answer of this type")
-        return LLMAnswer(data=self.answer, usage=LLMUsage(self.model, 9_000, 2_000, 0.1))
+        return LLMAnswer(data=self.answer, usage=LLMUsage(self.api, self.model, 9_000, 2_000, 0.1))
 
 
 def larkspur_draft(**changes: Any) -> DraftVoice:

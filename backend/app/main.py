@@ -33,7 +33,7 @@ from app.errors import ApiError, add_error_handlers
 from app.export import FORMATS, NothingToExport, export_filename, logo_filename
 from app.extract.resolve import QueryError, parse_query
 from app.jobs import GuideStore, JobManager, JobsBusy, LogoStore
-from app.llm import LLM, AnthropicLLM
+from app.llm import LLM, AnthropicLLM, FallbackLLM, GeminiLLM, GroqLLM, ProviderLLM
 from app.pipeline import brand_pipeline, sample_job_finder
 from app.ratelimit import RateLimiter
 from app.schemas import BrandGuide, ErrorResponse, GuideCreated, GuideRequest, Health, Job
@@ -286,6 +286,34 @@ def create_router(jobs: JobManager, logos: LogoStore, settings: Settings) -> API
     return router
 
 
+def language_models(settings: Settings, http: httpx2.AsyncClient) -> FallbackLLM | None:
+    """The models that draft the tone of voice, in LLM_ORDER, leaving out any without a key (see llm.py).
+
+    None when there is no key at all: guides then have no tone of voice, and say so.
+    """
+    keys = {
+        "anthropic": settings.anthropic_api_key,
+        "groq": settings.groq_api_key,
+        "gemini": settings.gemini_api_key,
+    }
+    with_keys = [(api, key) for api in settings.llm_apis if (key := keys[api]) is not None]
+    models: list[ProviderLLM] = []
+    for api, key in with_keys:
+        if api == "anthropic":
+            # Claude retries a busy moment only when no other model comes after it.
+            last = api == with_keys[-1][0]
+            models.append(AnthropicLLM(key, settings.anthropic_model, max_retries=1 if last else 0))
+        elif api == "groq":
+            models.append(GroqLLM(key, settings.groq_model, http))
+        else:
+            models.append(GeminiLLM(key, settings.gemini_model, http))
+    if not models:
+        log.warning("no ANTHROPIC_API_KEY, GROQ_API_KEY or GEMINI_API_KEY: guides won't have a tone of voice")
+        return None
+    log.info("tone of voice: %s", ", then ".join(model.model for model in models))
+    return FallbackLLM(models)
+
+
 def create_app(
     settings: Settings | None = None,
     *,
@@ -310,11 +338,10 @@ def create_app(
     browser = browser or PlaywrightDriver()
     if not settings.use_browser:
         log.warning("USE_BROWSER is false: guides won't have colours or fonts")
-    # Claude, for tone of voice (step 6), when there is a key. One client for every guide, closed when the server stops.
-    if llm is None and settings.anthropic_api_key is not None:
-        llm = AnthropicLLM(settings.anthropic_api_key, settings.anthropic_model)
+    # The language models for tone of voice (step 6), in LLM_ORDER, each one that has a key.
+    # One client for every guide, closed when the server stops.
     if llm is None:
-        log.warning("ANTHROPIC_API_KEY is not set: guides won't have a tone of voice or key messages")
+        llm = language_models(settings, http)
 
     jobs = JobManager(
         brand_pipeline(
@@ -350,7 +377,7 @@ def create_app(
         await wait_for_endings(BROWSER_ENDING_WAIT_SECONDS)
         if isinstance(browser, PlaywrightDriver):
             await browser.stop()
-        if isinstance(llm, AnthropicLLM):
+        if isinstance(llm, FallbackLLM):
             await llm.close()
         await http.aclose()
 

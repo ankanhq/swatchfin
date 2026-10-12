@@ -15,7 +15,7 @@ from pydantic import SecretStr
 from app.config import Settings
 from app.extract.resolve import parse_query
 from app.jobs import GuideStore, JobManager, LogoStore, Pipeline
-from app.llm import LLM, LLMError, LLMUsage
+from app.llm import LLM, FallbackLLM, LLMError, LLMUsage
 from app.pipeline import (
     BROWSER_FAILED_DETAIL,
     BROWSER_OFF_DETAIL,
@@ -45,7 +45,7 @@ async def run(
     time_limit: float = 150,
 ) -> Job:
     """Runs one job to the end and returns it. `browser` replaces the fake TinyFish's own browser driver;
-    `llm` is the language model for step 6 (None: no Anthropic key)."""
+    `llm` is the language model for step 6 (None: no language model key)."""
     fake = fake or FakeTinyFish()
     tinyfish = TinyFishClient(SecretStr(key) if key is not None else None, fake.http, pause_seconds=0)
     manager = JobManager(
@@ -124,9 +124,9 @@ async def test_a_guide_holds_only_what_was_read(settings: Settings) -> None:
     assert contrast[("#FFFFFF", "#2F5D50")][1] == "AAA"
     assert ("#FFFFFF", "#FFFFFF") not in contrast
 
-    # Without an Anthropic key, no tone of voice or messaging, and nothing made up in their place.
+    # Without a language model key, no tone of voice or messaging, and nothing made up in their place.
     assert guide.voice.model_dump() == {
-        "summary": None, "traits": [], "spectrum": None, "do": [], "dont": []
+        "summary": None, "traits": [], "spectrum": None, "do": [], "dont": [], "drafted_by": None
     }  # fmt: skip
     assert guide.messaging.model_dump() == {"tagline": None, "mission": None, "value_props": [], "audience": []}
     assert (job.steps[5].status, job.steps[5].detail) == ("skipped", VOICE_OFF_DETAIL)
@@ -422,7 +422,7 @@ async def _finish(settings: Settings, pipeline: Pipeline, query: str, *, timeout
 
 
 # ---------------------------------------------------------------------------
-# Steps 6–7: tone of voice from Claude, checked against the pages
+# Steps 6–7: tone of voice from a language model, checked against the pages
 # ---------------------------------------------------------------------------
 
 HOME = "https://www.larkspurtea.example/"
@@ -450,8 +450,11 @@ async def test_a_tone_of_voice_whose_quotes_are_on_the_site_is_kept(settings: Se
     # The draft had no mission: the guide says so instead of filling the gap.
     assert guide.messaging.mission is None
     assert "Swatchfin found no mission statement on the pages it read." in guide.warnings
+    # The guide names the model that wrote it.
+    assert guide.voice.drafted_by is not None
+    assert guide.voice.drafted_by.model_dump() == {"api": "anthropic", "model": "fake-model"}
 
-    # Claude read the homepage, then the pages by how much they tell (the Press page came from the browser).
+    # The model read the homepage, then the pages by how much they tell (the Press page came from the browser).
     [call] = llm.calls
     tags = [line for line in call["prompt"].splitlines() if line.startswith("<page ")]
     assert tags == [
@@ -490,13 +493,13 @@ async def test_a_quote_that_isnt_on_the_site_is_dropped_with_a_warning(settings:
             LLMError(
                 "Claude declined to analyse this website’s text",
                 retry=False,
-                usage=LLMUsage("fake-model", 9_000, 10, 1.0),
+                usage=LLMUsage("anthropic", "fake-model", 9_000, 10, 1.0),
             ),
             "Tone of voice and key messaging weren’t analysed: Claude declined to analyse this website’s text.",
         ),
     ],
 )
-async def test_when_claude_gives_no_answer_the_guide_carries_on_with_a_warning(
+async def test_when_no_model_gives_an_answer_the_guide_carries_on_with_a_warning(
     settings: Settings, error: LLMError, warning: str
 ) -> None:
     job = await run(settings, "Larkspur Tea", llm=FakeLLM(error))
@@ -505,8 +508,52 @@ async def test_when_claude_gives_no_answer_the_guide_carries_on_with_a_warning(
     assert (job.steps[5].status, job.steps[5].detail) == ("skipped", VOICE_FAILED_DETAIL)
     assert job.steps[6].status == "done"  # contrast is still graded
     assert guide.voice.traits == [] and guide.messaging.tagline is None
+    assert guide.voice.drafted_by is None
     assert warning in guide.warnings
     assert guide.colors and guide.contrast  # everything TinyFish read is still there
+
+
+async def test_when_the_first_model_fails_the_next_one_writes_the_tone_of_voice(settings: Settings) -> None:
+    claude = FakeLLM(LLMError("Anthropic’s rate limit was reached"), model="claude-sonnet-5-5")
+    groq = FakeLLM(LLMError("Groq’s API was busy or unavailable"), api="groq", model="openai/gpt-oss-120b")
+    gemini = FakeLLM(larkspur_draft(), api="gemini", model="gemini-3.8-flash")
+    job = await run(settings, "Larkspur Tea", llm=FallbackLLM([claude, groq, gemini]))
+    guide = job.guide
+    assert job.status == "complete" and guide is not None
+    assert (job.steps[5].status, job.steps[5].detail) == (
+        "done",
+        "Analysed the text of 6 pages with gemini-3.8-flash",
+    )
+    # The same instructions and text went to each model, and the same checks were made on the answer.
+    assert len(claude.calls) == len(groq.calls) == len(gemini.calls) == 1
+    assert claude.calls[0]["system"] == groq.calls[0]["system"] == gemini.calls[0]["system"]
+    assert claude.calls[0]["prompt"] == groq.calls[0]["prompt"] == gemini.calls[0]["prompt"]
+    assert job.steps[6].detail == "Found 4 of 4 quotes word for word · graded 15 colour pairs"
+    assert [trait.name for trait in guide.voice.traits] == ["Plain-spoken", "Rooted"]
+    assert guide.voice.drafted_by is not None
+    assert guide.voice.drafted_by.model_dump() == {"api": "gemini", "model": "gemini-3.8-flash"}
+    # A model answering in place of another isn't a gap in the guide, so there is no warning about it.
+    assert not any("rate limit" in warning or "Groq" in warning for warning in guide.warnings)
+
+
+async def test_when_every_model_fails_one_warning_gives_each_reason(settings: Settings) -> None:
+    models = FallbackLLM(
+        [
+            FakeLLM(LLMError("this Swatchfin server’s Anthropic account is out of credit", retry=False)),
+            FakeLLM(LLMError("Groq took too long to answer"), api="groq", model="openai/gpt-oss-120b"),
+            FakeLLM(LLMError("Gemini’s rate limit was reached"), api="gemini", model="gemini-3.8-flash"),
+        ]
+    )
+    job = await run(settings, "Larkspur Tea", llm=models)
+    guide = job.guide
+    assert job.status == "complete" and guide is not None
+    assert (job.steps[5].status, job.steps[5].detail) == ("skipped", VOICE_FAILED_DETAIL)
+    assert (
+        "Tone of voice and key messaging weren’t analysed: no language model gave a usable answer (this Swatchfin "
+        "server’s Anthropic account is out of credit; Groq took too long to answer; Gemini’s rate limit was "
+        "reached). Try again in a moment."
+    ) in guide.warnings
+    assert guide.voice.drafted_by is None and guide.colors
 
 
 async def test_a_crash_while_analysing_leaves_a_guide_without_a_tone_of_voice(settings: Settings) -> None:
@@ -520,9 +567,9 @@ async def test_a_crash_while_analysing_leaves_a_guide_without_a_tone_of_voice(se
     assert any("something went wrong" in warning for warning in job.guide.warnings)
 
 
-async def test_with_too_little_time_left_claude_isnt_asked(settings: Settings) -> None:
+async def test_with_too_little_time_left_no_model_is_asked(settings: Settings) -> None:
     llm = FakeLLM(larkspur_draft())
-    # 34 s: enough for the browser (15 s after the 10 s margin), not for Claude (25 s).
+    # 34 s: enough for the browser (15 s after the 10 s margin), not for the language model (25 s).
     job = await run(settings, "Larkspur Tea", llm=llm, time_limit=34)
     assert job.status == "complete" and job.guide is not None
     assert job.steps[4].status == "done"
@@ -530,10 +577,10 @@ async def test_with_too_little_time_left_claude_isnt_asked(settings: Settings) -
     assert llm.calls == []
 
 
-async def test_claude_gets_at_most_a_minute(settings: Settings) -> None:
+async def test_the_language_models_get_at_most_75_seconds_in_all(settings: Settings) -> None:
     llm = FakeLLM(larkspur_draft())
     await run(settings, "Larkspur Tea", llm=llm)
-    assert llm.calls[0]["time_limit"] == 60
+    assert llm.calls[0]["time_limit"] == 75
 
 
 async def test_without_colours_or_a_tone_of_voice_there_is_nothing_to_check(settings: Settings) -> None:
