@@ -150,17 +150,17 @@ class Visitors:
         """The visitor's address, from the connection and the X-Forwarded-For header."""
         if self.proxy_hops and forwarded_for:
             entries = [entry.strip() for entry in forwarded_for.split(",")]
+            # Fewer entries than proxies shouldn't happen; the first one is then the best there is.
+            position = max(1, len(entries) - self.proxy_hops + 1)  # counting from 1 at the start
             if not self._logged:
                 self._logged = True
                 log.info(
-                    "X-Forwarded-For had %d entries; PROXY_HOPS=%d reads the one %d from the end",
+                    "X-Forwarded-For had %d entries; the visitor is entry %d (PROXY_HOPS=%d)",
                     len(entries),
-                    self.proxy_hops,
+                    position,
                     self.proxy_hops,
                 )
-            # Fewer entries than proxies shouldn't happen; the first one is then the best there is.
-            chosen = entries[-self.proxy_hops] if len(entries) >= self.proxy_hops else entries[0]
-            if chosen:
+            if chosen := entries[position - 1]:
                 return chosen
         return client_host or "unknown"
 
