@@ -17,6 +17,7 @@ from app.extract.visuals import (
     LogoSpot,
     Measurement,
     browser_homepage,
+    check_drawings,
     checked_measurement,
     confirm_logos,
     fill_gaps,
@@ -26,7 +27,7 @@ from app.extract.visuals import (
     typography,
 )
 from app.tinyfish.browser import BrowserUnavailable
-from tests.fake_tinyfish import FakeBrowserDriver, FakeTinyFish, browser_measurement
+from tests.fake_tinyfish import FakeBrowserDriver, FakeTinyFish, browser_measurement, browser_page, drawn_logo
 
 HOME = "https://www.larkspurtea.example/"
 
@@ -484,10 +485,10 @@ async def _visuals(answer: Any, retry: list[SkippedPage], driver: FakeBrowserDri
 @pytest.mark.anyio
 async def test_the_homepage_is_measured_once_it_has_drawn_its_text() -> None:
     # A homepage built with JavaScript is blank when it has loaded; measured then, it has no colours or fonts.
-    driver = FakeBrowserDriver(lambda url, _arg: browser_measurement(url))
+    driver = FakeBrowserDriver(browser_page)
     await _visuals(None, [], driver)
-    assert driver.runs == [HOME]
-    assert driver.waited_for_text == [True]
+    assert driver.runs == [HOME, "about:blank"]  # then the logo copy is drawn in a blank tab
+    assert driver.waited_for_text == [True, False]
 
 
 @pytest.mark.anyio
@@ -570,3 +571,91 @@ def test_lab_lightness_colourfulness_and_difference() -> None:
     assert chroma("#533AFD") > 80
     assert delta_e("#FFFFFF", "#FFFFFF") == 0
     assert delta_e("#FFFFFF", "#FEFEFE") < 1
+
+
+# ---------------------------------------------------------------------------
+# Logo copies drawn in a blank tab
+# ---------------------------------------------------------------------------
+
+PAINTED = (
+    '<svg viewBox="0 0 120 24" fill="none" aria-label="Larkspur logo">'
+    '<path d="M0 0h120v24H0z" fill="var(--ink)" data-sf-paint="fill:#2F5D50;stroke:none"/></svg>'
+)
+
+
+def test_a_confirmed_svg_logo_takes_the_browsers_copy_with_its_colours() -> None:
+    # Fetch's copy has the page's CSS variable; the browser's copy has the colour it drew.
+    fetched = [LogoCandidate("inline-svg", 0.9, svg=PAINTED.replace(' data-sf-paint="fill:#2F5D50;stroke:none"', ""))]
+    seen = [LogoCandidate("inline-svg", 0.9, svg=PAINTED.replace("<svg", '<svg data-sf-id="1"'), element_id="1")]
+    [logo] = confirm_logos(fetched, seen, spots_of(spot("1")))
+    copy = clean_svg(logo.svg or "")
+    assert copy is not None and 'fill="#2F5D50"' in copy
+
+
+class Drawer:
+    """A browser page that answers the logo check with the given drawings, and remembers what it was sent."""
+
+    def __init__(self, drawings: Any) -> None:
+        self.drawings = drawings
+        self.sent: list[Any] = []
+
+    async def run(self, url: str, script: str, arg: Any, *, time_limit: float, wait_for_text: bool = False) -> Any:
+        assert url == "about:blank"
+        self.sent.append(arg)
+        if isinstance(self.drawings, Exception):
+            raise self.drawings
+        return self.drawings
+
+    async def close(self) -> None:
+        pass
+
+
+def drawing_logos() -> list[LogoCandidate]:
+    return [
+        LogoCandidate("inline-svg", 0.95, svg=PAINTED, element_id="1"),
+        LogoCandidate("inline-svg", 0.9, svg=PAINTED.replace("120v24", "60v24"), element_id="2"),
+        LogoCandidate("favicon", 0.45, url=f"{HOME}apple-touch-icon.png", format="png"),
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "drawing",
+    [
+        {"loaded": False},  # the copy can't be shown as an image
+        drawn_logo(ink=0.001),  # blank
+        drawn_logo(main_colour=1.0, fill=0.91, holes=0.0),  # one plain shape: a white square
+        drawn_logo(main_colour=0.97, fill=0.78, holes=0.002),  # a plain disc
+    ],
+)
+async def test_a_logo_copy_that_isnt_a_logo_is_left_out(drawing: dict[str, Any]) -> None:
+    page = Drawer([drawing, drawn_logo()])
+    logos, left_out = await check_drawings(page, drawing_logos(), time_limit=5)
+    assert [logo.element_id or logo.url for logo in logos] == ["2", f"{HOME}apple-touch-icon.png"]
+    assert left_out == 1
+    # Each copy was drawn as Swatchfin would serve it, without the page's variables.
+    [sent] = page.sent
+    assert len(sent["svgs"]) == 2 and all("var(" not in svg for svg in sent["svgs"])
+
+
+@pytest.mark.anyio
+async def test_logo_copies_with_letters_holes_or_colours_are_kept() -> None:
+    page = Drawer([drawn_logo(), drawn_logo(main_colour=1.0, fill=0.8, holes=0.12)])
+    logos, left_out = await check_drawings(page, drawing_logos(), time_limit=5)
+    assert (len(logos), left_out) == (3, 0)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("answer", [BrowserUnavailable("page about:blank: closed"), [{"nope": 1}], [drawn_logo()]])
+async def test_when_the_check_cant_run_every_logo_is_kept(answer: Any) -> None:
+    # The browser failed, answered in the wrong shape, or with the wrong number of drawings.
+    logos, left_out = await check_drawings(Drawer(answer), drawing_logos(), time_limit=5)
+    assert (len(logos), left_out) == (3, 0)
+
+
+@pytest.mark.anyio
+async def test_a_copy_with_nothing_painted_is_left_out_without_drawing_it() -> None:
+    lost = '<svg viewBox="0 0 120 24" fill="none"><path d="M0 0h120v24H0z" class="ink"/></svg>'
+    page = Drawer([])
+    logos, left_out = await check_drawings(page, [LogoCandidate("inline-svg", 0.9, svg=lost)], time_limit=5)
+    assert (logos, left_out, page.sent) == ([], 1, [])

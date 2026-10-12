@@ -18,6 +18,12 @@ In plain English:
   addresses, CSS escapes, unknown CSS functions) drops the attribute.
 - Colours set in CSS (a class rule in a <style>, or a style attribute)
   are turned into plain attributes first, so the logo keeps its colours.
+  Better still, the colours the browser really drew each part in
+  (measure_page.js writes them on the part as data-sf-paint) win over
+  everything: many logos get their colours from the page's own CSS, which
+  isn't in the SVG at all.
+- A copy in which nothing is painted (every part "none", hidden or see-
+  through) is refused: it would show as nothing.
 - The result is written out fresh, with every value escaped, and has
   size limits. The API then serves it with headers that forbid loading
   or running anything, and browsers never run scripts in an SVG shown
@@ -26,6 +32,7 @@ In plain English:
 
 import hashlib
 import re
+from dataclasses import dataclass
 from html import escape
 
 from selectolax.lexbor import LexborHTMLParser, LexborNode
@@ -46,6 +53,10 @@ ELEMENTS = {
 }  # fmt: skip
 # Elements that draw something. A logo without one is empty.
 DRAWING = frozenset({"path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "text"})
+# Elements that are never drawn where they are: they are definitions used by other parts.
+DEFINITIONS = frozenset({"defs", "clippath", "mask", "symbol", "lineargradient", "radialgradient"})
+# Where measure_page.js writes the colours the browser drew a part in: "fill:#0D0D0D;stroke:none".
+PAINT_ATTRIBUTE = "data-sf-paint"
 
 # Attributes kept. First the shape and position of things...
 GEOMETRY = (
@@ -84,8 +95,13 @@ CLASS_SELECTOR = re.compile(r"\.([\w-]+)")
 
 
 HEX_COLOUR = re.compile(r"#[0-9A-Fa-f]{6}")
-# The drawing data that makes a logo's shapes, for fingerprint().
+# The drawing data that makes a logo's shapes, for fingerprint() and detail().
 SHAPE_DATA = re.compile(r"""\s(?:d|points)\s*=\s*["']([^"']*)["']""", re.IGNORECASE)
+NUMBER_IN_DATA = re.compile(r"(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?", re.IGNORECASE)
+BASIC_SHAPE = re.compile(r"<(?:rect|circle|ellipse|line)\b", re.IGNORECASE)
+TEXT_ELEMENT = re.compile(r"<text\b", re.IGNORECASE)
+# A CSS variable with a fallback: var(--logo-fill, #0D0D0D).
+CSS_VARIABLE = re.compile(r"var\(\s*--[\w-]+\s*,\s*(.+)\)", re.DOTALL)
 
 
 def clean_svg(markup: str, *, color: str | None = None) -> str | None:
@@ -113,6 +129,15 @@ def clean_svg(markup: str, *, color: str | None = None) -> str | None:
     return text
 
 
+def detail(markup: str) -> int:
+    """How detailed an SVG's drawing is: the numbers in its paths, four for each basic shape, and many for text.
+
+    A checkmark has 13 numbers; a brand's mark or wordmark has hundreds.
+    """
+    numbers = sum(len(NUMBER_IN_DATA.findall(value)) for value in SHAPE_DATA.findall(markup))
+    return numbers + 4 * len(BASIC_SHAPE.findall(markup)) + 100 * len(TEXT_ELEMENT.findall(markup))
+
+
 def uses_current_color(svg: str) -> bool:
     """True when the logo takes its colour from the page around it (and so is black on its own)."""
     return "currentcolor" in svg.lower()
@@ -129,6 +154,19 @@ def fingerprint(markup: str) -> str:
     return hashlib.sha1(source.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
 
 
+@dataclass(frozen=True)
+class _Inherited:
+    """What an element takes from the elements around it, to tell whether it is painted at all."""
+
+    fill: str = "#000"  # SVG's starting fill is black...
+    stroke: str = "none"  # ...and its starting stroke is none
+    visible: bool = True  # visibility: hidden passes down, and a part inside can undo it
+    unseen: bool = False  # inside a definition, or under display: none or opacity 0: never drawn as it is
+
+
+TOP = _Inherited()  # what the outer <svg> starts from
+
+
 def _write(
     node: LexborNode,
     out: list[str],
@@ -138,8 +176,15 @@ def _write(
     budget: list[int],
     is_root: bool = False,
     page_colour: str | None = None,
+    inherited: _Inherited = TOP,
 ) -> bool:
-    """Writes one allowed element and its allowed children. Returns True if anything drawable was written."""
+    """Writes one allowed element and its allowed children. Returns True if anything painted was written.
+
+    In plain English: a shape is painted when it is drawn where it is (not
+    inside a definition, not hidden) and its fill or its stroke is a colour.
+    Fill and stroke pass down from the elements around it, so a logo whose
+    outer <svg> says fill="none" draws nothing unless its shapes say otherwise.
+    """
     name = ELEMENTS.get((node.tag or "").lower())
     if name is None or depth > MAX_DEPTH or budget[0] <= 0:
         return False
@@ -152,38 +197,80 @@ def _write(
             attributes["color"] = page_colour  # what "currentColor" means inside the logo
         attributes = {"xmlns": SVG_NAMESPACE, **attributes}
 
+    visibility = attributes.get("visibility", "").strip().lower()
+    here = _Inherited(
+        fill=attributes.get("fill", inherited.fill),
+        stroke=attributes.get("stroke", inherited.stroke),
+        visible=inherited.visible if visibility not in ("visible", "hidden", "collapse") else visibility == "visible",
+        unseen=inherited.unseen
+        or name.lower() in DEFINITIONS
+        or attributes.get("display", "").strip().lower() == "none"
+        or _is_zero(attributes.get("opacity")),
+    )
+
     written = "".join(f' {key}="{escape(value)}"' for key, value in attributes.items())
     out.append(f"<{name}{written}>")
-    drawn = name.lower() in DRAWING
+    coloured = _paints(here.fill, attributes.get("fill-opacity")) or _paints(
+        here.stroke, attributes.get("stroke-opacity")
+    )
+    painted = (name.lower() in DRAWING or name == "use") and here.visible and not here.unseen and coloured
     for child in node.iter(include_text=True):
         if child.tag == "-text":
             if name in ("text", "tspan"):
                 out.append(escape(child.text(deep=False) or ""))
             continue
-        drawn = _write(child, out, class_rules, depth=depth + 1, budget=budget) or drawn
+        painted = _write(child, out, class_rules, depth=depth + 1, budget=budget, inherited=here) or painted
     out.append(f"</{name}>")
-    return drawn
+    return painted
+
+
+def _paints(paint: str, opacity: str | None) -> bool:
+    """True when a fill or stroke puts colour down: not "none", not transparent, not fully see-through."""
+    return paint.strip().lower() not in ("none", "transparent", "") and not _is_zero(opacity)
+
+
+def _is_zero(value: str | None) -> bool:
+    """True for an opacity of 0 ("0", "0.0", "0%")."""
+    try:
+        return value is not None and float(value.strip().removesuffix("%")) == 0
+    except ValueError:
+        return False
 
 
 def _clean_attributes(node: LexborNode, class_rules: dict[str, dict[str, str]]) -> dict[str, str]:
     """The element's allowed attributes, with CSS from class rules and its style attribute folded in.
 
     The order follows CSS: a style attribute beats a class rule, which beats a plain attribute.
+    The colours the browser really drew (see the top of this file) beat them all. A value that
+    isn't safe is skipped, so the one it would have replaced stays.
     """
     raw = {key.lower(): value or "" for key, value in node.attributes.items()}
     if "xlink:href" in raw and "href" not in raw:
         raw["href"] = raw["xlink:href"]
-    merged = {key: value for key, value in raw.items() if key in ATTRIBUTES}
-    for class_name in raw.get("class", "").split():
-        merged.update(class_rules.get(class_name, {}))
-    merged.update(_declarations(raw.get("style", "")))
-
+    layers = [
+        {key: value for key, value in raw.items() if key in ATTRIBUTES},
+        *(class_rules.get(class_name, {}) for class_name in raw.get("class", "").split()),
+        _declarations(raw.get("style", "")),
+        _declarations(raw.get(PAINT_ATTRIBUTE, "")),
+    ]
     cleaned: dict[str, str] = {}
-    for key, value in merged.items():
-        value = value.strip()
-        if _safe(key, value):
-            cleaned[ATTRIBUTES[key]] = value
+    for layer in layers:
+        for key, value in layer.items():
+            value = _without_variables(value.strip())
+            if _safe(key, value):
+                cleaned[ATTRIBUTES[key]] = value
     return cleaned
+
+
+def _without_variables(value: str) -> str:
+    """var(--logo-fill, #0D0D0D) -> #0D0D0D: a CSS variable's own fallback.
+
+    The variable itself is set by the page's CSS, which isn't here. Without
+    a fallback the value is left as it is, and _safe() refuses it.
+    """
+    while (match := CSS_VARIABLE.fullmatch(value)) is not None:
+        value = match.group(1).strip()
+    return value
 
 
 def _safe(key: str, value: str) -> bool:

@@ -154,10 +154,13 @@ def homepage_structure(name: str) -> str:
 <footer><a href="/journal">Journal</a><a href="/privacy">Privacy</a></footer>"""
 
 
-def browser_page(url: str, arg: Any) -> dict[str, Any]:
-    """What a script returns in the fake browser: the homepage measured, or another page's text."""
+def browser_page(url: str, arg: Any) -> Any:
+    """What a script returns in the fake browser: the homepage measured, the logo copies drawn, or another
+    page's text."""
     if isinstance(arg, dict) and "structureSelectors" in arg:
         return browser_measurement(url)
+    if isinstance(arg, dict) and "svgs" in arg:
+        return [drawn_logo() for _svg in arg["svgs"]]
     host, path = urlsplit(url).hostname or "", urlsplit(url).path
     return {"url": url, "title": f"{_name(host)} — {path.strip('/').title()}", "text": _page_text(host, path)}
 
@@ -218,6 +221,12 @@ def browser_measurement(url: str) -> dict[str, Any]:
         "text": f"{name}\n\nTea blended in small batches, shipped the week it is packed. " * 8,
         "links": [f"https://{host}{path}" for path in ("/about", "/careers", "/press", "/journal")],
     }
+
+
+def drawn_logo(**extra: Any) -> dict[str, Any]:
+    """check_logos.js's numbers for a logo copy that looks like a real logo: a wordmark in two colours."""
+    return {"loaded": True, "width": 96, "height": 19, "ink": 0.4, "fill": 0.45, "main_colour": 0.7, "holes": 0.03,
+            **extra}  # fmt: skip
 
 
 def _page(url: str, title: str, text: str, **extra: Any) -> dict[str, Any]:

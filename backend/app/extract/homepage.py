@@ -30,6 +30,7 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 from selectolax.lexbor import LexborHTMLParser, LexborNode
 
 from app.extract.resolve import main_label, name_match, public_host, same_site, site_domain
+from app.extract.svg import detail
 from app.schemas import LogoFormat, LogoMethod
 from app.tinyfish.client import TinyFishClient
 from app.tinyfish.fetch import FetchedPage, FetchFailure, FetchResponse, fetch
@@ -88,6 +89,11 @@ CONFIDENCE_SMALL_FAVICON = 0.2  # a tab icon too small to use as a logo (16 or 3
 MAX_ALTERNATES = 4
 # Icons smaller than this (from width/height) are arrows and chevrons, not logos.
 MIN_LOGO_SIZE = 12
+# An inline SVG this simple (fewer numbers in its shapes, see svg.detail) at icon size, or named as
+# an icon, is an interface icon (a checkmark, an arrow, a menu button), not a logo.
+ICON_MAX_DETAIL = 40
+ICON_MAX_SIZE = 24  # pixels, or 1.5 em (an icon sized to the text around it)
+ICON_WORD = re.compile(r"icon|chevron|caret|arrow|check|close|menu|hamburger|search", re.IGNORECASE)
 
 # Words for parts of the page that hold the main navigation.
 TOP_WORDS = ("header", "navbar", "masthead", "topbar", "nav")
@@ -110,6 +116,8 @@ TRADEMARKS = re.compile(r"[®™©℠]")
 SHOP_WORDS = re.compile(r"^(the )?official |( official)?( online)? (shop|store)$", re.IGNORECASE)
 # Words dropped when a logo's label is used as the brand name ("Stripe logo" -> "Stripe").
 LABEL_FILLER = re.compile(r"\b(logo|logotype|wordmark|home ?page|home|link|go to|back to|return to|the)\b", re.I)
+# Words for a language or country picker, whose links ("English (US)" -> /en-US) look like links home.
+LANGUAGE_MENU = re.compile(r"language|locale|i18n|lang(uage)?[-_]?(switch|select|picker|menu)|country", re.I)
 
 LinkPlace = Literal["top", "footer", "other", "body"]
 
@@ -379,6 +387,8 @@ def _logos_on_page(tree: LexborHTMLParser, base: str, homepage: Homepage) -> lis
         is_logo = LOGO_WORD.search(words) is not None
         names_brand = len(brand) >= 3 and brand in re.sub(r"[^a-z0-9]", "", words.lower())
         in_top = _in_top(node)
+        if node.tag == "svg" and _ui_icon(node) and not _labelled_logo(node, homepage.host):
+            continue
 
         if in_home_link:
             confidence = CONFIDENCE_HOME_LINK_LOGO if is_logo or names_brand else CONFIDENCE_HOME_LINK
@@ -413,8 +423,9 @@ def _rank_logos(
 ) -> list[LogoCandidate]:
     """All candidates, best first: logos on the page, then the phone app icon, the tab icon and the share image.
 
-    The tab icon is always among them when there are others, even when it is too
-    small to be a logo, so the guide gives it a score like every other version.
+    The tab icon is always among them, even when it is too small to be a logo:
+    the guide gives it a score like every other version, and it is the logo of
+    last resort when nothing else is found (or everything else is left out later).
     """
     candidates = [candidate for _confidence, candidate in page_logos]
     touch = [icon for icon in icons if icon.rel & {"apple-touch-icon", "apple-touch-icon-precomposed"}]
@@ -436,7 +447,8 @@ def _rank_logos(
         if key not in seen:
             seen.add(key)
             ranked.append(candidate)
-    if ranked and favicon is not None and favicon.url not in seen:
+    if favicon is not None and favicon.url not in seen:
+        # Last, and the logo itself when nothing better was found.
         small = LogoCandidate("favicon", CONFIDENCE_SMALL_FAVICON, url=favicon.url, format=favicon.format)
         return [*ranked[:MAX_ALTERNATES], small]
     return ranked[: 1 + MAX_ALTERNATES]
@@ -525,9 +537,13 @@ def _describe(node: LexborNode) -> str:
 
 
 def _in_home_link(node: LexborNode, base: str, host: str, home_paths: set[str]) -> bool:
-    """True when the image is inside a link to the homepage ("/", "/home/" or "/en-us/")."""
+    """True when the image is inside a link to the homepage ("/", "/home/" or "/en-us/").
+
+    A link in a language picker ("English (US)" -> /en-US, with a checkmark
+    by the chosen one) goes to a homepage too, but it isn't the way home.
+    """
     link = _closest(node, "a")
-    if link is None:
+    if link is None or _in_language_menu(link):
         return False
     url = _absolute(link.attributes.get("href") or "", base)
     if url is None:
@@ -537,6 +553,72 @@ def _in_home_link(node: LexborNode, base: str, host: str, home_paths: set[str]) 
         return False
     path = parts.path or "/"
     return path in home_paths or re.fullmatch(r"/[a-z]{2}([-_][a-z]{2})?/?", path, re.IGNORECASE) is not None
+
+
+def _in_language_menu(link: LexborNode) -> bool:
+    """True for a link in a language or country picker: marked with hreflang, or in a list labelled as one."""
+    if link.attributes.get("hreflang") is not None:
+        return True
+    current: LexborNode | None = link
+    for _ in range(3):
+        if current is None or current.tag in ("body", "html", "-document"):
+            break
+        labels = " ".join(current.attributes.get(name) or "" for name in ("class", "id", "aria-label"))
+        if LANGUAGE_MENU.search(labels):
+            return True
+        current = current.parent
+    return False
+
+
+def _ui_icon(node: LexborNode) -> bool:
+    """True for an inline SVG that is an interface icon: a checkmark, an arrow, a menu or search button.
+
+    In plain English: its drawing is simple (a checkmark is 13 numbers, a
+    brand's mark hundreds), and it is drawn at icon size (24 px or less, or
+    about the size of the text around it) or named as an icon in its own class.
+    """
+    if detail(node.html or "") >= ICON_MAX_DETAIL:
+        return False
+    own = " ".join(node.attributes.get(name) or "" for name in ("class", "id", "data-icon", "data-testid"))
+    return _icon_sized(node) or ICON_WORD.search(own) is not None
+
+
+def _icon_sized(node: LexborNode) -> bool:
+    """True when an SVG says it is 24 px or less: by its width and height, or else by its viewBox."""
+    given = [value.strip().lower() for value in (node.attributes.get("width"), node.attributes.get("height")) if value]
+    if given:
+        return all(_icon_length(value) for value in given)
+    box = (node.attributes.get("viewbox") or node.attributes.get("viewBox") or "").replace(",", " ").split()
+    return len(box) == 4 and all(_icon_length(value) for value in box[2:])
+
+
+def _icon_length(value: str) -> bool:
+    """True for an icon size: "20", "20px", "1em" and "1.25rem" are; "120", "100%" and "auto" aren't."""
+    match = re.fullmatch(r"(\d+(?:\.\d+)?)(px|r?em)?", value)
+    if match is None:
+        return False
+    number, unit = float(match.group(1)), match.group(2) or "px"
+    return number <= (ICON_MAX_SIZE if unit == "px" else 1.5)
+
+
+def _labelled_logo(node: LexborNode, host: str) -> bool:
+    """True when an SVG or its link says it is the logo ("Vercel logo"), or its own label is the brand's name.
+
+    A simple mark can be a real logo (Vercel's triangle), and then it says so.
+    """
+    title = node.css_first("title")
+    link = _closest(node, "a")
+    words = " ".join(
+        [
+            *(node.attributes.get(name) or "" for name in ("class", "id", "aria-label", "title")),
+            title.text(deep=True) if title is not None else "",
+            *((link.attributes.get(name) or "" for name in ("aria-label", "title")) if link is not None else ()),
+        ]
+    )
+    if LOGO_WORD.search(words):
+        return True
+    label = _strip_filler(_own_label(node))
+    return bool(label) and name_match(label, main_label(host)) >= 0.7
 
 
 def _in_top(node: LexborNode) -> bool:

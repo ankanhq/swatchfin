@@ -1,8 +1,10 @@
 """Cleaning inline SVG logos (app/extract/svg.py): only shapes and colours get through."""
 
+import re
+
 import pytest
 
-from app.extract.svg import MAX_INPUT_CHARS, clean_svg, uses_current_color
+from app.extract.svg import MAX_INPUT_CHARS, clean_svg, detail, uses_current_color
 
 BOX = '<rect width="10" height="10" fill="#FF5A1F"/>'
 
@@ -147,3 +149,73 @@ def test_deeply_nested_groups_are_cut_off() -> None:
 def test_current_color_is_noticed() -> None:
     assert uses_current_color(clean('<path d="M0 0h1" fill="currentColor"/>'))
     assert not uses_current_color(clean(BOX))
+
+
+# ---------------------------------------------------------------------------
+# The colours the browser drew, and copies that would show nothing
+# ---------------------------------------------------------------------------
+
+# Shaped like Notion's header logo: the outer <svg> paints nothing, a white tile, and a dark mark
+# coloured by the page's CSS variable (which isn't in the SVG).
+TILE = '<path d="M2 2h29v30H2z" fill="#fff" data-sf-paint="fill:#FFFFFF;stroke:none"/>'
+MARK = '<path d="M8 9h4l9 13V9h3v16h-4L11 12v13H8z" fill="var(--logo-fill, var(--ink))" data-sf-paint="fill:#0D0D0D;fill-opacity:0.95;stroke:none"/>'  # noqa: E501
+
+
+def test_the_colours_the_browser_drew_win() -> None:
+    result = clean(TILE + MARK, root='viewBox="0 0 33 34" fill="none"')
+    assert 'fill="#FFFFFF"' in result
+    assert 'fill="#0D0D0D" fill-opacity="0.95"' in result
+    assert "var(" not in result and "data-sf-paint" not in result
+
+
+def test_the_browsers_colours_beat_class_rules_and_style_attributes() -> None:
+    result = clean(
+        "<style>.cls-1{fill:#f00}</style>"
+        '<path class="cls-1" style="fill:#0f0" d="M0 0h10v10H0z" data-sf-paint="fill:#0000FF;stroke:none"/>'
+    )
+    assert 'fill="#0000FF"' in result and "#f00" not in result and "#0f0" not in result
+
+
+def test_unsafe_values_from_the_browser_are_refused_too() -> None:
+    result = clean('<path d="M0 0h10v10H0z" fill="#111" data-sf-paint="fill:url(https://evil.example/x);stroke:none"/>')
+    assert "evil" not in result and 'fill="#111"' in result
+
+
+def test_a_css_variable_with_a_fallback_gets_the_fallback() -> None:
+    assert 'fill="#FF5A1F"' in clean('<path d="M0 0h10v10H0z" fill="var(--brand, #FF5A1F)"/>')
+    assert 'fill="rgb(1, 2, 3)"' in clean('<path d="M0 0h10v10H0z" fill="var(--a, var(--b, rgb(1, 2, 3)))"/>')
+
+
+@pytest.mark.parametrize(
+    "markup",
+    [
+        # The colours came from the page's CSS and were lost: everything inherits fill="none".
+        '<svg viewBox="0 0 33 34" fill="none"><path d="M2 2h29v30H2z" class="a"/><path d="M8 9h4" class="b"/></svg>',
+        '<svg viewBox="0 0 33 34" fill="none">' + re.sub(r' data-sf-paint="[^"]*"', "", MARK) + "</svg>",
+        # Hidden, see-through or only defined (a mask, a symbol nothing uses).
+        '<svg viewBox="0 0 10 10"><path d="M0 0h10v10H0z" display="none"/></svg>',
+        '<svg viewBox="0 0 10 10"><g style="visibility:hidden"><path d="M0 0h10v10H0z"/></g></svg>',
+        '<svg viewBox="0 0 10 10"><path d="M0 0h10v10H0z" opacity="0"/></svg>',
+        '<svg viewBox="0 0 10 10"><path d="M0 0h10v10H0z" fill="#000" fill-opacity="0"/></svg>',
+        '<svg viewBox="0 0 10 10"><defs><mask id="m"><path d="M0 0h10v10H0z" fill="#fff"/></mask></defs></svg>',
+        '<svg viewBox="0 0 10 10"><path d="M0 0h10v10H0z" data-sf-paint="fill:none;stroke:none"/></svg>',
+    ],
+)
+def test_a_copy_with_nothing_painted_gives_none(markup: str) -> None:
+    assert clean_svg(markup) is None
+
+
+def test_painted_parts_are_found_wherever_they_are() -> None:
+    # A stroke only, a part shown again inside a hidden group, and a shape drawn through <use>.
+    assert clean_svg('<svg viewBox="0 0 10 10" fill="none"><path d="M0 0h10" stroke="#000"/></svg>')
+    assert clean_svg(
+        '<svg viewBox="0 0 10 10"><g visibility="hidden"><path d="M0 0h10v10H0z" visibility="visible"/></g></svg>'
+    )
+    assert clean_svg('<svg viewBox="0 0 10 10"><defs><path id="p" d="M0 0h10v10H0z"/></defs><use href="#p"/></svg>')
+
+
+def test_detail_counts_the_numbers_in_a_drawing() -> None:
+    checkmark = '<svg><path d="m17.5 5.7-9.375 9.375L2.5 9.45l1.325-1.325 4.3 4.3 8.05-8.05z"/></svg>'
+    assert detail(checkmark) == 12
+    assert detail('<svg><rect width="1" height="1"/><circle r="2"/></svg>') == 8
+    assert detail("<svg><text>Larkspur</text></svg>") >= 100

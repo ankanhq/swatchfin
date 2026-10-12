@@ -58,7 +58,7 @@ from app.extract.pages import PagesRead, read_pages
 from app.extract.resolve import OfficialSite, ParsedQuery, SiteNotFound, find_official_site, main_label, name_match
 from app.extract.svg import clean_svg, uses_current_color
 from app.extract.verify import CheckedVoice, check_voice, palette_contrast
-from app.extract.visuals import Visuals, confirm_logos, fill_gaps, read_visuals
+from app.extract.visuals import Visuals, fill_gaps, read_visuals
 from app.extract.voice import DraftVoice, Excerpt, draft_voice, pick_text, source_pages
 from app.jobs import JobRun, LogoStore, Pipeline, StepFailed
 from app.llm import LLM, LLMAnswer, LLMError
@@ -198,7 +198,7 @@ def brand_pipeline(
                 visuals = await _read_styles(job, visit, homepage, pages, warnings, time_left)
                 if visuals is not None:
                     filled = fill_gaps(homepage, visuals.homepage)
-                    homepage.logos = confirm_logos(homepage.logos, visuals.homepage.logos, visuals.spots)
+                    homepage.logos = visuals.logos
                     pages.pages.extend(visuals.pages)
                     pages.skipped = [skipped for skipped in pages.skipped if not skipped.retry] + visuals.still_skipped
                     sources.append(_source(visuals.homepage.url, visuals.homepage.title, "browser"))
@@ -358,7 +358,9 @@ async def _read_styles(
         return None
     retry = [skipped for skipped in pages.skipped if skipped.retry]
     try:
-        return await read_visuals(visit, homepage.url, retry, time_limit=min(time_left, STYLES_TIME_LIMIT))
+        return await read_visuals(
+            visit, homepage.url, retry, time_limit=min(time_left, STYLES_TIME_LIMIT), logos=homepage.logos
+        )
     except (TinyFishError, BrowserUnavailable, TimeoutError) as error:
         log.warning("browser step failed for %s: %s", host, error)
     except Exception:
@@ -493,6 +495,12 @@ def _styles_warnings(visuals: Visuals, homepage: Homepage) -> list[str]:
         warnings.append(f"TinyFish Browser opened the homepage of {host} but found no colours to measure.")
     if not visuals.typography:
         warnings.append(f"TinyFish Browser opened the homepage of {host} but found no text to measure fonts from.")
+    if visuals.blank_logos:
+        count = visuals.blank_logos
+        warnings.append(
+            f"{count} logo{'s' if count != 1 else ''} drawn in the code of {host} came out blank or as one plain "
+            f"shape when copied, so {'they were' if count != 1 else 'it was'} left out."
+        )
     return warnings
 
 
@@ -602,6 +610,9 @@ async def _logo(homepage: Homepage, job_id: str, logos: LogoStore, warnings: lis
                 f"The logo on {host} takes its colour from the page around it, so Swatchfin’s copy is drawn in "
                 "black. Its colour on the page couldn’t be measured."
             )
+    if assets and assets[0].method in ("favicon", "og-image"):
+        what = "icon" if assets[0].method == "favicon" else "sharing image"
+        warnings.append(f"No usable logo was found on the homepage of {host}, so its {what} is shown as the logo.")
     return Logo(primary=assets[0] if assets else None, alternates=assets[1:], favicon=homepage.favicon)
 
 
