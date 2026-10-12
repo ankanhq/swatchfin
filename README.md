@@ -53,7 +53,7 @@ The details, what was learned from the docs and live tests, and results on three
 | Frontend | Semantic HTML, CSS custom-property design system, Bootstrap 5.3 grid and reboot (heavily customised), vanilla JavaScript (ES modules), Lucide icons, self-hosted Inter, Inter Tight and JetBrains Mono |
 | Backend | Python 3.11+, FastAPI, Uvicorn, Pydantic v2 |
 | Web data | TinyFish Search, Fetch and Browser; Playwright over CDP; selectolax |
-| Voice analysis | Anthropic Claude API, via a provider-agnostic wrapper |
+| Voice analysis | Anthropic Claude API, with Groq and Google Gemini as fallbacks, behind one wrapper |
 | Quality | pytest, ruff |
 
 The backend serves the frontend as static files, so the whole app deploys as one service.
@@ -62,7 +62,7 @@ The backend serves the frontend as static files, so the whole app deploys as one
 
 ### Set up (once per computer)
 
-You need **Python 3.11 or newer** (check with `python3 --version`) and a **TinyFish API key** from [agent.tinyfish.ai](https://agent.tinyfish.ai/api-keys). For the tone of voice and key messaging you also need an **Anthropic API key** from [console.anthropic.com](https://console.anthropic.com). Without a TinyFish key the app still runs, but every guide stops with a message that it can't read websites. Without an Anthropic key, guides have everything else, and their warnings say the tone of voice is missing.
+You need **Python 3.11 or newer** (check with `python3 --version`) and a **TinyFish API key** from [agent.tinyfish.ai](https://agent.tinyfish.ai/api-keys). For the tone of voice and key messaging you also need at least one language model key: **Anthropic** ([console.anthropic.com](https://console.anthropic.com)), **Groq** ([console.groq.com](https://console.groq.com/keys), free tier) or **Google Gemini** ([aistudio.google.com](https://aistudio.google.com/apikey), free tier). With more than one, Swatchfin asks them in turn (see [Tone of voice](#tone-of-voice-how-its-checked-and-what-it-costs)). Without a TinyFish key the app still runs, but every guide stops with a message that it can't read websites. Without any language model key, guides have everything else, and their warnings say the tone of voice is missing.
 
 ```bash
 git clone https://github.com/ankanhq/swatchfin.git
@@ -74,7 +74,7 @@ pip install -r backend/requirements-dev.txt    # the pinned packages, plus pytes
 cp .env.example .env                           # your settings and keys (git-ignored, never commit it)
 ```
 
-Then open `.env` and put your keys after `TINYFISH_API_KEY=` and `ANTHROPIC_API_KEY=`. `ANTHROPIC_MODEL` chooses the Claude model; it is `claude-sonnet-5-5` unless you set another, such as `claude-opus-5-5`.
+Then open `.env` and put your keys after `TINYFISH_API_KEY=`, `ANTHROPIC_API_KEY=`, `GROQ_API_KEY=` and `GEMINI_API_KEY=` (leave out any you don't have). `ANTHROPIC_MODEL`, `GROQ_MODEL` and `GEMINI_MODEL` choose the models (`claude-sonnet-5-5`, `openai/gpt-oss-120b` and `gemini-3.8-flash` unless you set others), and `LLM_ORDER` the order they are asked in (`anthropic,groq,gemini`).
 
 On Windows, turn the virtual environment on with `.venv\Scripts\activate` instead.
 
@@ -97,7 +97,7 @@ Every file is sent with `Cache-Control: no-cache`, so the browser re-checks it o
 
 ```bash
 pytest backend           # all backend tests, against a fake TinyFish (no network, no key needed)
-pytest backend -m live   # the tests that call the real TinyFish and Anthropic APIs (needs the keys; 1 search, 1 page, under $0.01)
+pytest backend -m live   # the tests that call the real TinyFish, Anthropic, Groq and Gemini APIs (each skipped without its key; 1 search, 1 page, under $0.01)
 ruff check backend       # code checks
 ruff format backend      # formats the Python code
 ```
@@ -121,7 +121,7 @@ Each visitor (IP address) can start 20 guides an hour and make 300 API requests 
 
 ### What a guide has today
 
-Steps 1–5 read the live site with TinyFish: finding the site (for a name), reading the homepage, choosing pages and reading them, then measuring the homepage's colours, fonts and logo in a real browser. Step 6 sends the text TinyFish read to Claude, which drafts the tone of voice and key messages with an exact quote for each claim. Step 7 looks for every quote, word for word, in that same text, drops what isn't there and says so in a warning, and grades the palette's text and background pairs for WCAG contrast. Nothing is made up to fill a gap. Each guide opens one TinyFish Browser session, which costs about $0.001 of wallet credit (set `USE_BROWSER=false` in `.env` to leave it out while developing), and makes one Claude call, which costs about $0.02–0.03 (see below). These addresses show every state of the guide page:
+Steps 1–5 read the live site with TinyFish: finding the site (for a name), reading the homepage, choosing pages and reading them, then measuring the homepage's colours, fonts and logo in a real browser. Step 6 sends the text TinyFish read to a language model (Claude; Groq, then Gemini, when it can't answer), which drafts the tone of voice and key messages with an exact quote for each claim. The guide names the model that wrote them. Step 7 looks for every quote, word for word, in that same text, drops what isn't there and says so in a warning, and grades the palette's text and background pairs for WCAG contrast. Nothing is made up to fill a gap. Each guide opens one TinyFish Browser session, which costs about $0.001 of wallet credit (set `USE_BROWSER=false` in `.env` to leave it out while developing), and usually makes one Claude call, which costs about $0.02–0.03 (see below). These addresses show every state of the guide page:
 
 | Address | What it shows |
 |---|---|
@@ -143,17 +143,37 @@ The other pages: [`about.html`](http://localhost:8000/about.html) explains how S
 
 ### Tone of voice: how it's checked, and what it costs
 
-Claude reads at most 36,000 characters of a brand's own pages (about 9,000 tokens): the homepage first, then brand, About and mission pages, with menus, footers and repeated lines removed. Its answer must follow a fixed shape, with a quote and a page address for every trait, tagline, mission and value proposition. Careers, jobs and culture pages describe how staff work, so Claude is told not to use them as evidence for traits, value propositions or the audience (a mission stated there still counts). `backend/app/extract/verify.py` then looks for each quote in the text TinyFish read, allowing only for differences in spacing, quote marks and a final full stop. A quote that isn't there is dropped, with a warning; a trait without a quote is dropped too.
+A language model reads at most 36,000 characters of a brand's own pages: the homepage first, then brand, About and mission pages, with menus, footers and repeated lines removed. Its answer must follow a fixed shape, with a quote and a page address for every trait, tagline, mission and value proposition. Careers, jobs and culture pages describe how staff work, so the model is told not to use them as evidence for traits, value propositions or the audience (a mission stated there still counts). `backend/app/extract/verify.py` then looks for each quote in the text TinyFish read, allowing only for differences in spacing, quote marks and a final full stop. A quote that isn't there is dropped, with a warning; a trait without a quote is dropped too.
 
-Measured on 10 October 2026 with `claude-sonnet-5-5`. The server logs each guide's tokens and cost (`voice for stripe.com …`); the guide itself doesn't include them:
+**Three models, asked in turn** (`backend/app/llm.py`). Swatchfin asks Claude (`claude-sonnet-5-5`) first. When it gives no usable answer for any reason (an API error, too slow, a rate limit, no credit left, a refusal, an answer in the wrong shape), the same instructions and text go to Groq (`openai/gpt-oss-120b`), then to Google Gemini (`gemini-3.8-flash`). Each model but the last gets at most 30 seconds, and all of them together 75 seconds of a guide's 150. If none answers, the guide still finishes, without a tone of voice, and one warning gives each model's reason. Every answer gets the same word-for-word check, and the guide page says which model wrote it ("Drafted by `gemini-3.8-flash`, through Google's Gemini API."). `LLM_ORDER` in `.env` changes the order or leaves a model out, and a model without a key is left out anyway. The server log says which model answered, what it cost and why any model before it didn't; the guide doesn't include costs.
 
-| Brand | Pages read | Tokens in + out | Claude cost | Claude time | Quotes found word for word |
-|---|---|---|---|---|---|
-| stripe.com | 7 | 10,388 + 1,141 | $0.032 | 10 s | 13 of 13 |
-| Patagonia | 7 | 6,157 + 1,066 | $0.023 | 8 s | 11 of 11 |
-| Duolingo | 4 | 5,087 + 1,102 | $0.021 | 8 s | 10 of 10 |
+Groq no longer serves Llama 3.3 70B: it was shut down on 16 August 2026 for free and developer accounts ([Groq deprecations](https://console.groq.com/docs/deprecations); the API answers `model_not_found`). Swatchfin uses Groq's recommended replacement, `openai/gpt-oss-120b`, which supports strict structured outputs (`GROQ_MODEL` changes it). Groq's free tier allows 8,000 tokens a minute: it refuses a longer text outright (HTTP 413), so a site near the 36,000-character budget goes to the next model. Gemini is called through its Interactions API with `store: false`, so Google doesn't keep the request as a conversation.
 
-With `claude-opus-5-5` the same Duolingo text cost $0.046 (5,087 + 1,288 tokens, 12 s), and all 12 of its quotes were found too.
+#### Benchmark: the same text, three models (12 October 2026)
+
+`tools/benchmark_voice.py` reads each site once with TinyFish, sends the identical request to every model (90 seconds each, twice, a minute apart) and runs step 7's check on each answer. Run it with `python tools/benchmark_voice.py stripe.com patagonia.com duolingo.com --rounds 2`. Both rounds together:
+
+| Site | Model | Answered | Time | Quotes found word for word | Traits kept | Tagline | Mission | Value props kept | Cost per call |
+|---|---|---|---|---|---|---|---|---|---|
+| stripe.com (7 pages) | Claude | 2 of 2 | 8.5–9.3 s | 24 of 24 | 8 of 8 | “Financial infrastructure to grow your revenue.” | “Our mission is to increase economic growth.” | 8 of 8 | $0.032 |
+| | Groq | 2 of 2 | 4.0–4.4 s | 17 of 24 | 7 of 8 | the page title, “Stripe \| Financial Infrastructure to Grow Your Revenue” | a description of the company, not its mission | 4 of 8 | free ($0.002 paid) |
+| | Gemini | 1 of 2 (busy) | 10.1 s | 14 of 14 | 4 of 4 | “Financial infrastructure to grow your revenue.” | “Our mission is to increase economic growth.” | 4 of 4 | free ($0.009 paid) |
+| patagonia.com (8 pages) | Claude | 2 of 2 | 8.3–8.5 s | 23 of 23 | 8 of 8 | “MADE FOR THE MOMENT. BUILT FOR A LIFETIME.” | none found | 8 of 8 | $0.024 |
+| | Groq | 2 of 2 | 3.2–3.3 s | 23 of 26 | 8 of 8 | the page title, “Patagonia Outdoor Clothing & Gear” | none found | 8 of 8 | free ($0.001 paid) |
+| | Gemini | 1 of 2 (busy) | 8.8 s | 14 of 14 | 4 of 4 | “MADE FOR THE MOMENT. BUILT FOR A LIFETIME.” | “Protect our home planet.” | 4 of 4 | free ($0.007 paid) |
+| duolingo.com (5 pages) | Claude | 2 of 2 | 7.9–8.5 s | 21 of 21 | 8 of 8 | “Learn a language for free” | “Develop the best education in the world and make it universally available.” | 6 of 6 | $0.023 |
+| | Groq | 2 of 2 | 3.5–4.0 s | 18 of 28 | 7 of 8 | “free. fun. effective.” | the same as Claude's | 4 of 8 | free ($0.001 paid) |
+| | Gemini | 2 of 2 | 12.9–17.5 s | 21 of 21 | 6 of 6 | “The most fun way to learn languages, chess, and more!” | the same as Claude's | 8 of 8 | free ($0.006 paid) |
+
+What the numbers say:
+
+- **Claude** answered every time, every one of its 68 quotes was found, and both rounds gave the same tagline and mission. About 8.5 s and $0.023–0.032 a guide.
+- **Gemini** was as accurate when it answered (49 of 49 quotes, the right taglines and missions) and costs nothing on the free tier, but `gemini-3.8-flash` answered "high demand" (HTTP 503) to 2 of its 6 calls. It says so within 2–4 seconds, so trying it costs the chain little time.
+- **Groq** always answered and was the fastest (3–4 s), but 20 of its 78 quotes weren't on the pages word for word: it joins two passages with "…", changes a word ("Accept payments anywhere" where the page says "Take payments anywhere") or writes non-breaking hyphens the site doesn't use. Step 7 dropped all of them, so its guides stay accurate but thinner (4 of 8 value propositions for Stripe and Duolingo). It also chose page titles as taglines, and a description of Stripe as its mission.
+
+**Recommended order: Claude, then Gemini, then Groq** (`LLM_ORDER=anthropic,gemini,groq`). Claude stays first: it was the only model that always answered and always quoted exactly. Gemini comes next because it matched Claude's accuracy, and when it is busy it fails fast. Groq is the best last resort: it is the most likely to answer, and the check keeps what it gets wrong out of the guide. The default is still Claude, Groq, Gemini, the order this feature was built with; the line above in `.env` applies the recommendation.
+
+Token counts depend on each model's tokenizer: the same Stripe text was 10,670 input tokens for Claude, 6,156 for Groq and 5,921 for Gemini. On 10 October, `claude-opus-5-5` read Duolingo's text for $0.046 (12 s), with all 12 of its quotes found.
 
 ### Tested on 13 live sites (Phase 9)
 
