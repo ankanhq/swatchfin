@@ -18,7 +18,8 @@
  * 4. lists the web fonts the page loaded;
  * 5. copies the <head>, header, nav, footer and logo parts of the page as
  *    HTML, the same parts Fetch reads, with a number on each image and SVG
- *    so Python can find their size, visibility and colour on the page;
+ *    so Python can find their size, visibility and colour on the page, and
+ *    the colours each part of an SVG is drawn in written on the part;
  * 6. copies the page's visible text and its links.
  *
  * Everything it returns is checked again in Python: a page's own scripts
@@ -364,6 +365,78 @@ async (options) => {
     }
   }
 
+  /*
+   * The colours the browser drew each part of an SVG in, written on the part:
+   * data-sf-paint="fill:#0D0D0D;fill-opacity:0.95;stroke:none". Many logos take
+   * their colours from the page's own CSS (a class rule, a CSS variable,
+   * "currentColor"), which a copy of the SVG alone would lose: Notion's
+   * header logo would come out as a blank white square. svg.py uses these
+   * colours first. Parts drawn through a <use> (a <symbol>, or anything a
+   * <use> points to) are left alone: their colours come from the <use>.
+   */
+  const SHAPES = new Set(['path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'text', 'tspan', 'use']);
+  const GROUPS = new Set(['g', 'svg', 'a']);
+  const DEFINITIONS = new Set(['symbol', 'clippath', 'defs', 'mask', 'lineargradient', 'radialgradient', 'pattern', 'marker']);
+  const MAX_PAINTED = 6000;
+  let painted = 0;
+
+  /** A fill or stroke as "#RRGGBB" with its opacity, or "none"; null for a gradient or pattern (left as it is). */
+  function paintOf(value, opacity) {
+    if (!value || /^url\(/i.test(value)) return null;
+    const colour = value === 'none' ? null : toRgba(value);
+    if (!colour) return ['none'];
+    const own = opacity === '' || Number.isNaN(Number(opacity)) ? 1 : Number(opacity);
+    const alpha = Math.round(colour[3] * own * 1000) / 1000;
+    return alpha < 1 ? [hex(colour), alpha] : [hex(colour)];
+  }
+
+  function bakePaint(svg) {
+    // A logo hidden as a whole (a copy in a closed phone menu) keeps its parts' own visibility.
+    const shown = getComputedStyle(svg).visibility !== 'hidden';
+    const shared = new Set();
+    for (const use of svg.querySelectorAll('use')) {
+      const target = use.getAttribute('href') || use.getAttribute('xlink:href') || '';
+      if (target.startsWith('#')) shared.add(target.slice(1));
+    }
+    for (const part of svg.querySelectorAll('*')) {
+      if (painted >= MAX_PAINTED) return;
+      const tag = part.tagName.toLowerCase();
+      if (!SHAPES.has(tag) && !GROUPS.has(tag) && tag !== 'stop') continue;
+      let defined = false;
+      let drawnThroughUse = false;
+      for (let node = part; node && node !== svg; node = node.parentElement) {
+        const name = node.tagName.toLowerCase();
+        if (name === 'symbol' || name === 'clippath' || (node.id && shared.has(node.id))) drawnThroughUse = true;
+        if (node !== part && DEFINITIONS.has(name)) defined = true;
+      }
+      if (drawnThroughUse) continue;
+      const style = getComputedStyle(part);
+      const paint = [];
+      if (tag === 'stop') {
+        const stop = paintOf(style.stopColor, style.stopOpacity);
+        if (stop && stop[0] !== 'none') paint.push(`stop-color:${stop[0]}`, `stop-opacity:${stop[1] ?? 1}`);
+      } else {
+        if (SHAPES.has(tag)) {
+          for (const name of ['fill', 'stroke']) {
+            const value = paintOf(style[name], style[`${name}Opacity`]);
+            if (!value) continue;
+            paint.push(`${name}:${value[0]}`);
+            if (value.length > 1) paint.push(`${name}-opacity:${value[1]}`);
+          }
+          if (style.stroke !== 'none' && style.strokeWidth) paint.push(`stroke-width:${style.strokeWidth}`);
+          if (!defined && shown && style.visibility === 'hidden') paint.push('visibility:hidden');
+        }
+        // Parts the page hides or fades with CSS (a dark-mode version of the logo, say).
+        if (!defined && style.display === 'none') paint.push('display:none');
+        if (Number(style.opacity) < 1) paint.push(`opacity:${Math.round(Number(style.opacity) * 1000) / 1000}`);
+      }
+      if (paint.length) {
+        part.setAttribute('data-sf-paint', paint.join(';'));
+        painted += 1;
+      }
+    }
+  }
+
   const logos = [];
   for (const part of parts) {
     if (part === document.head) continue;
@@ -373,6 +446,7 @@ async (options) => {
       if (image.tagName.toLowerCase() === 'svg' && image.parentElement && image.parentElement.closest('svg')) continue;
       const id = String(logos.length + 1);
       image.setAttribute('data-sf-id', id);
+      if (image.tagName.toLowerCase() === 'svg') bakePaint(image);
       const rect = image.getBoundingClientRect();
       const colour = toRgba(getComputedStyle(image).color);
       logos.push({

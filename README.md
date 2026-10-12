@@ -20,7 +20,7 @@
 Swatchfin is in active development. Today it finds a brand's site, reads its homepage and up to nine more pages with TinyFish, opens the homepage in a real browser, and returns its name, description, logo (confirmed on the page, including logos drawn with SVG code), colour palette with roles, WCAG contrast checks, typography, tone of voice and key messaging (every claim backed by a quote found word for word on the site) and sources. Every guide downloads as JSON, CSS, a Tailwind theme, W3C Design Tokens and a voice prompt.
 
 - **Name or URL in, brand guide out.** Give it `duolingo` or `https://www.duolingo.com` and it finds the official site itself.
-- **Logo**: found in the page header, inline SVG, Open Graph image or favicon, with a download link.
+- **Logo**: found in the page header, inline SVG, Open Graph image or favicon, with a download link. A logo drawn with SVG code is copied in the colours the browser really drew it in, and a copy that comes out blank or as a plain shape is left out; interface icons (checkmarks, arrows) are never taken as logos, and the site's icon is the logo of last resort.
 - **Colour palette with roles**: primary, secondary, accent, background, text, link and more, taken from the computed styles of real page elements rather than guessed from a screenshot.
 - **Contrast checks**: a WCAG contrast matrix for the palette, with AA/AAA badges.
 - **Typography**: heading, body and UI fonts, weights and sizes, with live specimens.
@@ -37,7 +37,7 @@ Swatchfin uses three TinyFish APIs, and each one has a distinct job in the pipel
 |---|---|
 | **Search** | Turns a company name into its official domain, and finds the brand's own pages that its homepage doesn't link to (brand guidelines, press kits, and About or careers pages on sites built with JavaScript). |
 | **Fetch** | Reads the live homepage twice at once: its `<head>`, header, navigation, footer and logo word for word (for the logo, icons, meta tags and links), and its main text as markdown. Then reads up to 9 more pages as markdown (About, Mission, Careers, Press, Blog, Product) for voice and messaging. |
-| **Browser** | Opens the homepage in a real browser (one short session per guide, always ended) and reads the **computed** colours and fonts of real elements: buttons, headings, body text, links, navigation. Confirms the logo on the page, and reads what Fetch can't: the homepage and up to 3 pages of sites built with JavaScript. About a tenth of a cent of wallet credit per guide. |
+| **Browser** | Opens the homepage in a real browser (one short session per guide, always ended) and reads the **computed** colours and fonts of real elements: buttons, headings, body text, links, navigation. Confirms the logo on the page and copies SVG logos in the colours it really draws (then draws each copy in a blank tab to check it shows a logo), and reads what Fetch can't: the homepage and up to 3 pages of sites built with JavaScript. About a tenth of a cent of wallet credit per guide. |
 
 ```
 name or URL → Search (resolve) → Fetch (homepage) → Search + links (choose pages) → Fetch (pages)

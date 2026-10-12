@@ -29,7 +29,7 @@ from app.schemas import Job
 from app.tinyfish.browser import BrowserDriver, BrowserUnavailable, wait_for_endings
 from app.tinyfish.client import TinyFishClient
 from tests.fake_llm import FakeLLM, larkspur_draft
-from tests.fake_tinyfish import FakeBrowserDriver, FakeTinyFish
+from tests.fake_tinyfish import FakeBrowserDriver, FakeTinyFish, browser_page, drawn_logo
 
 pytestmark = pytest.mark.anyio
 
@@ -299,9 +299,10 @@ async def test_the_browser_session_is_ended_when_the_guide_is_done(settings: Set
     assert fake.sessions_opened == fake.sessions_ended == ["br-test-1"]
     assert fake.driver.disconnected == 1
     assert job.tinyfish_usage.browser_sessions == 1
-    # It opened at the homepage address and measured it; then it read the page Fetch couldn't.
+    # It opened at the homepage address and measured it, drew the logo copy in a blank tab, then read
+    # the page Fetch couldn't.
     assert json.loads(fake.calls("api.browser.tinyfish.ai")[0].content)["url"] == "https://larkspur.example/"
-    assert fake.driver.runs == ["https://larkspur.example/", "https://larkspur.example/press"]
+    assert fake.driver.runs == ["https://larkspur.example/", "about:blank", "https://larkspur.example/press"]
 
 
 async def test_the_browser_session_is_ended_when_the_guide_fails(settings: Settings) -> None:
@@ -360,6 +361,30 @@ async def test_a_measurement_in_the_wrong_shape_is_not_used(settings: Settings) 
     assert job.status == "complete"
     assert job.guide is not None and job.guide.colors == []
     assert job.steps[4].status == "skipped"
+
+
+async def test_a_logo_that_comes_out_as_a_plain_shape_gives_way_to_the_sites_icon(settings: Settings) -> None:
+    # The browser draws the copy of the inline SVG logo as one plain shape (a white square, say).
+    def answer(url: str, arg: Any) -> Any:
+        if isinstance(arg, dict) and "svgs" in arg:
+            return [drawn_logo(main_colour=1.0, fill=0.92, holes=0.0) for _svg in arg["svgs"]]
+        return browser_page(url, arg)
+
+    job = await run(settings, "larkspur.example", browser=FakeBrowserDriver(answer))
+    guide = job.guide
+    assert guide is not None and guide.logo.primary is not None
+    assert (guide.logo.primary.method, guide.logo.primary.url) == (
+        "favicon",
+        "https://larkspur.example/apple-touch-icon.png",
+    )
+    assert all(asset.method != "inline-svg" for asset in guide.logo.alternates)
+    assert (
+        "1 logo drawn in the code of larkspur.example came out blank or as one plain shape when copied, so it was "
+        "left out."
+    ) in guide.warnings
+    assert "No usable logo was found on the homepage of larkspur.example, so its icon is shown as the logo." in (
+        guide.warnings
+    )
 
 
 async def test_with_the_browser_turned_off_no_session_is_opened(settings: Settings) -> None:

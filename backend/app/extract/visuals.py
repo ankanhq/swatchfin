@@ -11,7 +11,10 @@ Browser session (tinyfish/browser.py) to:
 2. Turn those measurements into the guide's colour palette, each colour
    with a role (palette() below), and its typography (typography()).
 3. Check the logo Fetch found: is it really on the page, visible, how big,
-   and in what colour (confirm_logos()).
+   and in what colour (confirm_logos()). A logo drawn with SVG code is
+   copied with the colours the browser really drew it in, and each copy is
+   drawn in a blank tab: one that comes out blank or as one plain shape is
+   left out (check_drawings(), with check_logos.js).
 4. Fill the gaps Fetch leaves on sites built with JavaScript, like
    Duolingo: the logo, icons, description and text of the homepage as the
    browser drew it, and up to 3 pages Fetch couldn't read.
@@ -27,13 +30,13 @@ import logging
 import math
 import re
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 from app.extract.contrast import chroma, contrast_ratio, delta_e, lightness, rgb
 from app.extract.discover import PageKind
@@ -47,7 +50,7 @@ from app.extract.homepage import (
 )
 from app.extract.pages import MIN_TEXT_LENGTH, ReadPage, SkippedPage
 from app.extract.resolve import same_site
-from app.extract.svg import fingerprint, uses_current_color
+from app.extract.svg import clean_svg, fingerprint, uses_current_color
 from app.schemas import Color, ColorRole, Font, FontRole
 from app.tinyfish.browser import BrowserPage, BrowserUnavailable, BrowserVisit
 from app.tinyfish.fetch import FetchedPage, FetchResponse
@@ -73,8 +76,22 @@ TEXT_SCRIPT = """() => ({
   text: (document.body ? document.body.innerText : '').slice(0, 100000),
 })"""
 
-# Time limits, in seconds: measuring the homepage, and reading each other page.
+# The logo check (check_logos.js), run in a blank tab where no website's rules apply.
+CHECK_SCRIPT = Path(__file__).with_name("check_logos.js").read_text(encoding="utf-8")
+BLANK_PAGE = "about:blank"
+CHECK_SIZE = 96  # pixels, the copy's longer side
+# A copy with less ink than this share of its picture is blank...
+BLANK_INK = 0.005
+# ...and one that is one colour filling this much of its box, without holes, is one plain shape
+# (a white square, a disc): not a logo.
+PLAIN_COLOUR = 0.95
+PLAIN_FILL = 0.7
+PLAIN_HOLES = 0.01
+
+# Time limits, in seconds: measuring the homepage, checking the logo copies, and reading each other page.
 MEASURE_TIME_LIMIT = 45.0
+CHECK_TIME_LIMIT = 10.0
+MIN_CHECK_TIME = 3.0
 PAGE_TIME_LIMIT = 15.0
 # Pages Fetch couldn't read that the browser tries, at most.
 MAX_BROWSER_PAGES = 3
@@ -277,6 +294,32 @@ class _PageText(_Data):
     text: str = ""
 
 
+class Drawing(_Data):
+    """What check_logos.js saw when it drew one logo copy (shares from 0 to 1)."""
+
+    loaded: bool = False
+    width: int = 0
+    height: int = 0
+    # Solid pixels, as a share of the whole picture.
+    ink: float = 0
+    # Solid pixels, as a share of the box around them.
+    fill: float = 0
+    # The share of the solid pixels in the most used colour.
+    main_colour: float = 0
+    # See-through holes inside the box, as a share of it.
+    holes: float = 0
+
+    def problem(self) -> str | None:
+        """Why this copy isn't a usable logo, or None when it is."""
+        if not self.loaded:
+            return "it can’t be shown as an image"
+        if self.ink < BLANK_INK:
+            return "it came out blank"
+        if self.main_colour >= PLAIN_COLOUR and self.fill >= PLAIN_FILL and self.holes < PLAIN_HOLES:
+            return "it came out as one plain shape"
+        return None
+
+
 # ---------------------------------------------------------------------------
 # The step
 # ---------------------------------------------------------------------------
@@ -292,6 +335,10 @@ class Visuals:
     homepage: Homepage
     # Where each numbered image or SVG was on the page (see LogoSpot).
     spots: dict[str, LogoSpot]
+    # Fetch's logo candidates checked on the page (confirm_logos), plus any only the browser saw,
+    # best first, and how many logo drawings were left out as blank (check_drawings).
+    logos: list[LogoCandidate] = field(default_factory=list)
+    blank_logos: int = 0
     # Pages Fetch couldn't read that the browser did, and the ones it couldn't either.
     pages: list[ReadPage] = field(default_factory=list)
     still_skipped: list[SkippedPage] = field(default_factory=list)
@@ -303,9 +350,11 @@ async def read_visuals(
     retry: list[SkippedPage],
     *,
     time_limit: float,
+    logos: Sequence[LogoCandidate] = (),
 ) -> Visuals:
-    """Measures the homepage in the browser, then reads the pages in `retry` while time allows.
+    """Measures the homepage in the browser, checks the logos, then reads the pages in `retry` while time allows.
 
+    `logos` are the candidates Fetch found (see confirm_logos and check_drawings).
     Raises TinyFishError, BrowserUnavailable or TimeoutError when the homepage can't be measured.
     """
     loop = asyncio.get_running_loop()
@@ -333,7 +382,12 @@ async def read_visuals(
         typography=typography(measurement),
         homepage=seen,
         spots=spots,
+        logos=confirm_logos(list(logos), seen.logos, spots),
     )
+    if remaining() >= MIN_CHECK_TIME:
+        visuals.logos, visuals.blank_logos = await check_drawings(
+            page, visuals.logos, time_limit=min(CHECK_TIME_LIMIT, remaining())
+        )
 
     for skipped in retry:
         kind = skipped.kind
@@ -452,8 +506,51 @@ def confirm_logos(
             spot = _spot_by_address(candidate, spots)
         if _photo(spot):
             continue
-        merged.append(_checked(candidate, spot))
+        merged.append(_checked(candidate, spot, twin))
     return _top(sorted(merged, key=lambda candidate: -candidate.confidence))
+
+
+async def check_drawings(
+    page: BrowserPage, logos: list[LogoCandidate], *, time_limit: float
+) -> tuple[list[LogoCandidate], int]:
+    """The logos without the SVG drawings whose copy isn't a usable logo, and how many were left out.
+
+    In plain English: make the copy of each logo drawn with SVG code that
+    Swatchfin would serve (svg.py), and draw them all in a blank tab of the
+    browser (check_logos.js). A copy that can't be shown, comes out blank, or
+    comes out as one plain shape (a white square, because the colours the
+    page gave it were lost) is left out, so the next best version is used:
+    another drawing, the phone app icon or the tab icon. If the check itself
+    can't run, every logo is kept as it is.
+    """
+    copies: list[tuple[int, str]] = []
+    unusable: set[int] = set()
+    for index, candidate in enumerate(logos):
+        if candidate.method != "inline-svg":
+            continue
+        copy = clean_svg(candidate.svg or "", color=candidate.color)
+        if copy is None:
+            unusable.add(index)  # nothing safe and painted is left in it: blank
+        else:
+            copies.append((index, copy))
+    if copies:
+        try:
+            raw = await page.run(
+                BLANK_PAGE, CHECK_SCRIPT, {"svgs": [copy for _index, copy in copies], "size": CHECK_SIZE},
+                time_limit=time_limit,
+            )  # fmt: skip
+            drawings = TypeAdapter(list[Drawing]).validate_python(raw)
+        except (BrowserUnavailable, ValidationError) as error:
+            log.info("couldn't check the logo drawings: %s", str(error)[:200])
+            drawings = []
+        if len(drawings) == len(copies):
+            for (index, _copy), drawing in zip(copies, drawings, strict=True):
+                if (problem := drawing.problem()) is not None:
+                    log.info("left out logo drawing %d of %d: %s", index + 1, len(logos), problem)
+                    unusable.add(index)
+            log.info("checked %d logo drawing(s) in a blank tab", len(copies))
+    kept = [candidate for index, candidate in enumerate(logos) if index not in unusable]
+    return kept, len(unusable)
 
 
 def logo_colours(logos: list[LogoCandidate], spots: dict[str, LogoSpot]) -> list[str]:
@@ -498,7 +595,12 @@ def _shown(spot: LogoSpot | None) -> bool:
     return spot is not None and spot.visible and spot.w >= CONFIRM_MIN_WIDTH and spot.h >= CONFIRM_MIN_HEIGHT
 
 
-def _checked(candidate: LogoCandidate, spot: LogoSpot | None) -> LogoCandidate:
+def _checked(candidate: LogoCandidate, spot: LogoSpot | None, twin: LogoCandidate | None = None) -> LogoCandidate:
+    """A candidate with what the browser saw: more or less confidence, its size on screen and its colour.
+
+    An SVG takes the browser's copy of its code (`twin`), which carries the
+    colours each part was drawn in (see measure_page.js).
+    """
     if spot is None or candidate.method not in PAGE_LOGOS:
         return candidate
     shown = _shown(spot)
@@ -511,7 +613,7 @@ def _checked(candidate: LogoCandidate, spot: LogoSpot | None) -> LogoCandidate:
         method=candidate.method,
         confidence=round(confidence, 2),
         url=candidate.url,
-        svg=candidate.svg,
+        svg=twin.svg if candidate.svg and twin is not None and twin.svg else candidate.svg,
         format=candidate.format,
         label=candidate.label,
         element_id=candidate.element_id,

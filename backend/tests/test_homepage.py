@@ -106,10 +106,12 @@ def test_a_small_tab_icon_is_listed_last_with_its_own_score() -> None:
     )
 
 
-def test_a_small_tab_icon_alone_is_not_made_the_logo() -> None:
+def test_a_small_tab_icon_alone_is_the_logo_of_last_resort() -> None:
     head = '<head><link rel="icon" href="/favicon-32.png" sizes="32x32"></head>'
     homepage = build(head + FOOTER)
-    assert homepage.logos == []
+    assert [(logo.method, logo.url, logo.confidence) for logo in homepage.logos] == [
+        ("favicon", "https://www.larkspur.example/favicon-32.png", 0.2)
+    ]
     assert homepage.favicon == "https://www.larkspur.example/favicon-32.png"
 
 
@@ -280,3 +282,62 @@ async def test_read_homepage_asks_fetch_for_two_reads_at_once() -> None:
     assert "include_selectors" not in content
     assert homepage.logos[0].method == "inline-svg"
     assert homepage.text == "# Larkspur Tea"
+
+
+# ---------------------------------------------------------------------------
+# Interface icons are not logos
+# ---------------------------------------------------------------------------
+
+CHECKMARK = '<path fill="currentColor" d="m17.5 5.7-9.375 9.375L2.5 9.45l1.325-1.325 4.3 4.3 8.05-8.05z"></path>'
+
+
+def svg_logos(homepage: Any) -> list[str]:
+    return [logo.svg or "" for logo in homepage.logos if logo.method == "inline-svg"]
+
+
+def test_a_checkmark_in_the_language_picker_is_not_a_logo() -> None:
+    # Notion's language menu: each language links to its homepage (/en-US), the chosen one with a checkmark
+    # whose icon class happens to carry the brand's name.
+    picker = (
+        '<footer><ul aria-label="Languages"><li><a href="/en-US">English (US)'
+        f'<svg aria-hidden="true" viewBox="0 0 20 20" width="1em" class="LarkspurIconSvgWrapper">{CHECKMARK}</svg>'
+        "</a></li></ul></footer>"
+    )
+    assert svg_logos(build(HEAD + picker)) == []
+
+
+def test_a_link_in_a_language_picker_is_not_the_way_home() -> None:
+    # Even a detailed drawing there (a flag) isn't the logo just because it links to /en-gb.
+    flag = '<svg viewBox="0 0 60 30" width="60" height="30"><path d="' + "M0 0h1v1H0z" * 20 + '"/></svg>'
+    for link in (
+        f'<a href="/en-gb" hreflang="en-GB">{flag}</a>',
+        f'<div class="locale-switcher"><a href="/en-gb">{flag}</a></div>',
+    ):
+        assert svg_logos(build(HEAD + f"<footer>{link}</footer>")) == []
+
+
+@pytest.mark.parametrize(
+    "icon",
+    [
+        f'<svg viewBox="0 0 20 20" width="20" height="20">{CHECKMARK}</svg>',  # icon-sized
+        f'<svg viewBox="0 0 24 24">{CHECKMARK}</svg>',  # sized by its viewBox
+        f'<svg viewBox="0 0 512 512" class="svg-inline--fa fa-chevron-down">{CHECKMARK}</svg>',  # named as an icon
+    ],
+)
+def test_a_simple_icon_in_the_home_link_is_not_a_logo(icon: str) -> None:
+    # A "home" button in the header links home, but it is an icon.
+    assert svg_logos(build(HEAD + f'<header><a href="/">{icon}</a></header>')) == []
+
+
+def test_a_simple_mark_labelled_as_the_logo_is_kept() -> None:
+    # Vercel's logo is one triangle: simple, but its link says it is the logo.
+    triangle = '<svg viewBox="0 0 76 65" height="22"><path d="M37.5 0L75 65H0L37.5 0Z"/></svg>'
+    homepage = build(HEAD + f'<header><a href="/" aria-label="Larkspur Tea logo">{triangle}</a></header>')
+    assert len(svg_logos(homepage)) == 1
+
+
+def test_a_detailed_logo_named_like_an_icon_is_kept() -> None:
+    # GitHub's mark is an "octicon", 32 px, and far from simple.
+    shape = "M1 1h2v2H1z" * 12
+    mark = f'<svg height="32" viewBox="0 0 24 24" class="octicon octicon-mark"><path d="{shape}"/></svg>'
+    assert len(svg_logos(build(HEAD + f'<header><a href="/">{mark}</a></header>'))) == 1
