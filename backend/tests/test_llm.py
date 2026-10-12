@@ -18,7 +18,7 @@ import pytest
 from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError
 
 from app.config import Settings
-from app.llm import AnthropicLLM, FallbackLLM, GeminiLLM, GroqLLM, LLMError, LLMUsage
+from app.llm import ATTEMPT_TIME_LIMIT, AnthropicLLM, FallbackLLM, GeminiLLM, GroqLLM, LLMError, LLMUsage
 from app.main import language_models
 from tests.fake_llm import FakeLLM
 
@@ -428,12 +428,12 @@ async def ask_all(llm: FallbackLLM, time_limit: float = 75) -> Any:
 
 
 async def test_the_first_model_that_answers_is_used_and_the_rest_arent_asked() -> None:
-    claude, groq_model, gemini_model = claude_fake(ANSWER), groq_fake(ANSWER), gemini_fake(ANSWER)
-    result = await ask_all(FallbackLLM([claude, groq_model, gemini_model]))
+    claude, gemini_model, groq_model = claude_fake(ANSWER), gemini_fake(ANSWER), groq_fake(ANSWER)
+    result = await ask_all(FallbackLLM([claude, gemini_model, groq_model]))
     assert result.data == ANSWER
     assert (result.usage.api, result.usage.model) == ("anthropic", "claude-sonnet-5-5")
     assert result.failures == ()
-    assert len(claude.calls) == 1 and groq_model.calls == [] and gemini_model.calls == []
+    assert len(claude.calls) == 1 and gemini_model.calls == [] and groq_model.calls == []
 
 
 @pytest.mark.parametrize(
@@ -452,12 +452,12 @@ async def test_the_first_model_that_answers_is_used_and_the_rest_arent_asked() -
     ids=["error", "timeout", "rate-limit", "out-of-credit", "refusal"],
 )
 async def test_any_failure_moves_on_to_the_next_model_with_the_same_request(failure: LLMError) -> None:
-    claude, groq_model = claude_fake(failure), groq_fake(ANSWER)
-    result = await ask_all(FallbackLLM([claude, groq_model, gemini_fake(ANSWER)]))
-    assert (result.usage.api, result.usage.model) == ("groq", "openai/gpt-oss-120b")
+    claude, gemini_model = claude_fake(failure), gemini_fake(ANSWER)
+    result = await ask_all(FallbackLLM([claude, gemini_model, groq_fake(ANSWER)]))
+    assert (result.usage.api, result.usage.model) == ("gemini", "gemini-3.8-flash")
     assert result.failures == (f"claude-sonnet-5-5: {failure.reason}",)
     assert {key: claude.calls[0][key] for key in ("system", "prompt", "max_tokens")} == {
-        key: groq_model.calls[0][key] for key in ("system", "prompt", "max_tokens")
+        key: gemini_model.calls[0][key] for key in ("system", "prompt", "max_tokens")
     }
 
 
@@ -466,24 +466,24 @@ async def test_a_crash_in_one_model_moves_on_too() -> None:
         async def ask(self, **kwargs: Any) -> Any:
             raise KeyError("choices")
 
-    result = await ask_all(FallbackLLM([Broken(api="groq", model="openai/gpt-oss-120b"), gemini_fake(ANSWER)]))
-    assert result.usage.api == "gemini"
-    assert result.failures == ("openai/gpt-oss-120b: something went wrong while asking Groq",)
+    result = await ask_all(FallbackLLM([Broken(api="gemini", model="gemini-3.8-flash"), groq_fake(ANSWER)]))
+    assert result.usage.api == "groq"
+    assert result.failures == ("gemini-3.8-flash: something went wrong while asking Gemini",)
 
 
 async def test_when_every_model_fails_the_error_gives_each_reason() -> None:
     models = FallbackLLM(
         [
             claude_fake(LLMError("this Swatchfin server’s Anthropic account is out of credit", retry=False)),
-            groq_fake(LLMError("the text was longer than this Swatchfin server’s Groq plan allows", retry=False)),
             gemini_fake(LLMError("Gemini’s rate limit was reached")),
+            groq_fake(LLMError("the text was longer than this Swatchfin server’s Groq plan allows", retry=False)),
         ]
     )
     with pytest.raises(LLMError) as caught:
         await ask_all(models)
     assert caught.value.reason == (
-        "no language model gave a usable answer (this Swatchfin server’s Anthropic account is out of credit; the "
-        "text was longer than this Swatchfin server’s Groq plan allows; Gemini’s rate limit was reached)"
+        "no language model gave a usable answer (this Swatchfin server’s Anthropic account is out of credit; "
+        "Gemini’s rate limit was reached; the text was longer than this Swatchfin server’s Groq plan allows)"
     )
     # Gemini's rate limit may have passed by the next try.
     assert caught.value.retry is True
@@ -498,13 +498,13 @@ async def test_with_only_one_model_its_own_error_is_raised() -> None:
 
 async def test_each_model_but_the_last_gets_a_share_of_the_time() -> None:
     claude = claude_fake(LLMError("Anthropic’s API was busy or unavailable"))
-    groq_model = groq_fake(LLMError("Groq’s API was busy or unavailable"))
-    gemini_model = gemini_fake(ANSWER)
-    await ask_all(FallbackLLM([claude, groq_model, gemini_model], attempt_time_limit=35), time_limit=75)
-    assert claude.calls[0]["time_limit"] == 35
-    assert groq_model.calls[0]["time_limit"] == 35
+    gemini_model = gemini_fake(LLMError("Gemini’s API was busy or unavailable"))
+    groq_model = groq_fake(ANSWER)
+    await ask_all(FallbackLLM([claude, gemini_model, groq_model]), time_limit=75)
+    assert claude.calls[0]["time_limit"] == ATTEMPT_TIME_LIMIT == 30
+    assert gemini_model.calls[0]["time_limit"] == 30
     # The last model gets whatever is left.
-    assert 74 < gemini_model.calls[0]["time_limit"] <= 75
+    assert 74 < groq_model.calls[0]["time_limit"] <= 75
 
 
 async def test_a_model_isnt_asked_without_enough_time_left() -> None:
@@ -515,15 +515,15 @@ async def test_a_model_isnt_asked_without_enough_time_left() -> None:
             raise LLMError("Claude took too long to answer")
 
     claude = Slow(api="anthropic", model="claude-sonnet-5-5")
-    groq_model, gemini_model = groq_fake(ANSWER), gemini_fake(ANSWER)
-    models = FallbackLLM([claude, groq_model, gemini_model], attempt_time_limit=0.2, min_attempt_time=0.1)
+    gemini_model, groq_model = gemini_fake(ANSWER), groq_fake(ANSWER)
+    models = FallbackLLM([claude, gemini_model, groq_model], attempt_time_limit=0.2, min_attempt_time=0.1)
     with pytest.raises(LLMError) as caught:
         await ask_all(models, time_limit=0.25)
     assert caught.value.reason == (
         "no language model gave a usable answer (Claude took too long to answer; there was no time left to ask "
-        "Groq or Gemini)"
+        "Gemini or Groq)"
     )
-    assert groq_model.calls == [] and gemini_model.calls == []
+    assert gemini_model.calls == [] and groq_model.calls == []
 
 
 async def test_closing_the_row_closes_every_model() -> None:
@@ -539,12 +539,14 @@ async def test_closing_the_row_closes_every_model() -> None:
 
 def test_every_model_with_a_key_is_used_in_llm_order(make_settings: Callable[..., Settings]) -> None:
     settings = make_settings(anthropic_api_key="a-key", groq_api_key="g-key", gemini_api_key="m-key")
+    # The default order, from the benchmark: Claude, then Gemini, then Groq.
+    assert settings.llm_apis == ["anthropic", "gemini", "groq"]
     llm = language_models(settings, httpx2.AsyncClient())
     assert llm is not None
     assert [(model.api, model.model) for model in llm.models] == [
         ("anthropic", "claude-sonnet-5-5"),
-        ("groq", "openai/gpt-oss-120b"),
         ("gemini", "gemini-3.8-flash"),
+        ("groq", "openai/gpt-oss-120b"),
     ]
     # Claude doesn't wait to retry a busy moment when another model comes after it.
     claude = llm.models[0]

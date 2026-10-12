@@ -63,7 +63,7 @@ This is a real portfolio-grade product, not a demo hack. Code quality, design qu
 - **httpx2** for the TinyFish REST APIs (no SDK: full control of timeouts and retries, and easy to fake in tests)
 - **Playwright** (Python) connecting to TinyFish Browser via `connect_over_cdp`
 - **selectolax** for HTML parsing
-- LLM for voice/messaging analysis: provider-agnostic wrapper (`backend/app/llm.py`) with a fallback chain (`LLM_ORDER`, default `anthropic,groq,gemini`): **Anthropic Claude API** through the official `anthropic` SDK (`ANTHROPIC_MODEL`, default `claude-sonnet-5-5`), then **Groq** (`GROQ_MODEL`, default `openai/gpt-oss-120b`; Llama 3.3 70B was shut down on 16 August 2026) and **Google Gemini** (`GEMINI_MODEL`, default `gemini-3.8-flash`, Interactions API with `store: false`), both over REST with httpx2. Keys `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY` from `.env`; a model without a key is left out
+- LLM for voice/messaging analysis: provider-agnostic wrapper (`backend/app/llm.py`) with a fallback chain (`LLM_ORDER`, default `anthropic,gemini,groq`, the order the benchmark recommended): **Anthropic Claude API** through the official `anthropic` SDK (`ANTHROPIC_MODEL`, default `claude-sonnet-5-5`), then **Google Gemini** (`GEMINI_MODEL`, default `gemini-3.8-flash`, Interactions API with `store: false`) and **Groq** (`GROQ_MODEL`, default `openai/gpt-oss-120b`; Llama 3.3 70B was shut down on 16 August 2026), both over REST with httpx2. Keys `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY` from `.env`; a model without a key is left out
 - **pytest** for tests, **ruff** for lint/format
 - FastAPI also serves `/frontend` as static files, so the whole app deploys as **one service** (e.g. Render).
 

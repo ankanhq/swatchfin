@@ -1,4 +1,4 @@
-"""Compares the language models for step 6 (Claude, Groq, Gemini) on the same brand text.
+"""Compares the language models for step 6 (Claude, Gemini, Groq) on the same brand text.
 
 Run it from the repo root, with the virtual environment turned on and the keys in .env:
 

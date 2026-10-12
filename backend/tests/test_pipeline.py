@@ -515,33 +515,33 @@ async def test_when_no_model_gives_an_answer_the_guide_carries_on_with_a_warning
 
 async def test_when_the_first_model_fails_the_next_one_writes_the_tone_of_voice(settings: Settings) -> None:
     claude = FakeLLM(LLMError("Anthropic’s rate limit was reached"), model="claude-sonnet-5-5")
-    groq = FakeLLM(LLMError("Groq’s API was busy or unavailable"), api="groq", model="openai/gpt-oss-120b")
-    gemini = FakeLLM(larkspur_draft(), api="gemini", model="gemini-3.8-flash")
-    job = await run(settings, "Larkspur Tea", llm=FallbackLLM([claude, groq, gemini]))
+    gemini = FakeLLM(LLMError("Gemini’s API was busy or unavailable"), api="gemini", model="gemini-3.8-flash")
+    groq = FakeLLM(larkspur_draft(), api="groq", model="openai/gpt-oss-120b")
+    job = await run(settings, "Larkspur Tea", llm=FallbackLLM([claude, gemini, groq]))
     guide = job.guide
     assert job.status == "complete" and guide is not None
     assert (job.steps[5].status, job.steps[5].detail) == (
         "done",
-        "Analysed the text of 6 pages with gemini-3.8-flash",
+        "Analysed the text of 6 pages with openai/gpt-oss-120b",
     )
     # The same instructions and text went to each model, and the same checks were made on the answer.
-    assert len(claude.calls) == len(groq.calls) == len(gemini.calls) == 1
-    assert claude.calls[0]["system"] == groq.calls[0]["system"] == gemini.calls[0]["system"]
-    assert claude.calls[0]["prompt"] == groq.calls[0]["prompt"] == gemini.calls[0]["prompt"]
+    assert len(claude.calls) == len(gemini.calls) == len(groq.calls) == 1
+    assert claude.calls[0]["system"] == gemini.calls[0]["system"] == groq.calls[0]["system"]
+    assert claude.calls[0]["prompt"] == gemini.calls[0]["prompt"] == groq.calls[0]["prompt"]
     assert job.steps[6].detail == "Found 4 of 4 quotes word for word · graded 15 colour pairs"
     assert [trait.name for trait in guide.voice.traits] == ["Plain-spoken", "Rooted"]
     assert guide.voice.drafted_by is not None
-    assert guide.voice.drafted_by.model_dump() == {"api": "gemini", "model": "gemini-3.8-flash"}
+    assert guide.voice.drafted_by.model_dump() == {"api": "groq", "model": "openai/gpt-oss-120b"}
     # A model answering in place of another isn't a gap in the guide, so there is no warning about it.
-    assert not any("rate limit" in warning or "Groq" in warning for warning in guide.warnings)
+    assert not any("rate limit" in warning or "Gemini" in warning for warning in guide.warnings)
 
 
 async def test_when_every_model_fails_one_warning_gives_each_reason(settings: Settings) -> None:
     models = FallbackLLM(
         [
             FakeLLM(LLMError("this Swatchfin server’s Anthropic account is out of credit", retry=False)),
-            FakeLLM(LLMError("Groq took too long to answer"), api="groq", model="openai/gpt-oss-120b"),
             FakeLLM(LLMError("Gemini’s rate limit was reached"), api="gemini", model="gemini-3.8-flash"),
+            FakeLLM(LLMError("Groq took too long to answer"), api="groq", model="openai/gpt-oss-120b"),
         ]
     )
     job = await run(settings, "Larkspur Tea", llm=models)
@@ -550,8 +550,8 @@ async def test_when_every_model_fails_one_warning_gives_each_reason(settings: Se
     assert (job.steps[5].status, job.steps[5].detail) == ("skipped", VOICE_FAILED_DETAIL)
     assert (
         "Tone of voice and key messaging weren’t analysed: no language model gave a usable answer (this Swatchfin "
-        "server’s Anthropic account is out of credit; Groq took too long to answer; Gemini’s rate limit was "
-        "reached). Try again in a moment."
+        "server’s Anthropic account is out of credit; Gemini’s rate limit was reached; Groq took too long to "
+        "answer). Try again in a moment."
     ) in guide.warnings
     assert guide.voice.drafted_by is None and guide.colors
 

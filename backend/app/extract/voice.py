@@ -19,7 +19,7 @@ word, and the page it came from. Step 7 (verify.py) looks for each quote in
 the text TinyFish read and drops what isn't there, so nothing in the draft
 reaches the guide unchecked.
 
-Every model in the row (Claude, then Groq, then Gemini: see llm.py) gets
+Every model in the row (Claude, then Gemini, then Groq: see llm.py) gets
 these same instructions and this same text, and step 7 checks its quotes
 the same way.
 

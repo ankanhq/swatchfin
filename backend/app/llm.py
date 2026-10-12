@@ -6,13 +6,13 @@ have that shape, each through its own provider's API:
 
 - AnthropicLLM: Claude (ANTHROPIC_MODEL, claude-sonnet-5-5 by default),
   through Anthropic's official SDK.
-- GroqLLM: an open model run by Groq (GROQ_MODEL, openai/gpt-oss-120b by
-  default), through Groq's OpenAI-style REST API.
 - GeminiLLM: Google's Gemini Flash (GEMINI_MODEL, gemini-3.8-flash by
   default), through Google's Gemini Interactions REST API.
+- GroqLLM: an open model run by Groq (GROQ_MODEL, openai/gpt-oss-120b by
+  default), through Groq's OpenAI-style REST API.
 
 FallbackLLM puts the ones that have a key in a row (LLM_ORDER: Anthropic,
-then Groq, then Gemini). It asks the first. When that gives no usable
+then Gemini, then Groq). It asks the first. When that gives no usable
 answer, for any reason (an error, too slow, a rate limit, no credit left,
 a refusal, an answer in the wrong shape), it asks the next one, with the
 same instructions and the same text. The guide names the model that
