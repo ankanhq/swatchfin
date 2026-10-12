@@ -1,0 +1,51 @@
+# How Render builds and runs Swatchfin: a "Blueprint" (https://render.com/docs/blueprint-spec).
+#
+# Render reads this file when you choose New → Blueprint and pick this repository. It creates one
+# free web service that serves the API and the website together. Step by step: docs/deploy-render.md.
+#
+# The four API keys are listed with `sync: false`. This file never holds their values: Render asks
+# you to paste them on its website when the Blueprint is first created, and keeps them there.
+# Never write a key in this file or anywhere else in the repository.
+
+services:
+  - type: web
+    name: swatchfin # the address becomes https://swatchfin.onrender.com (Render adds a suffix if it's taken)
+    runtime: python
+    plan: free
+    region: oregon # can't be changed later; TinyFish Browser visits sites from the United States
+    branch: main
+    # Every push to main deploys again. A deploy restarts the server, which forgets its saved guides.
+    autoDeployTrigger: commit
+    # Only the Python packages: the browser itself runs at TinyFish, so Playwright needs no browser here.
+    buildCommand: pip install -r backend/requirements.txt
+    # One server process (--workers 1): guide jobs, reuse and the limits are kept in its memory.
+    # --proxy-headers with --forwarded-allow-ips: Render's proxy says the visitor used https.
+    # (The visitor's address is read separately, by PROXY_HOPS below; see backend/app/ratelimit.py.)
+    # --no-access-log: visitors' IP addresses never reach the logs.
+    startCommand: uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT --workers 1 --proxy-headers --forwarded-allow-ips="*" --no-access-log --timeout-graceful-shutdown 20
+    # Render checks this address to know the app is up, and before switching to a new deploy.
+    healthCheckPath: /api/v1/health
+    envVars:
+      # The Python version Swatchfin is tested with.
+      - key: PYTHON_VERSION
+        value: "3.13.5"
+      # Secrets: pasted on Render's website, never stored here.
+      - key: TINYFISH_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      # Limits that protect the TinyFish allowance and the language model credit (backend/app/config.py).
+      - key: DAILY_GUIDE_LIMIT
+        value: "50"
+      - key: NEW_GUIDES_PER_VISITOR_PER_DAY
+        value: "5"
+      - key: REUSE_HOURS
+        value: "24"
+      # How many of Render's proxies add to X-Forwarded-For. Checked after the first deploy
+      # (docs/deploy-render.md, "Check the visitor address").
+      - key: PROXY_HOPS
+        value: "1"
