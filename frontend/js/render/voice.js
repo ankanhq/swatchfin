@@ -1,9 +1,17 @@
 /**
- * Tone of voice section: a summary, traits that open to show their proof
- * quotes, four tone scales, and do / don't lists.
+ * Tone of voice section: a summary, the language model that drafted it,
+ * traits that open to show their proof quotes, four tone scales, and
+ * do / don't lists.
  */
 
-import { el, createIcon, emptyState, list, siteHost, sourceLink, subsection, text, verifiedBadge } from './dom.js';
+import { el, createIcon, emptyState, list, lookup, siteHost, sourceLink, subsection, text, verifiedBadge } from './dom.js';
+
+/** Whose API each language model was used through (voice.drafted_by.api). */
+const APIS = {
+  anthropic: 'Anthropic’s API',
+  groq: 'Groq’s API',
+  gemini: 'Google’s Gemini API',
+};
 
 /** The four scales in the schema: 0 is the left word, 100 the right. */
 const SCALES = [
@@ -32,6 +40,7 @@ export function renderVoice(guide) {
 
   return el('div', { className: 'sf-voice' }, [
     summary ? el('p', { className: 'sf-voice__summary', text: summary }) : null,
+    byline(voice.drafted_by),
     traits.length > 0
       ? subsection('Traits', [el('div', { className: 'sf-traits' }, traits.map((trait, i) => traitCard(trait, i === 0, site)))])
       : null,
@@ -48,6 +57,24 @@ export function renderVoice(guide) {
           ]),
         ])
       : null,
+  ]);
+}
+
+/**
+ * "Drafted by claude-sonnet-5-5, through Anthropic’s API.": which language
+ * model wrote this section. Swatchfin asks Claude first, then Groq, then
+ * Gemini, so this says which one answered. Null when the guide doesn't say.
+ * @param {unknown} value { api, model }
+ * @returns {HTMLElement | null}
+ */
+function byline(value) {
+  const model = value && typeof value === 'object' ? text(value.model) : '';
+  if (!model) return null;
+  const api = lookup(APIS, value.api);
+  return el('p', { className: 'sf-voice__byline' }, [
+    'Drafted by ',
+    el('code', { text: model }),
+    api ? `, through ${api}.` : '.',
   ]);
 }
 

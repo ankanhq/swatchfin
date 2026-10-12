@@ -45,6 +45,8 @@ LogoFormat = Literal["svg", "png", "webp", "jpg", "ico"]
 LogoMethod = Literal["header-img", "inline-svg", "og-image", "favicon"]
 WcagLevel = Literal["AAA", "AA", "AA-large", "fail"]
 TinyFishApi = Literal["search", "fetch", "browser"]
+# The APIs of the language models that can draft a tone of voice (see llm.py).
+LanguageModelApi = Literal["anthropic", "groq", "gemini"]
 
 JobState = Literal["queued", "running", "complete", "failed"]
 StepName = Literal[
@@ -163,12 +165,22 @@ class Spectrum(Model):
     reserved_bold: Scale
 
 
+class DraftedBy(Model):
+    """The language model that drafted the tone of voice and key messages, and the API it was used through."""
+
+    api: LanguageModelApi
+    # As the API names it, e.g. "claude-sonnet-5-5" or "openai/gpt-oss-120b".
+    model: str
+
+
 class Voice(Model):
     summary: str | None = None
     traits: list[Trait] = []
     spectrum: Spectrum | None = None
     do: list[str] = []
     dont: list[str] = []
+    # Which model wrote it. None when no model was asked or none answered.
+    drafted_by: DraftedBy | None = None
 
 
 class Statement(Model):

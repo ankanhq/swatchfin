@@ -214,7 +214,8 @@
       "Don’t lean on vague words like “premium” or “artisanal” without a detail to back them up.",
       "Don’t use exclamation marks to add energy.",
       "Don’t build headlines around coffee puns."
-    ]
+    ],
+    "drafted_by": { "api": "anthropic", "model": "claude-sonnet-5-5" }
   },
   "messaging": {
     "tagline": {

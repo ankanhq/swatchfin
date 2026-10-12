@@ -1,4 +1,4 @@
-"""Step 6 of the pipeline, "analysing_voice": Claude drafts the brand's tone of voice and key messages.
+"""Step 6 of the pipeline, "analysing_voice": a language model drafts the brand's tone of voice and key messages.
 
 What goes in: the text TinyFish read in steps 2, 4 and 5 (the homepage and
 the brand's other pages). The homepage starts with its title and description,
@@ -19,8 +19,12 @@ word, and the page it came from. Step 7 (verify.py) looks for each quote in
 the text TinyFish read and drops what isn't there, so nothing in the draft
 reaches the guide unchecked.
 
+Every model in the row (Claude, then Groq, then Gemini: see llm.py) gets
+these same instructions and this same text, and step 7 checks its quotes
+the same way.
+
 Website text is untrusted. It is sent inside <page> tags, and the
-instructions tell Claude that it is material to describe, never
+instructions tell the model that it is material to describe, never
 instructions to follow. A made-up quote would still fail step 7's checks.
 """
 
@@ -89,7 +93,7 @@ in another language. Quotes always stay in the page's own language."""
 
 
 # ---------------------------------------------------------------------------
-# The draft: the shape of Claude's answer
+# The draft: the shape of the model's answer
 # ---------------------------------------------------------------------------
 
 
@@ -257,7 +261,7 @@ def pick_text(pages: list[SourcePage]) -> list[Excerpt]:
 
 
 def build_prompt(brand: str, domain: str, excerpts: list[Excerpt]) -> str:
-    """The message Claude reads: the brand, then each page inside its own <page> tag."""
+    """The message the model reads: the brand, then each page inside its own <page> tag."""
     parts = [f"Brand: {_escape(brand)} ({_escape(domain)})", ""]
     for excerpt in excerpts:
         # A page can't close its own tag early: "</page>" in its text is defused.
