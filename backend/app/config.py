@@ -7,15 +7,20 @@ capitals, e.g. LOG_LEVEL=DEBUG. API keys are kept as "secret strings", which
 print as ********** so they can never end up in a log.
 """
 
+import re
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # backend/app/config.py -> the repo root, two folders up from backend/app.
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# What a pasted API key can pick up that is never part of a key: spaces, tabs and line breaks (also
+# the invisible ones: no-break, zero-width and byte-order marks) and quote marks ("…", '…', “…”, `…`).
+KEY_NOISE = re.compile(r"[\s\u200b-\u200d\u2060\ufeff\"'`\u2018\u2019\u201c\u201d]")
 
 
 class Settings(BaseSettings):
@@ -37,6 +42,7 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = None
     gemini_api_key: SecretStr | None = None
     groq_api_key: SecretStr | None = None
+
     # The models that read a brand's text for its tone of voice (see llm.py).
     # Claude, e.g. claude-opus-5-5.
     anthropic_model: str = Field("claude-sonnet-5-5", pattern=r"^[a-z0-9][a-z0-9.\-]{1,63}$")
@@ -91,6 +97,21 @@ class Settings(BaseSettings):
     # How many proxies in front of the app add to the X-Forwarded-For header (see ratelimit.Visitors).
     # 0 on your computer, where visitors connect directly. Render: see docs/deploy-render.md.
     proxy_hops: int = Field(0, ge=0, le=5)
+
+    @field_validator("tinyfish_api_key", "anthropic_api_key", "gemini_api_key", "groq_api_key", mode="before")
+    @classmethod
+    def _clean_key(cls, value: Any) -> Any:
+        """A key without the spaces, line breaks and quotes a paste can add. Nothing left counts as not set.
+
+        In plain English: a key copied into Render's settings with a space or a
+        line break at its end, or in quotes, is refused by the API it is for.
+        Keys never contain these characters, so they are all taken out.
+        """
+        if isinstance(value, SecretStr):
+            value = value.get_secret_value()
+        if isinstance(value, str):
+            return KEY_NOISE.sub("", value) or None
+        return value
 
     @property
     def llm_apis(self) -> list[str]:
