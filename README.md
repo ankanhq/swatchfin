@@ -139,7 +139,7 @@ A guide takes 30–90 seconds, so it is made as a background job. Start one, the
 
 Every error has the same shape, written for people: `{ "error": { "title": "Guide not found", "message": "There is no guide with this ID…" } }`. The exact shapes are in `CLAUDE.md` (sections 6 and 7), in `backend/app/schemas.py`, and at `/api/docs`.
 
-Each visitor (IP address) can start 5 new guides a day and make 300 API requests a minute, and Swatchfin makes at most 50 new guides a day for everyone together. A search for a site that already has a complete guide from the last 24 hours gets that guide straight away, and counts toward neither limit. At most two guides are made at once; the others wait their turn. Finished guides are saved in `backend/data/guides/` and their copied logos in `backend/data/logos/` (both git-ignored), and kept for 30 days. All of these can be changed in `.env` (see `.env.example`).
+Each visitor (IP address) can start 5 new guides in any 24 hours and make 300 API requests a minute, and Swatchfin makes at most 50 new guides a day (UTC) for everyone together. A search for a site that already has a complete guide from the last 24 hours gets that guide straight away, and counts toward neither limit. At most two guides are made at once; the others wait their turn. Finished guides are saved in `backend/data/guides/` and their copied logos in `backend/data/logos/` (both git-ignored), and kept for 30 days. All of these can be changed in `.env` (see `.env.example`).
 
 ### What a guide has today
 
