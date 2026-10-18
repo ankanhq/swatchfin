@@ -13,8 +13,11 @@
    anything else is not: a changed word, an added ellipsis, two passages
    joined together. Fragments under 3 words don't count as evidence (2 for
    a tagline or mission), because a few common words are on every page.
-   The page the quote is said to come from is searched first, then the
-   others; if it is on another page, the guide names that page instead.
+   Chinese, Japanese and Thai put no spaces between words, so in those
+   scripts every 2 characters count as a word, and a quote may start or end
+   next to any character. The page the quote is said to come from is
+   searched first, then the others; if it is on another page, the guide
+   names that page instead.
 
    What fails is dropped: a quote, a trait left without a quote, a tagline,
    a mission, a value proposition, an audience the pages never name. If no
@@ -33,6 +36,7 @@
 """
 
 import math
+import re
 import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -70,6 +74,14 @@ _SAME = (
     | dict.fromkeys(map(ord, "\u201c\u201d\u201e\u201f\u2033"), '"')
     | dict.fromkeys(map(ord, "\u00ad\u200b\u200c\u200d\u2060\ufeff"))
 )
+# Scripts written without spaces between words: Thai, Lao, Myanmar, Khmer, Japanese kana and Chinese characters
+# (also used in Japanese). Korean puts spaces between words, so it isn't one of them.
+UNSPACED = re.compile(
+    "[\u0e00-\u0eff\u1000-\u109f\u1780-\u17ff\u3040-\u30ff\u31f0-\u31ff\u3400-\u4dbf\u4e00-\u9fff"
+    "\uf900-\ufaff\uff66-\uff9f\U00020000-\U0003134f]"
+)
+# In those scripts, this many characters count as one word.
+CHARACTERS_PER_WORD = 2
 
 
 # ---------------------------------------------------------------------------
@@ -80,6 +92,17 @@ _SAME = (
 def normalise(text: str) -> str:
     """Text as it is compared: curly quote marks straight, and any run of spaces (non-breaking too) as one."""
     return " ".join(unicodedata.normalize("NFC", text).translate(_SAME).split())
+
+
+def word_count(text: str) -> int:
+    """How many words a text has: groups of letters or digits between spaces, and in scripts written without
+    spaces (Chinese, Japanese, Thai...), one word for every 2 of their characters.
+
+    "Tea worth slowing down for." -> 5, "毎日お得なクーポンも。" -> 5 (10 characters, the full stop doesn't count).
+    """
+    unspaced = len(UNSPACED.findall(text))
+    spaced = sum(1 for part in UNSPACED.sub(" ", text).split() if any(char.isalnum() for char in part))
+    return spaced + unspaced // CHARACTERS_PER_WORD
 
 
 class QuoteChecker:
@@ -95,7 +118,7 @@ class QuoteChecker:
     def find(self, quote: str, claimed_url: str, *, min_words: int = MIN_QUOTE_WORDS) -> str | None:
         """The address of the page the quote is on, word for word, or None. The claimed page is searched first."""
         wanted = _as_compared(quote)
-        if len(wanted.split()) < min_words:
+        if word_count(wanted) < min_words:
             return None
         claimed = _key(claimed_url)
         for _page_key, (url, text) in sorted(self._pages.items(), key=lambda item: item[0] != claimed):
@@ -139,12 +162,18 @@ def _contains(text: str, wanted: str) -> bool:
         end = start + len(wanted)
         before = text[start - 1] if start else " "
         after = text[end] if end < len(text) else " "
-        cut_before = wanted[0].isalnum() and before.isalnum()
-        cut_after = wanted[-1].isalnum() and after.isalnum()
-        if not cut_before and not cut_after:
+        if not _one_word(before, wanted[0]) and not _one_word(wanted[-1], after):
             return True
         start = text.find(wanted, start + 1)
     return False
+
+
+def _one_word(left: str, right: str) -> bool:
+    """Whether two characters side by side belong to one word, so a quote can't start or end between them.
+
+    In scripts written without spaces, a word can end after any character, so there it never counts as cut.
+    """
+    return left.isalnum() and right.isalnum() and not (UNSPACED.match(left) or UNSPACED.match(right))
 
 
 @dataclass

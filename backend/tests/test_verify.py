@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 
 from app.extract.contrast import contrast_ratio, rgb, wcag_level
-from app.extract.verify import QuoteChecker, check_voice, normalise, palette_contrast
+from app.extract.verify import QuoteChecker, check_voice, normalise, palette_contrast, word_count
 from app.extract.voice import (
     DraftQuote,
     DraftSpectrum,
@@ -128,6 +128,54 @@ def test_mentions_are_whole_words_in_any_capitals(checker: QuoteChecker) -> None
 
 def test_normalise_writes_quote_marks_and_spaces_one_way() -> None:
     assert normalise("“It’s  here”\u00a0now\u2060") == '"It\'s here" now'
+
+
+# Japanese and Chinese put no spaces between words (a fictional tea shop again).
+JAPANESE = "https://www.larkspurtea.example/ja/"
+JAPANESE_TEXT = "ラークスパー紅茶は、手摘みの茶葉を毎週お届けします。季節ごとの限定ブレンドも人気です\uff01"
+CHINESE = "https://www.larkspurtea.example/zh/"
+CHINESE_TEXT = "我们每周寄出手工采摘的茶叶\uff0c让好茶成为日常。"
+
+
+@pytest.fixture
+def unspaced_checker() -> QuoteChecker:
+    return QuoteChecker([SourcePage(JAPANESE, None, JAPANESE_TEXT), SourcePage(CHINESE, None, CHINESE_TEXT)])
+
+
+@pytest.mark.parametrize(
+    ("quote", "page"),
+    [
+        ("ラークスパー紅茶は、手摘みの茶葉を毎週お届けします。", JAPANESE),  # a whole sentence
+        ("手摘みの茶葉を毎週お届けします", JAPANESE),  # starts and ends next to other characters
+        ("季節ごとの限定ブレンドも人気です\uff01", JAPANESE),
+        ("让好茶成为日常。", CHINESE),
+    ],
+)
+def test_quotes_in_scripts_without_spaces_are_found(unspaced_checker: QuoteChecker, quote: str, page: str) -> None:
+    assert unspaced_checker.find(quote, page) == page
+
+
+def test_in_scripts_without_spaces_short_or_changed_quotes_still_fail(unspaced_checker: QuoteChecker) -> None:
+    assert unspaced_checker.find("茶葉を", JAPANESE) is None  # 3 characters: under 3 words
+    assert unspaced_checker.find("茶葉を", JAPANESE, min_words=1) == JAPANESE
+    assert unspaced_checker.find("手摘みの茶葉を毎月お届けします", JAPANESE) is None  # a character changed
+    assert unspaced_checker.mentions("手摘みの茶葉")
+
+
+@pytest.mark.parametrize(
+    ("text", "words"),
+    [
+        ("Tea worth slowing down for.", 5),
+        ("Brew it your way — hot or iced", 7),  # a dash alone isn't a word
+        ("毎日お得なクーポンも。", 5),  # 10 characters; the full stop doesn't count
+        ("【楽天市場】Shopping is Entertainment!", 5),  # 4 characters, then 3 words
+        ("ชาดีทุกวัน", 5),  # Thai: 10 characters
+        ("매일 좋은 차", 3),  # Korean puts spaces between words
+        ("", 0),
+    ],
+)
+def test_word_count_counts_two_characters_as_a_word_in_scripts_without_spaces(text: str, words: int) -> None:
+    assert word_count(text) == words
 
 
 # ---------------------------------------------------------------------------
