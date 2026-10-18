@@ -83,14 +83,20 @@ def brand_slug(guide: BrandGuide) -> str:
     The same as slugify() in frontend/js/utils.js: accents and punctuation
     dropped, spaces turned into dashes, "Ben & Jerry's" -> "ben-jerrys".
     Plain ASCII only, so it is safe in a download header and on any
-    computer. Mock guides get a MOCK_ prefix.
+    computer. A name with no such letters (楽天市場) gives way to the
+    domain ("rakuten-co-jp"), then the search. Mock guides get a MOCK_ prefix.
     """
-    name = guide.brand.name or guide.brand.domain or guide.query
+    candidates = (guide.brand.name, guide.brand.domain, guide.query)
+    slug = next((slug for name in candidates if name and (slug := _slug(name))), "brand")
+    return f"MOCK_{slug}" if is_mock(guide) else slug
+
+
+def _slug(name: str) -> str:
+    """A name as a file name part: "Ben & Jerry's" -> "ben-jerrys", or "" when nothing ASCII is left."""
     slug = unicodedata.normalize("NFKD", name.lower())
     slug = re.sub(r"[^A-Za-z0-9_\s.-]", "", slug).strip()
     slug = re.sub(r"[\s_.]+", "-", slug)
-    slug = re.sub(r"-+", "-", slug).strip("-")[:60].strip("-") or "brand"
-    return f"MOCK_{slug}" if is_mock(guide) else slug
+    return re.sub(r"-+", "-", slug).strip("-")[:60].strip("-")
 
 
 def export_filename(guide: BrandGuide, suffix: str) -> str:

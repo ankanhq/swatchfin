@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
-from app.export.common import NothingToExport, font_names, guide_date, split_font_list
+from app.export.common import NothingToExport, export_filename, font_names, guide_date, split_font_list
 from app.export.css import css_export, css_string
 from tests.export_guides import FLIP, ISOLATE, LINE_SEPARATOR, css_code, hostile, live, partial, sample, small
 
@@ -73,6 +73,19 @@ def test_no_empty_sections() -> None:
 
     only_colours = css_export(small().model_copy(update={"typography": []}))
     assert "Fonts" not in only_colours and "--brand-font-" not in only_colours
+
+
+def test_file_names_come_from_the_name_then_the_domain() -> None:
+    assert export_filename(small(), "brand.css") == "larkspur-tea-brand.css"
+    guide = small()
+    japanese = guide.model_copy(
+        update={"brand": guide.brand.model_copy(update={"name": "楽天市場", "domain": "rakuten.co.jp"})}
+    )
+    assert export_filename(japanese, "brand.css") == "rakuten-co-jp-brand.css"
+    nothing = guide.model_copy(
+        update={"brand": guide.brand.model_copy(update={"name": "楽天市場", "domain": ""}), "query": "楽天"}
+    )
+    assert export_filename(nothing, "brand.css") == "brand-brand.css"
 
 
 def test_a_repeated_role_gets_a_number() -> None:
