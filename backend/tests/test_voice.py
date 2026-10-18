@@ -243,6 +243,9 @@ def test_a_robot_check_is_spotted(text: str, title: str | None) -> None:
         "# About\n\nLarkspur Tea has blended loose-leaf tea in small batches since 2014.",
         # A short page with a form: "protected by reCAPTCHA" is a footnote, not a check.
         "# Careers\n\nApply below.\n\nThis site is protected by reCAPTCHA and the Google Privacy Policy.",
+        # A small shop's short homepage, with its empty cart's own link.
+        "# Rosa's Bakery\n\nSourdough and pastries since 2009.\n\nYour cart is empty\n\n"
+        "[Continue shopping](/collections/all)",
         # A long page that mentions shopping (a basket in its menu) is the site itself.
         "# Shop\n\n[Continue shopping](/cart)\n\n" + "Larkspur Tea blends loose-leaf tea in small batches. " * 50,
     ],

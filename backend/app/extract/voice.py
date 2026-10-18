@@ -54,7 +54,8 @@ MAX_ANSWER_TOKENS = 4_000
 
 # A robot check: a page a site shows automated visitors instead of its own (see bot_check). Its words...
 BOT_CHECK_WORDS = re.compile(
-    r"continue shopping|are you a (?:robot|human)|not a robot|(?<!protected by re)captcha|"
+    # Amazon's "Click the button below to continue shopping", not a cart's own "Continue shopping" link.
+    r"button below to continue shopping|are you a (?:robot|human)|not a robot|(?<!protected by re)captcha|"
     r"verify(?:ing)? (?:that )?you(?:['’]re| are) (?:a )?human|unusual traffic|"
     r"automated (?:access|queries|requests)|checking your browser|press (?:&|and) hold|pardon our interruption|"
     r"enable (?:javascript and )?cookies to continue|request unsuccessful|"
