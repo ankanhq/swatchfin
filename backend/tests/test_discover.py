@@ -170,6 +170,39 @@ def test_a_browsing_history_page_is_not_the_company_history() -> None:
     assert chosen_urls(homepage(link("/company-history/", "Since 1973", "footer"))) == [f"{SITE}/company-history/"]
 
 
+@pytest.mark.parametrize(
+    ("path", "title"),
+    [
+        # Like amazon.in: the brand-guidelines search found a Kindle ebook about press kits.
+        ("/Mastering-Perfect-Press-Kit-Relationships-ebook/dp/B0DR2BZTWP", "Mastering the Perfect Press Kit eBook"),
+        ("/dp/B0DR2BZTWP", "Mastering the Perfect Press Kit"),
+        ("/Mission-Impossible-Dead-Reckoning/dp/B0C8L3VQ2K", "Mission: Impossible – Dead Reckoning"),
+        ("/Writing-Press-Releases-Guide/dp/B09XQ4M2T7", "Writing Press Releases: A Guide"),
+        ("/itm/brand-guidelines-book/226512345678", "Brand guidelines book"),  # an auction
+        ("/listing/1234567890/logo-design-brand-kit", "Logo design brand kit"),  # a shop's listing
+    ],
+)
+def test_a_title_alone_cant_make_a_numbered_listing_one_of_the_brands_pages(path: str, title: str) -> None:
+    assert chosen_urls(homepage(), [SearchResult(position=1, url=f"{SITE}{path}", title=title)]) == []
+    # From the homepage's links too: a shop's homepage links to its products.
+    assert chosen_urls(homepage(link(path, title))) == []
+
+
+@pytest.mark.parametrize(
+    ("path", "title", "kind"),
+    [
+        ("/media-resources", "Press kit", "brand"),
+        ("/company/media-resources", "Press kit", "about"),  # "/company" is an About folder
+        # Numbered, but its address says what it is.
+        ("/newsroom/2024/123456/press-kit", "Larkspur press kit", "brand"),
+        ("/about/12345678", "About Larkspur", "about"),
+    ],
+)
+def test_real_press_kit_and_about_pages_are_kept(path: str, title: str, kind: str) -> None:
+    pages = choose_pages(homepage(), [SearchResult(position=1, url=f"{SITE}{path}", title=title)])
+    assert [(page.url, page.kind) for page in pages] == [(f"{SITE}{path}", kind)]
+
+
 def test_search_results_join_the_links_and_query_strings_are_dropped() -> None:
     results = [
         SearchResult(position=1, url=f"{SITE}/brand-guidelines?utm_source=search", title="Larkspur brand guidelines"),

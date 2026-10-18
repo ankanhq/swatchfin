@@ -182,6 +182,9 @@ SKIP_SUBDOMAINS = frozenset(
 SKIP_EXTENSIONS = re.compile(
     r"\.(pdf|jpe?g|png|gif|svg|webp|avif|ico|zip|xml|json|rss|atom|csv|mp4|mp3|mov|docx?|pptx?|xlsx?)$", re.I
 )
+# A part of an address that is a catalogue number, as shops and marketplaces give each thing they sell: 6 or
+# more digits (eBay's 226512345678), or 8 or more letters and digits, 2 or more of them digits (Amazon's B0DR2BZTWP).
+CATALOGUE_NUMBER = re.compile(r"\d{6,}|(?=(?:[a-z]*\d){2})(?=\d*[a-z])[a-z0-9]{8,}", re.IGNORECASE)
 # A part of an address that is a language or a country-and-language: "fr", "de-de", "en_GB".
 LOCALE_PART = re.compile(r"[a-z]{2}([-_][a-z]{2})?", re.IGNORECASE)
 # Language codes that, as the first part of an address, mean "this site in another language".
@@ -330,9 +333,14 @@ def _from_link(link: PageLink) -> tuple[str, PageKind] | None:
 
 
 def _classify(host: str, path: str, text: str) -> PageKind | None:
-    """The kind with the strongest evidence: a matching part of the address counts most, matching words next."""
+    """The kind with the strongest evidence: a matching part of the address counts most, matching words next.
+
+    An address with a catalogue number in it is one thing for sale (a Kindle ebook on amazon.in called
+    "Mastering the Perfect Press Kit"), so its words alone can't give it a kind: its address must say it.
+    """
     parts = _path_parts(path)
     subdomain = host.split(".")[0] if host.count(".") >= 2 else ""
+    for_sale = any(CATALOGUE_NUMBER.fullmatch(part) for part in parts)
     best: tuple[float, PageKind] | None = None
     for kind in KINDS:
         points = 0.0
@@ -340,9 +348,16 @@ def _classify(host: str, path: str, text: str) -> PageKind | None:
             points += 3
             if parts and kind.path.fullmatch(parts[-1]):
                 points += 1  # the last part names the page itself: "/newsroom/collections/nike-inc-logos"
-        if text and kind.words.search(text) and (points or not kind.needs_path):
+        # Whether words count without a part of the address naming the kind. On something for sale, the
+        # words in its address are its name ("/Writing-Press-Releases-Guide/dp/B09XQ4M2T7"), so they don't.
+        words_count = bool(points) or not (kind.needs_path or for_sale)
+        if text and kind.words.search(text) and words_count:
             points += 2
-        if kind.strong is not None and (any(kind.strong.search(part) for part in parts) or kind.strong.search(text)):
+        if (
+            kind.strong is not None
+            and words_count
+            and (any(kind.strong.search(part) for part in parts) or kind.strong.search(text))
+        ):
             points += 1  # "/company/pressroom" is the press room, not the About page
         if points and (best is None or points > best[0]):
             best = (points, kind.name)
