@@ -59,7 +59,7 @@ from app.extract.resolve import OfficialSite, ParsedQuery, SiteNotFound, find_of
 from app.extract.svg import clean_svg, uses_current_color
 from app.extract.verify import CheckedVoice, check_voice, palette_contrast
 from app.extract.visuals import Visuals, fill_gaps, read_visuals
-from app.extract.voice import DraftVoice, Excerpt, draft_voice, pick_text, source_pages
+from app.extract.voice import DraftVoice, Excerpt, bot_check, draft_voice, pick_text, source_pages
 from app.jobs import JobRun, LogoStore, Pipeline, StepFailed
 from app.llm import LLM, LLMAnswer, LLMError
 from app.reuse import ago
@@ -98,6 +98,8 @@ VOICE_OFF_WARNING = (
     "Gemini or Groq."
 )
 VOICE_FAILED_DETAIL = "Couldn’t analyse the text"
+# Step 6 when some pages were robot checks ("Click the button below to continue shopping"), left out of its text.
+LIMITED_ACCESS_WARNING = "This site limited automated access, so the tone of voice is based on little text."
 # Step 6 gets at most this long, for every model it asks (see llm.FallbackLLM), and is left out with
 # less than the minimum left for it.
 VOICE_TIME_LIMIT = 75.0
@@ -212,11 +214,20 @@ def brand_pipeline(
         # 6. analysing_voice
         brand_name = _brand_name(homepage, query)
         read = source_pages(homepage, pages.pages)
+        # Robot checks ("Click the button below to continue shopping") say nothing about the brand.
+        robot_checks = [page for page in read if bot_check(page)]
+        if robot_checks:
+            log.info("left robot checks out of the voice: %s", ", ".join(page.url for page in robot_checks))
+            read = [page for page in read if page not in robot_checks]
+            if read:
+                warnings.append(LIMITED_ACCESS_WARNING)
         answer: LLMAnswer[DraftVoice] | None = None
         async with job.step("analysing_voice") as step:
             excerpts = pick_text(read)
             time_left = time_limit - (time.monotonic() - started) - TIME_MARGIN
-            answer = await _analyse_voice(job, llm, brand_name, homepage, excerpts, warnings, time_left)
+            answer = await _analyse_voice(
+                job, llm, brand_name, homepage, excerpts, warnings, time_left, limited_access=bool(robot_checks)
+            )
             if answer is not None:
                 step.detail = _voice_detail(excerpts, answer.usage.model)
 
@@ -382,9 +393,12 @@ async def _analyse_voice(
     excerpts: list[Excerpt],
     warnings: list[str],
     time_left: float,
+    *,
+    limited_access: bool = False,
 ) -> LLMAnswer[DraftVoice] | None:
     """Step 6's work (extract/voice.py): the draft, and which model wrote it. None when there is no draft:
-    the step is then marked skipped, and a warning says why. The guide carries on either way."""
+    the step is then marked skipped, and a warning says why. The guide carries on either way.
+    `limited_access`: some pages were robot checks, left out of the text."""
     host = _short_host(homepage.host)
     if llm is None:
         job.skip("analysing_voice", VOICE_OFF_DETAIL)
@@ -392,7 +406,15 @@ async def _analyse_voice(
         return None
     if not excerpts:
         job.skip("analysing_voice", "No text to analyse")
-        warnings.append(f"Tone of voice and key messaging weren’t analysed: Swatchfin found no text to read on {host}.")
+        if limited_access:
+            warnings.append(
+                f"Tone of voice and key messaging weren’t analysed: {host} limited automated access, so there was "
+                "no text to read."
+            )
+        else:
+            warnings.append(
+                f"Tone of voice and key messaging weren’t analysed: Swatchfin found no text to read on {host}."
+            )
         return None
     if time_left < VOICE_MIN_TIME:
         job.skip("analysing_voice", "Not enough time left to analyse the text")

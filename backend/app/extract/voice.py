@@ -13,6 +13,10 @@ cleaned and cut first (pick_text):
   5,000, the most useful kinds of page first, 36,000 in all (about 9,000
   tokens). Pages are cut between lines, so sentences stay whole.
 
+A page that is a robot check rather than the site (Amazon's "Click the button
+below to continue shopping", Cloudflare's "Verifying you are human") is left
+out first (bot_check): its words are the check's, not the brand's.
+
 What comes out: a draft (DraftVoice). Every trait, tagline, mission and
 value proposition in it comes with a quote that should be copied word for
 word, and the page it came from. Step 7 (verify.py) looks for each quote in
@@ -47,6 +51,22 @@ TOTAL_CHARS = 36_000
 MIN_CUT_CHARS = 200
 # Room for the answer. Typical drafts use about 2,000 tokens; this keeps the worst case near $0.06.
 MAX_ANSWER_TOKENS = 4_000
+
+# A robot check: a page a site shows automated visitors instead of its own (see bot_check). Its words...
+BOT_CHECK_WORDS = re.compile(
+    r"continue shopping|are you a (?:robot|human)|not a robot|(?<!protected by re)captcha|"
+    r"verify(?:ing)? (?:that )?you(?:['’]re| are) (?:a )?human|unusual traffic|"
+    r"automated (?:access|queries|requests)|checking your browser|press (?:&|and) hold|pardon our interruption|"
+    r"enable (?:javascript and )?cookies to continue|request unsuccessful|"
+    r"access (?:to this page )?(?:has been )?denied",
+    re.IGNORECASE,
+)
+# ...a title only a robot check has...
+BOT_CHECK_TITLE = re.compile(
+    r"robot check|just a moment|attention required|security check|access denied|captcha|are you a robot", re.IGNORECASE
+)
+# ...and little else: a real page that mentions shopping or a reCAPTCHA form has much more text.
+BOT_CHECK_MAX_CHARS = 2_000
 
 INSTRUCTIONS = """\
 You write the tone-of-voice and messaging section of a brand guide. You are given text read from one brand's own \
@@ -158,6 +178,7 @@ class SourcePage:
     url: str
     kind: PageKind | None  # None for the homepage
     text: str
+    title: str | None = None
 
     @property
     def label(self) -> str:
@@ -180,10 +201,27 @@ def source_pages(homepage: Homepage, pages: list[ReadPage]) -> list[SourcePage]:
     """
     ordered = sorted(pages, key=lambda page: -KINDS_BY_NAME[page.kind].value)
     head = [line for line in (homepage.title, homepage.description) if line and line not in homepage.text]
-    found = [SourcePage(homepage.url, None, "\n\n".join([*head, homepage.text]).strip())] + [
-        SourcePage(page.url, page.kind, page.text) for page in ordered
+    found = [SourcePage(homepage.url, None, "\n\n".join([*head, homepage.text]).strip(), homepage.title)] + [
+        SourcePage(page.url, page.kind, page.text, page.title) for page in ordered
     ]
     return [page for page in found if page.text.strip()]
+
+
+def bot_check(page: SourcePage) -> bool:
+    """True when a page is a robot check instead of the site's own page.
+
+    In plain English: a short page (2,000 characters or less of visible text)
+    that says what robot checks say ("Click the button below to continue
+    shopping", "Are you a robot?", "Verifying you are human"), or whose title
+    is a robot check's ("Robot Check", "Just a moment..."). Its words are the
+    check's, not the brand's, so they are never evidence for its tone of
+    voice. A long page that merely mentions shopping, or a form "protected by
+    reCAPTCHA", isn't one.
+    """
+    text = plain_text(page.text)
+    if len(text) > BOT_CHECK_MAX_CHARS:
+        return False
+    return BOT_CHECK_WORDS.search(text) is not None or BOT_CHECK_TITLE.search(page.title or "") is not None
 
 
 _IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")

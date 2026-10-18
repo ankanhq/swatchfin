@@ -7,6 +7,7 @@ sometimes changed to fail in one particular way.
 import asyncio
 import json
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx2
 import pytest
@@ -20,6 +21,7 @@ from app.pipeline import (
     BROWSER_FAILED_DETAIL,
     BROWSER_OFF_DETAIL,
     BROWSER_OFF_WARNING,
+    LIMITED_ACCESS_WARNING,
     VOICE_FAILED_DETAIL,
     VOICE_OFF_DETAIL,
     VOICE_OFF_WARNING,
@@ -459,6 +461,63 @@ async def _finish(settings: Settings, pipeline: Pipeline, query: str, *, timeout
 
 HOME = "https://www.larkspurtea.example/"
 ABOUT = "https://www.larkspurtea.example/about"
+
+
+ROBOT_CHECK = (
+    "Click the button below to continue shopping\n\nContinue shopping\n\n"
+    "Sorry, we just need to make sure you're not a robot. For best results, please make sure your browser is "
+    "accepting cookies.\n\nConditions of Use\n\nPrivacy Policy\n\nHelp\n\n© 2026 Larkspur Tea"
+)
+
+
+class RobotChecks(FakeTinyFish):
+    """A fake TinyFish whose site answers the pages at `paths` with a robot check instead of the page."""
+
+    def __init__(self, *paths: str) -> None:
+        super().__init__()
+        self.paths = paths
+
+    def fetch(self, body: dict[str, Any]) -> dict[str, Any]:
+        answer = super().fetch(body)
+        if body.get("format", "markdown") == "markdown":
+            for result in answer["results"]:
+                if (urlsplit(result["url"]).path.rstrip("/") or "/") in self.paths:
+                    result["text"] = ROBOT_CHECK
+        return answer
+
+
+async def test_a_robot_check_is_never_evidence_for_the_tone_of_voice(settings: Settings) -> None:
+    llm = FakeLLM(larkspur_draft())
+    job = await run(settings, "Larkspur Tea", RobotChecks("/about"), llm=llm)
+    guide = job.guide
+    assert job.status == "complete" and guide is not None
+    # The About page showed a robot check: the model never read it...
+    [call] = llm.calls
+    assert f'<page url="{ABOUT}"' not in call["prompt"]
+    assert "continue shopping" not in call["prompt"]
+    # ...and a quote "from" it can't be checked against it, so nothing in the guide cites it.
+    cited = [quote.source_url for trait in guide.voice.traits for quote in trait.evidence]
+    cited += [prop.source_url for prop in guide.messaging.value_props]
+    assert cited and ABOUT not in cited
+    assert LIMITED_ACCESS_WARNING in guide.warnings
+    assert LIMITED_ACCESS_WARNING == "This site limited automated access, so the tone of voice is based on little text."
+
+
+async def test_when_every_page_is_a_robot_check_there_is_no_tone_of_voice(settings: Settings) -> None:
+    llm = FakeLLM(larkspur_draft())
+    fake = RobotChecks("/", "/about", "/careers", "/journal", "/brand")
+    job = await run(settings, "larkspur.example", fake, browser=FakeBrowserDriver(_unavailable), llm=llm)
+    guide = job.guide
+    assert job.status == "complete" and guide is not None
+    assert llm.calls == []
+    assert (job.steps[5].status, job.steps[5].detail) == ("skipped", "No text to analyse")
+    assert guide.voice.traits == []
+    assert (
+        "Tone of voice and key messaging weren’t analysed: larkspur.example limited automated access, so there was "
+        "no text to read."
+    ) in guide.warnings
+    # Not "based on little text": there is no tone of voice at all.
+    assert LIMITED_ACCESS_WARNING not in guide.warnings
 
 
 async def test_a_tone_of_voice_whose_quotes_are_on_the_site_is_kept(settings: Settings) -> None:

@@ -16,6 +16,7 @@ from app.extract.voice import (
     DraftSpectrum,
     DraftVoice,
     SourcePage,
+    bot_check,
     build_prompt,
     draft_voice,
     pick_text,
@@ -208,3 +209,43 @@ async def test_draft_voice_sends_the_instructions_and_pages_and_returns_the_answ
     assert call["system"] == INSTRUCTIONS
     assert "Tea worth slowing down for." in call["prompt"]
     assert call["time_limit"] == 30
+
+
+# ---------------------------------------------------------------------------
+# Robot checks are not the brand's words
+# ---------------------------------------------------------------------------
+
+ROBOT_CHECK = (
+    "Click the button below to continue shopping\n\nContinue shopping\n\n"
+    "Sorry, we just need to make sure you're not a robot.\n\nConditions of Use\n\nPrivacy Policy\n\n© 2026 Larkspur Tea"
+)
+
+
+@pytest.mark.parametrize(
+    ("text", "title"),
+    [
+        (ROBOT_CHECK, None),  # Amazon's
+        ("# Are you a robot?\n\nPlease confirm to continue.", None),
+        ("Verifying you are human. This may take a few seconds.", None),  # Cloudflare's
+        ("Verify you’re human by completing the action below.", None),
+        ("Our systems have detected unusual traffic from your computer network.", None),  # Google's
+        ("Please wait while we check your connection.", "Just a moment..."),  # only the title says so
+        ("Type the characters you see in this image.", "Robot Check"),
+    ],
+)
+def test_a_robot_check_is_spotted(text: str, title: str | None) -> None:
+    assert bot_check(SourcePage(HOME, None, text, title))
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "# About\n\nLarkspur Tea has blended loose-leaf tea in small batches since 2014.",
+        # A short page with a form: "protected by reCAPTCHA" is a footnote, not a check.
+        "# Careers\n\nApply below.\n\nThis site is protected by reCAPTCHA and the Google Privacy Policy.",
+        # A long page that mentions shopping (a basket in its menu) is the site itself.
+        "# Shop\n\n[Continue shopping](/cart)\n\n" + "Larkspur Tea blends loose-leaf tea in small batches. " * 50,
+    ],
+)
+def test_a_real_page_is_not_a_robot_check(text: str) -> None:
+    assert not bot_check(SourcePage(ABOUT, "about", text, "About · Larkspur Tea"))
