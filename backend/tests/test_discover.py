@@ -163,6 +163,13 @@ def test_about_in_a_title_counts_only_as_a_heading() -> None:
     assert chosen_urls(homepage(), results) == ["https://about.larkspur.example/"]
 
 
+def test_a_browsing_history_page_is_not_the_company_history() -> None:
+    # Like amazon.in: "Browsing History" links to /gp/history.
+    assert chosen_urls(homepage(link("/gp/history", "Browsing History", "footer"))) == []
+    assert chosen_urls(homepage(link("/history", "History", "footer"))) == [f"{SITE}/history"]
+    assert chosen_urls(homepage(link("/company-history/", "Since 1973", "footer"))) == [f"{SITE}/company-history/"]
+
+
 def test_search_results_join_the_links_and_query_strings_are_dropped() -> None:
     results = [
         SearchResult(position=1, url=f"{SITE}/brand-guidelines?utm_source=search", title="Larkspur brand guidelines"),

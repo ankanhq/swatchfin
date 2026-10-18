@@ -109,9 +109,10 @@ KINDS = (
         "About",
         9,
         2,
-        r"about(-us)?|who-we-are|our-story|story|company|our-company|company-history|history|team|leadership",
+        # Not a bare "history": "/gp/history" is Amazon's browsing history. A link named "History" still counts.
+        r"about(-us)?|who-we-are|our-story|story|company|our-company|(company|our)-history|team|leadership",
         # "About Duolingo" and "About us", but not "Articles about design".
-        r"^about\b|\babout us\b|\bwho we are\b|\bour (story|company|history)\b|\bcompany history\b",
+        r"^about\b|\babout us\b|\bwho we are\b|\bour (story|company|history)\b|\bcompany history\b|^history\b",
     ),
     _kind(
         "mission",
