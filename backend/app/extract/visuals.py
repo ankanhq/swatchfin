@@ -207,6 +207,8 @@ class LogoSpot(_Data):
     # The image file's own size in pixels (0 when unknown).
     nw: int = 0
     nh: int = 0
+    # An image whose file the browser tried to load and couldn't (not a lazy one it hasn't loaded yet).
+    broken: bool = False
     # A logo drawn with a CSS background, not an image or SVG (see measure_page.js).
     background: bool = False
 
@@ -513,7 +515,8 @@ def confirm_logos(
     the browser numbered (the same file address, or an SVG with the same
     shapes). A logo shown near the top of the page at a real size is
     confirmed: a little more confidence, and its size on screen and colour
-    are kept. One that is on the page but hidden (a version for phones)
+    are kept (not for an image whose file couldn't load: the browser
+    couldn't see it). One that is on the page but hidden (a version for phones)
     loses some, so a visible one comes first. An image the size of a photo
     is left out, whatever its label says. Logos only the browser saw (on
     sites built with JavaScript) join the list, then all are ranked again,
@@ -700,13 +703,16 @@ def _checked(candidate: LogoCandidate, spot: LogoSpot | None, twin: LogoCandidat
     """A candidate with what the browser saw: more or less confidence, its size on screen and its colour.
 
     An SVG takes the browser's copy of its code (`twin`), which carries the
-    colours each part was drawn in (see measure_page.js).
+    colours each part was drawn in (see measure_page.js). An image whose
+    file couldn't load is on the page but isn't confirmed: the browser drew
+    an empty box with its alt text, not the logo.
     """
     if spot is None or candidate.method not in PAGE_LOGOS:
         return candidate
     shown = _shown(spot)
+    seen = shown and not spot.broken
     confidence = candidate.confidence
-    if shown and spot.y <= CONFIRM_MAX_Y:
+    if seen and spot.y <= CONFIRM_MAX_Y:
         confidence = max(confidence, min(confidence + CONFIRMED_BONUS, CONFIRMED_MAX))
     elif not shown:
         confidence = max(0.1, confidence - HIDDEN_PENALTY)
@@ -720,7 +726,8 @@ def _checked(candidate: LogoCandidate, spot: LogoSpot | None, twin: LogoCandidat
         label=candidate.label,
         element_id=candidate.element_id,
         color=spot.color if candidate.svg else None,
-        rendered=(round(spot.w), round(spot.h)) if shown else None,
+        rendered=(round(spot.w), round(spot.h)) if seen else None,
+        broken=spot.broken,
     )
 
 

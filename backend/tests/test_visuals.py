@@ -410,6 +410,40 @@ def test_a_photo_labelled_logo_is_not_a_logo() -> None:
     assert [logo.url for logo in confirm_logos([wordmark], [], sharp)] == [f"{HOME}wordmark.png"]
 
 
+def test_when_no_image_loads_the_wordmark_in_the_footer_still_beats_a_photo() -> None:
+    # Like zomato.com when TinyFish's proxy couldn't reach its image server: no file loaded, so no photo could
+    # be told by its size, and the page's pictures stayed faded out, waiting to load.
+    parts = (
+        '<div><img src="/hero.png" alt="Larkspurtea logo"></div>'
+        '<div><img src="/wordmark.png" alt="Larkspurtea logo"></div>'
+        '<footer><img src="/wordmark.png" alt="Larkspurtea logo"></footer>'
+    )
+    numbered = parts.replace("<img", '<img data-sf-id="{}"').format(1, 2, 3)
+    spots = [
+        {"id": "1", "src": "/hero.png", "broken": True},  # in a part of the page shown only on phones
+        {"id": "2", "src": "/wordmark.png", "y": 300, "w": 152, "h": 32, "broken": True},
+        # A file that couldn't load is drawn as an empty box with its alt text, the size of the words.
+        {"id": "3", "src": "/wordmark.png", "y": 2900, "w": 106, "h": 19, "visible": True, "broken": True},
+    ]
+    fetched = browser_homepage(HOME, measure(structure=parts)).logos
+    seen = browser_homepage(HOME, measure(structure=numbered, logos=spots)).logos
+    logos = confirm_logos(fetched, seen, spots_of(*spots))
+    assert [logo.url for logo in logos if logo.method == "header-img"] == [f"{HOME}wordmark.png", f"{HOME}hero.png"]
+    # Not confirmed on the page: the browser drew an empty box, not the logo.
+    assert (logos[0].confidence, logos[0].rendered, logos[0].broken) == (0.65, None, True)
+
+
+def test_an_image_that_didnt_load_is_not_confirmed() -> None:
+    url = f"{HOME}logo.png"
+    fetched = [LogoCandidate("header-img", 0.8, url=url, format="png")]
+    broken = spot("4", src="/logo.png", current_src=url, w=106, h=19, broken=True)
+    [logo] = confirm_logos(fetched, [], spots_of(broken))
+    assert (logo.confidence, logo.rendered, logo.broken) == (0.8, None, True)
+    # A lazy image the page hasn't loaded yet isn't broken: it is judged as it is drawn.
+    [logo] = confirm_logos(fetched, [], spots_of(spot("4", src="/logo.png", current_src=url)))
+    assert (logo.confidence, logo.rendered, logo.broken) == (0.85, (120, 24), False)
+
+
 def test_logos_only_the_browser_saw_join_the_list() -> None:
     favicon = LogoCandidate("favicon", 0.35, url="https://www.larkspurtea.example/favicon.svg", format="svg")
     seen = [LogoCandidate("inline-svg", 0.9, svg=LOGO_SVG, format="svg", element_id="1"), favicon]

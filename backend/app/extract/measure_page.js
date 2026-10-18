@@ -530,6 +530,8 @@ async (options) => {
         // The image file's own size (0 for an SVG or an image not loaded yet): a photo isn't a logo.
         nw: image.naturalWidth || 0,
         nh: image.naturalHeight || 0,
+        // The browser tried to load the file and couldn't. A lazy image not loaded yet isn't "complete".
+        broken: image.tagName.toLowerCase() === 'img' && image.complete && image.naturalWidth === 0,
       });
     }
   }

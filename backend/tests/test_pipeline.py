@@ -6,6 +6,7 @@ sometimes changed to fail in one particular way.
 
 import asyncio
 import json
+import re
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -394,6 +395,38 @@ async def test_a_logo_that_comes_out_as_a_plain_shape_gives_way_to_the_sites_ico
     assert "No usable logo was found on the homepage of larkspur.example, so its icon is shown as the logo." in (
         guide.warnings
     )
+
+
+async def test_a_logo_image_that_didnt_load_in_the_browser_is_used_with_a_warning(settings: Settings) -> None:
+    # The homepage's logo is an image file, which TinyFish Browser couldn't load (its image server unreachable).
+    svg_logo = re.compile(r'<svg[^>]*aria-label="([^"]+)">.*?</svg>')
+
+    class ImageLogo(FakeTinyFish):
+        def _homepage(self, url: str, host: str, body: dict[str, Any]) -> dict[str, Any]:
+            found = super()._homepage(url, host, body)
+            if body["format"] == "html":
+                found["text"] = svg_logo.sub(r'<img src="/wordmark.png" alt="\1">', found["text"])
+            return found
+
+    def answer(url: str, arg: Any) -> Any:
+        if url.endswith("/wordmark.png"):
+            return [{"loaded": False, "status": 0}]  # opened on its own, it doesn't load either
+        found = browser_page(url, arg)
+        if isinstance(arg, dict) and "structureSelectors" in arg:
+            found["structure"] = svg_logo.sub(r'<img data-sf-id="1" src="/wordmark.png" alt="\1">', found["structure"])
+            found["logos"] = [{"id": "1", "y": 18, "w": 106, "h": 19, "visible": True, "src": "/wordmark.png",
+                               "broken": True}]  # fmt: skip
+        return found
+
+    job = await run(settings, "larkspur.example", ImageLogo(), browser=FakeBrowserDriver(answer))
+    guide = job.guide
+    assert guide is not None and guide.logo.primary is not None
+    assert guide.logo.primary.url == f"https://{urlsplit(guide.brand.url).hostname}/wordmark.png"
+    assert (
+        f"The logo image on {guide.brand.domain} didn’t load in TinyFish Browser, so Swatchfin couldn’t check its "
+        "size: it could be a photo labelled as the logo."
+    ) in guide.warnings
+    assert job.steps[4].detail is not None and "logo confirmed" not in job.steps[4].detail
 
 
 async def test_with_the_browser_turned_off_no_session_is_opened(settings: Settings) -> None:

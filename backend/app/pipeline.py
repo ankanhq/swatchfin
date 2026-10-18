@@ -524,6 +524,12 @@ def _styles_warnings(visuals: Visuals, homepage: Homepage) -> list[str]:
             f"shape, or {'their files are' if count != 1 else 'its file is'} missing, so "
             f"{'they were' if count != 1 else 'it was'} left out."
         )
+    if visuals.logos and visuals.logos[0].broken:
+        # Without its file, a photo labelled as the logo can't be told by its size (see visuals._photo).
+        warnings.append(
+            f"The logo image on {host} didn’t load in TinyFish Browser, so Swatchfin couldn’t check its size: "
+            "it could be a photo labelled as the logo."
+        )
     return warnings
 
 

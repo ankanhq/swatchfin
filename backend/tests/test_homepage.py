@@ -397,6 +397,21 @@ def test_away_from_the_header_a_logo_must_name_the_brand_itself() -> None:
         assert len(found) == 1, named
 
 
+def test_a_logo_in_the_footer_beats_one_labelled_in_the_page() -> None:
+    # Like zomato.com: a photo of food labelled "Zomato logo" in the page, then the wordmark, there and in the footer.
+    body = (
+        '<div class="hero"><img src="/img/hero-food.jpg" alt="Larkspur logo"></div>'
+        '<div class="intro"><img src="/img/wordmark.png" alt="Larkspur logo"></div>'
+    )
+    footer = '<footer><div class="footer__brand"><img src="/img/wordmark.png" alt="Larkspur Logo"></div></footer>'
+    found = [(logo.url, logo.confidence) for logo in build(HEAD + body + footer).logos if logo.method == "header-img"]
+    # The same image twice is one logo, scored by its best place: here, the footer.
+    assert found == [
+        ("https://www.larkspur.example/img/wordmark.png", 0.65),
+        ("https://www.larkspur.example/img/hero-food.jpg", 0.6),
+    ]
+
+
 def test_the_start_of_another_subdomain_is_not_the_way_home() -> None:
     # Flipkart's "Advertise" icon links to advertising.flipkart.com/.
     header = (

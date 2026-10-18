@@ -81,6 +81,7 @@ FORMATS_BY_TYPE: dict[str, LogoFormat] = {
 CONFIDENCE_HOME_LINK_LOGO = 0.9  # in the link back to the homepage, labelled as the logo or the brand
 CONFIDENCE_HOME_LINK = 0.8  # in the link back to the homepage
 CONFIDENCE_TOP_LOGO = 0.7  # labelled as a logo, in the header or nav
+CONFIDENCE_FOOTER_LOGO = 0.65  # labelled as a logo with the brand's name, in the footer
 CONFIDENCE_NAMED_LOGO = 0.6  # labelled as a logo with the brand's name, elsewhere on the page
 CONFIDENCE_TOUCH_ICON = 0.45  # the app icon for phones: the brand's mark, square
 CONFIDENCE_FAVICON = 0.35  # the browser tab icon
@@ -148,10 +149,12 @@ class LogoCandidate:
     # The logo's own label (alt text, aria-label or title), which may be the brand's name.
     label: str = ""
     # Set in step 5, from the browser: the number measure_page.js gave the element (data-sf-id),
-    # the colour the page gives it (for SVGs drawn in "currentColor"), and its size on screen.
+    # the colour the page gives it (for SVGs drawn in "currentColor"), its size on screen, and
+    # whether its image file couldn't load there (so its size couldn't be checked).
     element_id: str | None = None
     color: str | None = None
     rendered: tuple[int, int] | None = None
+    broken: bool = False
 
 
 @dataclass
@@ -379,14 +382,17 @@ def _logos_on_page(tree: LexborHTMLParser, base: str, homepage: Homepage) -> lis
     read. One inside the link back to the homepage is almost always the
     logo. Otherwise it must be labelled as a logo (in its alt text, class,
     id or label, or those of the elements around it) and sit in the header
-    or nav, or carry the brand's name. Logos of other companies (customer
-    logos, partners) carry other names and sit elsewhere, so they don't
-    qualify.
+    or nav, or carry the brand's name (more surely in the footer, where
+    sites repeat their own logo, than among the page's photos and cards).
+    Logos of other companies (customer logos, partners) carry other names
+    and sit elsewhere, so they don't qualify. An image found twice (in the
+    page and in the footer) is one logo, scored by its best place.
     """
     brand = main_label(homepage.host)
     home_paths = {"/", urlsplit(homepage.url).path or "/", urlsplit(homepage.requested_url).path or "/"}
     found: list[tuple[float, LogoCandidate]] = []
-    seen: set[str] = set()
+    # Each logo's place in `found`.
+    seen: dict[str, int] = {}
 
     # A CSS background logo is only in the browser's copy of the page (see measure_page.js).
     for node in tree.css("img, svg, [data-sf-background]"):
@@ -412,8 +418,9 @@ def _logos_on_page(tree: LexborHTMLParser, base: str, homepage: Homepage) -> lis
         elif is_logo and _names_brand_itself(node, brand):
             # Away from the header and the link home, the image itself must say the brand's name: a
             # card on Amazon's homepage labelled "Logo", in an element named "a-amazon-image", is another
-            # company's logo or an advert.
-            confidence = CONFIDENCE_NAMED_LOGO
+            # company's logo or an advert. The footer is surer than the page's body: Zomato labels a photo
+            # of food "Zomato logo", and puts its wordmark in the footer.
+            confidence = CONFIDENCE_FOOTER_LOGO if _in_footer(node) else CONFIDENCE_NAMED_LOGO
         else:
             continue
 
@@ -433,8 +440,11 @@ def _logos_on_page(tree: LexborHTMLParser, base: str, homepage: Homepage) -> lis
             continue
         key = candidate.url or candidate.svg or f"css:{candidate.element_id}"
         if key in seen:
+            # The same logo again: its best place counts (the footer over the page), and the first place on ties.
+            if confidence > found[seen[key]][0]:
+                found[seen[key]] = (confidence, candidate)
             continue
-        seen.add(key)
+        seen[key] = len(found)
         found.append((confidence, candidate))
     return found
 
@@ -687,6 +697,18 @@ def _in_top(node: LexborNode) -> bool:
             return True
         marker = f"{current.attributes.get('class') or ''} {current.attributes.get('id') or ''}".lower()
         if current.attributes.get("role") == "banner" or any(word in marker for word in TOP_WORDS):
+            return True
+        current = current.parent
+    return False
+
+
+def _in_footer(node: LexborNode) -> bool:
+    """True when the image sits in the page's footer."""
+    current = node.parent
+    while current is not None and current.tag not in ("body", "html", "-document"):
+        if current.tag == "footer" or current.attributes.get("role") == "contentinfo":
+            return True
+        if "footer" in f"{current.attributes.get('class') or ''} {current.attributes.get('id') or ''}".lower():
             return True
         current = current.parent
     return False
