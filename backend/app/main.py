@@ -30,7 +30,7 @@ from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 
 from app.config import Settings, get_settings
-from app.errors import ApiError, add_error_handlers
+from app.errors import ApiError, DeclaredSizeLimit, add_error_handlers
 from app.export import FORMATS, NothingToExport, export_filename, logo_filename
 from app.extract.resolve import ParsedQuery, QueryError, parse_query
 from app.jobs import GuideStore, JobManager, JobsBusy, LogoStore
@@ -461,6 +461,7 @@ def create_app(
 
     # Every request and answer passes through these.
     app.add_middleware(RequestBodyLimitMiddleware, max_body_size=MAX_BODY_BYTES)
+    app.add_middleware(DeclaredSizeLimit, max_body_size=MAX_BODY_BYTES)
     app.add_middleware(CacheControlMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=6)
 

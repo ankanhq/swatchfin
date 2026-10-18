@@ -117,6 +117,14 @@ def test_badly_formed_requests_are_refused(client: TestClient) -> None:
 def test_oversized_request_is_refused(client: TestClient) -> None:
     response = client.post("/api/v1/guides", json={"query": "x" * 20_000})
     assert response.status_code == 413
+    assert response.json()["error"]["title"] == "Request too large"
+    assert response.headers["cache-control"] == "no-store"
+
+    # Sent in pieces, without a length: Starlette counts the bytes, and the answer has the same shape.
+    pieces = (b'{"query": "' + b"x" * 8_000 for _ in range(3))
+    response = client.post("/api/v1/guides", content=pieces, headers={"Content-Type": "application/json"})
+    assert response.status_code == 413
+    assert response.json()["error"]["title"] == "Request too large"
 
 
 def test_unknown_guide_is_404(client: TestClient) -> None:

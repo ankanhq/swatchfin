@@ -15,7 +15,9 @@ into that JSON shape.
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.schemas import ErrorInfo, ErrorResponse
 
@@ -59,6 +61,31 @@ async def handle_validation_error(_request: Request, _error: RequestValidationEr
     return error_response(
         422, "Invalid request", "The request is missing something or has a value in the wrong format."
     )
+
+
+class DeclaredSizeLimit:
+    """Refuses a request whose Content-Length is over the limit, with the usual JSON error (413).
+
+    In plain English: Starlette's RequestBodyLimitMiddleware, which sits
+    inside this one, counts the bytes of every request body. But when a
+    request says up front that its body is too big, it answers in plain
+    text ("Content Too Large") instead of the API's error shape. So this
+    checks that header first and answers the usual way. A body sent
+    without a length is still counted and refused by Starlette, through
+    the handlers below.
+    """
+
+    def __init__(self, app: ASGIApp, max_body_size: int) -> None:
+        self.app = app
+        self.max_body_size = max_body_size
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            length = Headers(scope=scope).get("content-length", "")
+            if length.isdigit() and int(length) > self.max_body_size:
+                await error_response(413, *STANDARD_ERRORS[413])(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
 
 
 def add_error_handlers(app: FastAPI) -> None:
