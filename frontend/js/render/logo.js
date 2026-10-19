@@ -5,7 +5,7 @@
  */
 
 import { safeUrl } from '../utils.js';
-import { el, createIcon, confidenceBadge, emptyState, fact, list, lookup, siteHost, sourceLink, subsection, text } from './dom.js';
+import { el, createIcon, confidenceBadge, emptyState, fact, letterTile, list, lookup, siteHost, sourceLink, subsection, text } from './dom.js';
 import { brandName } from './brand.js';
 
 /** How the logo was found -> words for people. */
@@ -36,13 +36,17 @@ export function renderLogo(guide) {
   const format = text(primary.format).toUpperCase();
   const notes = el('ul', { className: 'sf-logo-card__notes' });
   addContrastNotes(notes, src);
+  // Said once, when the light tile's image can't be loaded (the dark tile shows the same file).
+  const missing = () => notes.append(contrastNote(
+    'The logo image couldn’t be loaded here (the site may not let other sites show it), so the brand’s first letter stands in for it.',
+  ));
 
   return el('div', { className: 'sf-logo-card' }, [
     el('div', { className: 'sf-logo-card__preview' }, [
       el('div', { className: 'sf-logo-card__tiles' }, [
         // The same image twice; only the first is described to screen readers.
-        logoTile(src, `${name} logo`, 'light'),
-        logoTile(src, '', 'dark'),
+        logoTile(src, `${name} logo`, 'light', name, missing),
+        logoTile(src, '', 'dark', name),
       ]),
       notes,
     ]),
@@ -60,7 +64,7 @@ export function renderLogo(guide) {
         format ? `Download ${format}` : 'Download logo',
       ]),
     ]),
-    otherVersions(guide, src),
+    otherVersions(guide, src, name),
   ]);
 }
 
@@ -69,28 +73,37 @@ export function renderLogo(guide) {
  * @param {string} src
  * @param {string} alt
  * @param {'light' | 'dark'} tone
+ * @param {string} name The brand's name, for its first letter if the image can't be loaded.
+ * @param {() => void} [onMissing]
  * @returns {HTMLElement}
  */
-function logoTile(src, alt, tone) {
+function logoTile(src, alt, tone, name, onMissing) {
   return el('figure', { className: `sf-logo-tile sf-logo-tile--${tone}` }, [
-    logoImage(src, alt, 'sf-logo-tile__img'),
+    logoImage(src, alt, 'sf-logo-tile__img', { name, letterClass: 'sf-logo-tile__letter', onMissing }),
     el('figcaption', { className: 'sf-logo-tile__label', text: tone === 'light' ? 'On light' : 'On dark' }),
   ]);
 }
 
 /**
- * An <img> that turns into a short message if the file can't be loaded
- * (some sites block images shown on other sites).
+ * An <img> that turns into the brand's first letter in a plain tile if the
+ * file can't be loaded (some sites don't let other sites show their
+ * images). An image with alt text becomes a tile that says no image could
+ * be loaded; a decorative one (alt="") stays decorative.
  * @param {string} src
  * @param {string} alt
  * @param {string} className
+ * @param {{ name: string, letterClass: string, onMissing?: () => void }} fallback
  * @returns {HTMLElement}
  */
-function logoImage(src, alt, className) {
+function logoImage(src, alt, className, { name, letterClass, onMissing }) {
   const img = el('img', { className, attrs: { src, alt, loading: 'lazy', decoding: 'async' } });
   img.addEventListener(
     'error',
-    () => img.replaceWith(el('span', { className: 'sf-logo-tile__missing', text: 'Image could not be loaded' })),
+    () => {
+      const label = alt ? `No logo image could be loaded for ${name}` : '';
+      img.replaceWith(letterTile(name, { className: letterClass, label }));
+      onMissing?.();
+    },
     { once: true },
   );
   return img;
@@ -238,9 +251,10 @@ const VERSION_LABELS = {
  * score. Older guides only have its address, so its card says "Not scored".
  * @param {Record<string, any>} guide
  * @param {string} primarySrc
+ * @param {string} name The brand's name, for a thumbnail whose image can't be loaded.
  * @returns {HTMLElement | null}
  */
-function otherVersions(guide, primarySrc) {
+function otherVersions(guide, primarySrc, name) {
   const seen = new Set([primarySrc]);
   const items = [];
 
@@ -248,11 +262,11 @@ function otherVersions(guide, primarySrc) {
     const src = safeUrl(alternate?.url);
     if (!src || seen.has(src)) continue;
     seen.add(src);
-    items.push(versionItem(src, lookup(VERSION_LABELS, alternate.method) ?? 'Alternate', text(alternate.format).toUpperCase(), alternate.confidence));
+    items.push(versionItem(src, lookup(VERSION_LABELS, alternate.method) ?? 'Alternate', text(alternate.format).toUpperCase(), alternate.confidence, name));
   }
 
   const favicon = safeUrl(guide.logo?.favicon);
-  if (favicon && !seen.has(favicon)) items.push(versionItem(favicon, 'Favicon', '', null));
+  if (favicon && !seen.has(favicon)) items.push(versionItem(favicon, 'Favicon', '', null, name));
 
   if (items.length === 0) return null;
   return subsection('Other versions', [el('ul', { className: 'sf-logo-versions' }, items)]);
@@ -267,11 +281,14 @@ function otherVersions(guide, primarySrc) {
  * @param {string} label
  * @param {string} format "SVG", "PNG"... or "" when unknown.
  * @param {unknown} confidence
+ * @param {string} name The brand's name, for its first letter if the image can't be loaded.
  * @returns {HTMLElement}
  */
-function versionItem(src, label, format, confidence) {
+function versionItem(src, label, format, confidence, name) {
   return el('li', { className: 'sf-logo-version' }, [
-    el('span', { className: 'sf-logo-version__thumb' }, [logoImage(src, '', 'sf-logo-version__img')]),
+    el('span', { className: 'sf-logo-version__thumb' }, [
+      logoImage(src, '', 'sf-logo-version__img', { name, letterClass: 'sf-logo-version__letter' }),
+    ]),
     el('span', { className: 'sf-logo-version__text' }, [
       el('span', { className: 'sf-logo-version__label', text: format ? `${label} · ${format}` : label }),
       el('span', { className: 'sf-logo-version__meta' }, [

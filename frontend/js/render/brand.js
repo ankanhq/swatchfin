@@ -6,7 +6,7 @@
  */
 
 import { formatDate, safeUrl, displayUrl } from '../utils.js';
-import { el, createIcon, list, lookup, text } from './dom.js';
+import { el, createIcon, letterTile, list, lookup, text } from './dom.js';
 import { validColors } from './colors.js';
 
 /**
@@ -32,7 +32,7 @@ export function renderBrandHeader(page, guide, { mock }) {
   page.querySelector('.sf-guide-header')?.setAttribute('data-filled', '');
   page.querySelector('[data-brand-eyebrow]').textContent = 'Brand guide';
   page.querySelector('[data-brand-name]').textContent = name;
-  page.querySelector('[data-brand-logo]').replaceChildren(headerLogo(guide.logo?.primary?.url));
+  page.querySelector('[data-brand-logo]').replaceChildren(headerLogo(guide.logo?.primary?.url, name));
 
   const siteHref = safeUrl(brand.url);
   const domain = text(brand.domain) || (siteHref ? displayUrl(siteHref) : '');
@@ -55,17 +55,20 @@ export function renderBrandHeader(page, guide, { mock }) {
 /**
  * The logo next to the brand name. It is decorative here (alt=""), because
  * the name is right beside it; the Logo section describes it properly.
+ * Without a logo, or when its image can't be loaded, the brand's first
+ * letter stands in its place.
  * @param {unknown} url
+ * @param {string} name
  * @returns {HTMLElement}
  */
-function headerLogo(url) {
-  const placeholder = () => el('span', { className: 'sf-guide-header__placeholder' }, [createIcon('image', { size: 24 })]);
+function headerLogo(url, name) {
+  const letter = () => letterTile(name, { className: 'sf-guide-header__letter' });
   const src = safeUrl(url);
-  if (!src) return placeholder();
+  if (!src) return letter();
 
   const img = el('img', { className: 'sf-guide-header__img', attrs: { src, alt: '', decoding: 'async' } });
-  // If the site blocks the image (or it is gone), show the placeholder instead.
-  img.addEventListener('error', () => img.replaceWith(placeholder()), { once: true });
+  // If the site blocks the image (or it is gone), show the letter instead.
+  img.addEventListener('error', () => img.replaceWith(letter()), { once: true });
   return img;
 }
 

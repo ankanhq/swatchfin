@@ -37,6 +37,21 @@ export function el(tag, { className, text, attrs } = {}, children = []) {
 }
 
 /**
+ * A brand's first letter (or digit) in a plain tile, shown when no logo image
+ * can be loaded. It never pretends to be the logo: with a label, screen
+ * readers hear that label ("No logo image could be loaded"); without one it
+ * is decoration, hidden from them.
+ * @param {string} name The brand's name: "X" -> "X", "楽天市場" -> "楽", "(RED)" -> "R".
+ * @param {{ className?: string, label?: string }} [options]
+ * @returns {HTMLElement}
+ */
+export function letterTile(name, { className = '', label = '' } = {}) {
+  const letter = (String(name).match(/[\p{L}\p{N}]/u)?.[0] ?? '?').toLocaleUpperCase();
+  const attrs = label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': 'true' };
+  return el('span', { className: `sf-letter-tile ${className}`.trim(), text: letter, attrs });
+}
+
+/**
  * A badge such as "High confidence". The word is always shown, so the level
  * never depends on colour alone. Returns null when there is no score.
  * @param {unknown} value Confidence from 0 to 1.
