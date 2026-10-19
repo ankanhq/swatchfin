@@ -354,7 +354,7 @@ async def test_a_redirect_to_another_of_the_brands_own_sites_is_followed() -> No
     google = "https://www.google.com"
     redirects = {
         "/about": "https://about.google/",  # the brand's own domain ending
-        "/careers": "https://www.google.co.in/about/careers/",  # the same name in another country
+        "/careers": "https://www.google.co.in/about/careers/",  # the same name on another ending: not enough
         "/press": "https://blog.google/press/",
         "/mission": "https://about.google/signin?continue=mission",  # a sign-in page: not read
         "/journal": "https://blog.google.evil.example/journal",  # not the brand
@@ -374,12 +374,9 @@ async def test_a_redirect_to_another_of_the_brands_own_sites_is_followed() -> No
     chosen = [ChosenPage(f"{google}{path}", "about", path[1:], "link", 1.0) for path in redirects]
     result = await read_pages(client, home, chosen)
 
-    assert [page.url for page in result.pages] == [
-        "https://about.google/",
-        "https://www.google.co.in/about/careers/",
-        "https://blog.google/press/",
-    ]
+    assert [page.url for page in result.pages] == ["https://about.google/", "https://blog.google/press/"]
     assert {skipped.url: (skipped.reason, skipped.elsewhere) for skipped in result.skipped} == {
+        f"{google}/careers": ("it redirected to another website", "google.co.in"),
         f"{google}/mission": ("it redirected to a page Swatchfin doesn’t read, such as a sign-in or legal page", None),
         f"{google}/journal": ("it redirected to another website", "blog.google.evil.example"),
         f"{google}/stories": ("it redirected to another website", "127.0.0.1"),

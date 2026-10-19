@@ -212,12 +212,12 @@ def same_brand(host: str, domain: str) -> bool:
     """True when host is the brand's own, even on another of its addresses.
 
     On google.com: "about.google" and "blog.google" (the brand's own domain
-    ending), "www.google.co.in" (the same main name in another country), and
-    every subdomain of google.com itself. Not "google.evil.com".
+    ending), and every subdomain of google.com itself. Not the same main name
+    on another ending: x.ai is xAI, not X, so google.co.in doesn't count
+    either. Not "google.evil.com".
     """
     host = host.lower().removesuffix(".")
-    brand = main_label(domain)
-    return same_site(host, domain) or main_label(host) == brand or host.rsplit(".", 1)[-1] == brand
+    return same_site(host, domain) or host.rsplit(".", 1)[-1] == main_label(domain)
 
 
 def public_host(url: str) -> str | None:

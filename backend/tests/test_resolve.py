@@ -122,7 +122,9 @@ def test_same_site() -> None:
         ("about.google", "google.com", True),  # the brand's own domain ending
         ("blog.google", "google.com", True),
         ("about.youtube", "youtube.com", True),
-        ("www.google.co.in", "google.com", True),  # the same main name in another country
+        # The same main name on another ending is not enough: x.ai is xAI, not X.
+        ("www.google.co.in", "google.com", False),
+        ("x.ai", "x.com", False),
         ("careers.google.com", "google.com", True),
         ("www.google.com", "google.com", True),
         ("google.evil.com", "google.com", False),
