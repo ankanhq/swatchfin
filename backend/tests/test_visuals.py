@@ -233,6 +233,28 @@ def test_links_are_judged_on_the_page_not_on_dark_sections() -> None:
     assert roles(measurement)["link"] == "#C2410C"
 
 
+def test_the_browsers_own_link_colours_are_never_in_the_palette() -> None:
+    # Swiggy: orange buttons, and links the site doesn't style, which browsers draw in their own blue and purple.
+    measurement = measure(
+        button("#FC8019"),
+        *[text("#0000EE", 40 + n, kind="link") for n in range(8)],
+        *[text("#551A8B", 400 + n, kind="link") for n in range(3)],
+        text("#EE0000", 600, kind="link"),
+        text("#3D4152", 200),
+    )
+    colours = palette(measurement)
+    assert {color.hex for color in colours}.isdisjoint({"#0000EE", "#551A8B", "#EE0000"})
+    assert roles(measurement)["primary"] == "#FC8019"
+    assert "secondary" not in roles(measurement)
+
+
+def test_a_logo_drawn_in_a_browser_link_colour_is_still_the_logos() -> None:
+    measurement = measure(text("#EE0000", 40, kind="link"), text("#111111", 200))
+    logo_red = next(color for color in palette(measurement, logo_colours=["#EE0000"]) if color.hex == "#EE0000")
+    # Only the logo's use is listed: the unstyled link isn't the brand's.
+    assert (logo_red.role, logo_red.usage) == ("primary", ["logo"])
+
+
 def test_text_drawn_twice_in_the_same_place_counts_once() -> None:
     # A headline fading between two colours stacks two copies of its text: only the top one counts.
     headline = {"x": 100, "y": 100, "w": 900, "h": 120, "text": 60, "kind": "heading", "size": 64}

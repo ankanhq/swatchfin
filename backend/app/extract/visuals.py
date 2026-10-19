@@ -113,6 +113,10 @@ MAX_BROWSER_PAGES = 3
 COLOURFUL = 20.0
 # Two colours closer than this (delta E) are counted as one: nobody could tell them apart.
 SAME_COLOUR = 3.0
+# The colours browsers give links a site doesn't style: a link, a visited link and a link being clicked.
+# They are the browser's, not the brand's, so they are left out of the palette (like the browser's
+# default white, which is only listed as the background and labelled as the default).
+BROWSER_LINK_COLOURS = frozenset({"#0000EE", "#551A8B", "#EE0000"})
 # Brand colours must differ by at least this much to be listed separately.
 DISTINCT_BRAND = 15.0
 # A colour needs at least this much evidence (see _Use), and this share of the primary's,
@@ -851,6 +855,8 @@ def palette(measurement: Measurement, *, logo_colours: Iterable[str] = ()) -> li
       paler than the text colour;
     - surface: the most used other neutral background (cards, sections);
     - border: the most used border colour not listed yet.
+    The browser's own colours for unstyled links (BROWSER_LINK_COLOURS) are
+    left out first; a logo drawn in one of them still counts as the logo's.
     Each colour is listed once, under its first role (but for black-and-white
     brands' buttons, above); its "usage" says everything it is used for.
     Buttons narrower than 40 px are icons, and their colours count as icons.
@@ -858,6 +864,8 @@ def palette(measurement: Measurement, *, logo_colours: Iterable[str] = ()) -> li
     background = (measurement.page_background or "#FFFFFF").upper()
     uses = _merge(_collect(measurement, background), first=background)
     _add_points(uses, measurement.samples)
+    for default in BROWSER_LINK_COLOURS - {background}:
+        uses.pop(default, None)
     uses[background].uses["page background"] += 1.0
 
     roles: dict[ColorRole, _Use] = {"background": uses[background]}
