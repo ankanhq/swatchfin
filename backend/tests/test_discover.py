@@ -132,6 +132,56 @@ def test_pages_that_are_kept(path: str) -> None:
     assert len(chosen_urls(home)) == 1
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://community.larkspur.example/about",
+        "https://techcommunity.larkspur.example/t/about",  # like techcommunity.microsoft.com
+        "https://en.community.larkspur.example/about",  # the forum is the second part
+        "https://communities.larkspur.example/about",
+        "https://forums.larkspur.example/about",
+        "https://devforum.larkspur.example/about",
+        "https://discuss.larkspur.example/about",
+        "https://discussions.larkspur.example/about",
+        "https://answers.larkspur.example/about",  # like answers.microsoft.com
+        "https://eu.help.larkspur.example/about",  # a help desk behind a region
+        f"{SITE}/forums/about",
+        f"{SITE}/communities/about",
+        f"{SITE}/discussions/about",
+    ],
+)
+def test_forums_are_left_out(url: str) -> None:
+    assert chosen_urls(homepage(link(url, "About"))) == []
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://careers.larkspur.example/",
+        "https://press.larkspur.example/",
+        "https://commerce.larkspur.example/about",  # "commerce" is not "community"
+        "https://uk.larkspur.example/about",
+    ],
+)
+def test_subdomains_that_are_kept(url: str) -> None:
+    assert len(chosen_urls(homepage(link(url, "About")))) == 1
+
+
+def test_a_forum_found_by_search_is_left_out() -> None:
+    """Microsoft's site-limited search for its About page finds its forum before its own pages."""
+    home = Homepage(
+        requested_url="https://www.microsoft.com/", url="https://www.microsoft.com/en-us", host="www.microsoft.com"
+    )
+    results = [
+        SearchResult(
+            position=1, url="https://techcommunity.microsoft.com/about", title="About Microsoft Tech Community"
+        ),
+        SearchResult(position=2, url="https://answers.microsoft.com/en-us/page/about", title="About Microsoft Q&A"),
+        SearchResult(position=3, url="https://www.microsoft.com/en-us/about", title="About Microsoft"),
+    ]
+    assert chosen_urls(home, results) == ["https://www.microsoft.com/en-us/about"]
+
+
 def test_on_a_site_in_one_language_its_own_copies_are_kept() -> None:
     home = homepage(link("/en-gb/about", "About"), link("/fr-fr/about", "About"), url=f"{SITE}/en-gb/")
     assert chosen_urls(home) == [f"{SITE}/en-gb/about"]

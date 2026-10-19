@@ -22,7 +22,8 @@ advert). Some names can only mean one thing ("Newsroom"), while others are
 shared with other things ("Press" is also Stripe Press, Stripe's book
 publisher), so the unmistakable ones earn extra points. Addresses on other sites, logins, legal pages, files, copies
 of the site in other languages, and other people's words (template
-galleries, community files, customer stories) are left out.
+galleries, community files, forums such as techcommunity.microsoft.com,
+customer stories) are left out.
 """
 
 import asyncio
@@ -169,15 +170,21 @@ SKIP_PATH = re.compile(
     r"(?<![a-z])(log-?in|sign-?in|sign-?up|sign-?out|register|account|password|cart|checkout|basket|wishlist"
     r"|search|privacy|terms|legal|cookies?|polic(y|ies)|gdpr|accessibility|sitemap|unsubscribe|returns"
     r"|order-status|help|support|faq|contact|status|cdn-cgi"
-    # Other people's words, not the brand's: template galleries, community files, marketplaces, customer stories.
-    r"|templates?|community|marketplace|customers|customer-stories|case-stud(y|ies)|testimonials)(?![a-z])",
+    # Other people's words, not the brand's: template galleries, community files, forums, marketplaces, customer
+    # stories.
+    r"|templates?|community|communities|forums?|discussions|marketplace|customers|customer-stories|case-stud(y|ies)"
+    r"|testimonials)(?![a-z])",
     re.IGNORECASE,
 )
-# Subdomains that are apps, help desks, docs or investor relations rather than the brand's own pages.
+# Subdomains that are apps, help desks, docs, investor relations or shops rather than the brand's own pages
+# ("answers." is a forum: answers.microsoft.com).
 SKIP_SUBDOMAINS = frozenset(
     {"login", "auth", "accounts", "account", "dashboard", "app", "status", "help", "support", "api", "docs",
-     "developer", "developers", "cdn", "static", "assets", "investors", "ir", "community", "forum", "shop", "store"}
+     "developer", "developers", "cdn", "static", "assets", "investors", "ir", "answers", "shop", "store"}
 )  # fmt: skip
+# A word inside a subdomain that means a forum, which is other people's words: "community.", "techcommunity.",
+# "forums.", "devforum.", "discuss.", "discussions.".
+FORUM_SUBDOMAIN = re.compile(r"communit(y|ies)|forum|discuss", re.IGNORECASE)
 # Files, not pages.
 SKIP_EXTENSIONS = re.compile(
     r"\.(pdf|jpe?g|png|gif|svg|webp|avif|ico|zip|xml|json|rss|atom|csv|mp4|mp3|mov|docx?|pptx?|xlsx?)$", re.I
@@ -391,8 +398,9 @@ def _usable(address: str, homepage: Homepage) -> bool:
     host = (parts.hostname or "").lower()
     if not same_site(host, homepage.domain):
         return False
-    subdomain = host.removesuffix("." + homepage.domain).split(".")[0] if host != homepage.domain else ""
-    if subdomain in SKIP_SUBDOMAINS:
+    # Every part of the subdomain counts: "techcommunity." and "en.community." are both forums.
+    subdomains = host.removesuffix("." + homepage.domain).split(".") if host != homepage.domain else []
+    if any(part in SKIP_SUBDOMAINS or FORUM_SUBDOMAIN.search(part) for part in subdomains):
         return False
     if page_key(address) in (page_key(homepage.url), page_key(homepage.requested_url)):
         return False
