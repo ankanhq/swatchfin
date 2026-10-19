@@ -46,7 +46,7 @@ def test_missing_page_gets_404_html_with_404_status(client: TestClient) -> None:
 
 
 def test_files_outside_frontend_are_not_served(client: TestClient) -> None:
-    for path in ("/%2e%2e/CLAUDE.md", "/..%2f.env.example", "/%2e%2e/backend/app/config.py"):
+    for path in ("/%2e%2e/README.md", "/..%2f.env.example", "/%2e%2e/backend/app/config.py"):
         response = client.get(path)
         assert response.status_code == 404, path
         assert "Page not found" in response.text, path
