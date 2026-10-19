@@ -39,10 +39,13 @@ services:
       - key: GROQ_API_KEY
         sync: false
       # Limits that protect the TinyFish allowance and the language model credit (backend/app/config.py).
+      # 90 guides read about 700 pages with Fetch (at most 11 each, about 1,000), within its free 1,000 a day.
       - key: DAILY_GUIDE_LIMIT
-        value: "50"
-      - key: NEW_GUIDES_PER_VISITOR_PER_DAY
-        value: "5"
+        value: "90"
+      # New guides per visitor (IP address) in any 24 hours. (Its old name, NEW_GUIDES_PER_VISITOR_PER_DAY, also
+      # works; if Render still has it, this one counts.)
+      - key: VISITOR_DAILY_LIMIT
+        value: "15"
       - key: REUSE_HOURS
         value: "24"
       # How many entries Render's proxies add to X-Forwarded-For: 3, checked live after the first deploy

@@ -404,7 +404,7 @@ DELETE https://api.browser.tinyfish.ai/{session_id}</code></pre>
     </section>
 
     <!-- ============ This demo ============ -->
-    <!-- The numbers match DAILY_GUIDE_LIMIT, NEW_GUIDES_PER_VISITOR_PER_DAY and REUSE_HOURS in backend/app/config.py. -->
+    <!-- The numbers match DAILY_GUIDE_LIMIT, VISITOR_DAILY_LIMIT and REUSE_HOURS for the live site, in render.yaml. -->
     <section class="sf-section sf-section--divided" id="demo-limits" aria-labelledby="demo-limits-title">
       <div class="sf-container">
         <div class="row gy-5 gx-lg-5">
@@ -415,7 +415,7 @@ DELETE https://api.browser.tinyfish.ai/{session_id}</code></pre>
           </div>
           <div class="col-lg-7" data-reveal>
             <ul class="sf-about-list">
-              <li>It makes up to 50 new guides a day for everyone together, a day that starts at midnight UTC, and up to 5 in any 24 hours for each visitor.</li>
+              <li>It makes up to 90 new guides a day for everyone together, a day that starts at midnight UTC, and up to 15 in any 24 hours for each visitor.</li>
               <li>A site that already has a guide from the last 24 hours opens that guide straight away, with the date it was read. It doesn’t count toward either limit.</li>
               <li>The server sleeps after 15 quiet minutes, so the first visit after a pause can take about a minute to load.</li>
               <li>When the server sleeps or restarts, it forgets the guides it has made. An older guide link then shows “Guide not found”, with a button that makes the guide again from the live site.</li>

@@ -12,7 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # backend/app/config.py -> the repo root, two folders up from backend/app.
@@ -85,11 +85,15 @@ class Settings(BaseSettings):
     use_browser: bool = True
 
     # Limits that protect the TinyFish allowance and the language model credit. See ratelimit.py.
-    # New guides a day for everyone together (UTC days). 50 guides read at most 550 pages,
-    # within Fetch's free 1,000 a day.
+    # New guides a day for everyone together (UTC days), DAILY_GUIDE_LIMIT. A guide reads 7–8 pages
+    # with Fetch on average and at most 11, so the live site's 90 stay within Fetch's free 1,000 a day.
     daily_guide_limit: int = Field(50, ge=1)
-    # New guides a day per visitor (IP address), and API requests a minute per visitor.
-    new_guides_per_visitor_per_day: int = Field(5, ge=1)
+    # New guides per visitor (IP address) in any 24 hours, VISITOR_DAILY_LIMIT. Its old name,
+    # NEW_GUIDES_PER_VISITOR_PER_DAY, still works; when both are set, the new one counts.
+    visitor_daily_limit: int = Field(
+        5, ge=1, validation_alias=AliasChoices("visitor_daily_limit", "new_guides_per_visitor_per_day")
+    )
+    # API requests a minute per visitor.
     api_requests_per_minute: int = Field(300, ge=1)
     # A complete guide for the same search or website made within this many hours is reused
     # instead of made again (see reuse.py). 0 turns reuse off.

@@ -114,7 +114,7 @@ def create_router(jobs: JobManager, logos: LogoStore, settings: Settings, daily_
     """The /api/v1 endpoints. They share the job manager and the limits (see ratelimit.py)."""
     visitors = Visitors(settings.proxy_hops)
     api_limit = RateLimiter(settings.api_requests_per_minute, 60)
-    visitor_limit = RateLimiter(settings.new_guides_per_visitor_per_day, DAY_SECONDS)
+    visitor_limit = RateLimiter(settings.visitor_daily_limit, DAY_SECONDS)
     # Said when a limit is reached: guides that already exist still open.
     still_open = (
         f" A site that already has a guide from the last {settings.reuse_hours:g} hours still opens straight away."
@@ -130,11 +130,11 @@ def create_router(jobs: JobManager, logos: LogoStore, settings: Settings, daily_
     def start_new_guide(query: ParsedQuery, who: str) -> Job:
         """Starts a new guide if the visitor's limit and today's limit allow it.
 
-        In plain English: count the guide against the visitor's 5 a day,
-        then against everyone's 50 a day. If either is used up, refuse with
-        a message that says when to try again. If the guide can't start
-        after all (too busy), or it ends by reusing an earlier guide, both
-        counts are given back.
+        In plain English: count the guide against the visitor's limit
+        (VISITOR_DAILY_LIMIT), then against everyone's (DAILY_GUIDE_LIMIT).
+        If either is used up, refuse with a message that says when to try
+        again. If the guide can't start after all (too busy), or it ends by
+        reusing an earlier guide, both counts are given back.
         """
         wait = visitor_limit.hit(who)
         if wait is not None:
@@ -199,8 +199,8 @@ def create_router(jobs: JobManager, logos: LogoStore, settings: Settings, daily_
         A search for a site with a complete guide from the last 24 hours
         answers with that guide's ID (its status is already "complete"), and
         a search that is being made right now answers with that job's ID.
-        Neither counts toward the limits: 5 new guides a day per visitor,
-        and 50 a day for everyone together.
+        Neither counts toward the limits: new guides per visitor in any 24
+        hours, and new guides a day for everyone together.
         """
         try:
             query = parse_query(body.query)

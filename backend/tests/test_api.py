@@ -370,7 +370,7 @@ def test_export_errors(make_client: Callable[..., TestClient]) -> None:
 
 
 def test_too_many_new_guides_for_one_visitor(make_client: Callable[..., TestClient]) -> None:
-    client = make_client(new_guides_per_visitor_per_day=2)
+    client = make_client(visitor_daily_limit=2)
     duolingo = start(client, "Duolingo")
     start(client, "Stripe")
     response = client.post("/api/v1/guides", json={"query": "Linear"})
@@ -387,7 +387,7 @@ def test_too_many_new_guides_for_one_visitor(make_client: Callable[..., TestClie
 
 
 def test_new_guides_a_day_for_everyone(make_client: Callable[..., TestClient]) -> None:
-    client = make_client(daily_guide_limit=1, new_guides_per_visitor_per_day=2)
+    client = make_client(daily_guide_limit=1, visitor_daily_limit=2)
     start(client, "Duolingo")
     for _ in range(2):
         # Refused by today's limit, which gives the visitor's guide back: so the second try is refused
@@ -416,7 +416,7 @@ def test_todays_guides_are_counted_at_tinyfish_when_the_server_starts(make_clien
 
 def test_the_visitor_is_read_from_the_proxys_entry(make_client: Callable[..., TestClient]) -> None:
     """Behind Render's proxy, a made-up first X-Forwarded-For entry doesn't dodge the visitor limit."""
-    client = make_client(proxy_hops=1, new_guides_per_visitor_per_day=1)
+    client = make_client(proxy_hops=1, visitor_daily_limit=1)
 
     def post(query: str, forwarded_for: str) -> int:
         response = client.post("/api/v1/guides", json={"query": query}, headers={"X-Forwarded-For": forwarded_for})
@@ -439,7 +439,7 @@ def test_a_name_for_a_site_with_a_guide_reuses_it(
     make_client: Callable[..., TestClient], wait_for_job: WaitForJob
 ) -> None:
     fake = FakeTinyFish()
-    client = make_client(tinyfish=fake, new_guides_per_visitor_per_day=2)
+    client = make_client(tinyfish=fake, visitor_daily_limit=2)
     first = wait_for_job(client, start(client, "https://www.larkspurtea.example/"))
     sessions = len(fake.sessions_opened)
 

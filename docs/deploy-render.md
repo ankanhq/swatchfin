@@ -121,4 +121,4 @@ Under the service's **Settings**, **Suspend Service** stops it (the address then
 - **The build fails.** Open the failed deploy's log. Every package is pinned and has a ready-made Linux build for Python 3.13 (checked in Phase 10), so a failure usually means a typo in a changed `render.yaml`.
 - **Every guide stops with "Swatchfin can't read websites right now".** The TinyFish key is missing or wrong. Fix it under **Environment**.
 - **Guides have no tone of voice**, and their warning gives each model's reason: no language model key worked. Check the three keys, and the Anthropic spend limit.
-- **"Swatchfin has reached today's limit".** 50 new guides were made today (UTC). Sites with a guide from the last 24 hours still open; new ones work again after midnight UTC.
+- **"Swatchfin has reached today's limit".** 90 new guides were made today (UTC; `DAILY_GUIDE_LIMIT`). Sites with a guide from the last 24 hours still open; new ones work again after midnight UTC.

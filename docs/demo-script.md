@@ -17,7 +17,7 @@ The bounty asks to see five things. Each is shown here:
 1. **Wake the server.** Open <https://swatchfin.onrender.com> and wait until the start page shows. After 15 minutes without visitors the free server sleeps, and the first visit takes about a minute.
 2. **Make three guides in advance**: open the start page, click the example chips **stripe.com** and **https://www.patagonia.com**, then type **Duolingo** and click Generate. Wait for each guide to finish. When you open them again during the recording, they open at once: a guide made in the last 24 hours is reused.
 3. **Don't push to GitHub until you have finished.** A push makes Render deploy, and a deploy forgets every guide.
-4. **Mind the limits.** Each visitor can start 5 new guides a day. This demo starts 4 (Notion, Stripe, Patagonia, Duolingo); reopening one of them doesn't count.
+4. **Mind the limits.** Each visitor can start 15 new guides in any 24 hours. This demo starts 4 (Notion, Stripe, Patagonia, Duolingo); reopening one of them doesn't count.
 5. **Set up the screen:** a browser window of about 1440 × 900, zoom at 100%, the light theme, one tab, bookmarks bar hidden, notifications off.
 
 Notion is the one guide made live, so the video shows the progress steps. If it opens at once, it was made in the last 24 hours and reused: make the live one with another site instead, such as linear.app.

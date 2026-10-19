@@ -61,3 +61,19 @@ def test_keys_passed_directly_are_cleaned() -> None:
     assert settings.groq_api_key is not None
     assert settings.groq_api_key.get_secret_value() == "gsk_1"
     assert "gsk_1" not in repr(settings)
+
+
+def test_the_visitor_limit_has_a_new_name_and_keeps_its_old_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert Settings(_env_file=None).visitor_daily_limit == 5  # type: ignore[call-arg]
+    monkeypatch.setenv("NEW_GUIDES_PER_VISITOR_PER_DAY", "7")
+    assert Settings(_env_file=None).visitor_daily_limit == 7  # type: ignore[call-arg]
+    # When both are set (Render keeps a variable a Blueprint no longer lists), the new name counts.
+    monkeypatch.setenv("VISITOR_DAILY_LIMIT", "15")
+    assert Settings(_env_file=None).visitor_daily_limit == 15  # type: ignore[call-arg]
+
+
+def test_the_visitor_limit_from_the_env_file(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("VISITOR_DAILY_LIMIT=15\nDAILY_GUIDE_LIMIT=90\n")
+    settings = Settings(_env_file=env_file)  # type: ignore[call-arg]
+    assert (settings.visitor_daily_limit, settings.daily_guide_limit) == (15, 90)
