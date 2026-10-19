@@ -3,7 +3,8 @@
 FORMATS below lists every format the export endpoint (main.py) offers:
 the end of its file name, its media type and the function that writes it.
 Each format has its own module in this folder; common.py holds what they
-share. A builder gets the guide with its logo addresses already in full,
+share. A builder gets the guide with its logo addresses already in full
+(and, except for JSON, a copied logo written into the file: see logo.py),
 and raises NothingToExport when the guide has nothing the format can hold.
 """
 

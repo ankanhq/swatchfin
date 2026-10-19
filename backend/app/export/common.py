@@ -117,6 +117,20 @@ def web_address(url: str | None) -> str | None:
     return url if re.match(r"https?://[^\s/]", url, re.IGNORECASE) and " " not in url else None
 
 
+# A logo written into the file itself (export/logo.py): an SVG or PNG image in base64, and nothing else.
+DATA_LOGO = re.compile(r"data:image/(svg\+xml|png);base64,[A-Za-z0-9+/]+={0,2}")
+
+
+def logo_address(url: str | None) -> str | None:
+    """Where a file finds the logo: an http(s) address, or the logo itself as a data address. Else None.
+
+    Any other data address ("data:text/html,…") or scheme ("javascript:") gives None.
+    """
+    if url and DATA_LOGO.fullmatch(url):
+        return url
+    return web_address(url)
+
+
 def guide_date(guide: BrandGuide) -> str:
     """The day the guide was made, in words: "11 October 2026" (UTC)."""
     made = guide.generated_at

@@ -33,6 +33,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from app.config import Settings, get_settings
 from app.errors import ApiError, DeclaredSizeLimit, add_error_handlers
 from app.export import FORMATS, NothingToExport, export_filename, logo_filename
+from app.export.logo import portable_logo
 from app.extract.resolve import ParsedQuery, QueryError, parse_query
 from app.headers import DOCS_PATH, SecurityHeadersMiddleware, docs_page
 from app.jobs import GuideStore, JobManager, JobsBusy, LogoStore
@@ -277,7 +278,12 @@ def create_router(jobs: JobManager, logos: LogoStore, settings: Settings, daily_
         if job.status != "complete" or job.guide is None:
             raise ApiError(409, "The guide isn’t ready", "Exports are available once the guide is complete.")
 
-        guide = with_full_addresses(job.guide, str(request.base_url))
+        guide = job.guide
+        if export_format != "json":
+            # A logo copied to this server goes into the file itself, so the file keeps working
+            # after the server forgets it (export/logo.py). JSON stays exactly the schema.
+            guide = await portable_logo(guide, logos.load)
+        guide = with_full_addresses(guide, str(request.base_url))
         try:
             text = export.build(guide)
         except NothingToExport as error:

@@ -25,11 +25,11 @@ from app.export.common import (
     first_font,
     font_keyword,
     font_names,
+    logo_address,
     made_by,
     need_colours_or_fonts,
     number,
     numbered,
-    web_address,
 )
 from app.schemas import BrandGuide, Color, Font
 
@@ -45,7 +45,7 @@ def css_export(guide: BrandGuide) -> str:
 
     colours = colour_lines(guide, lambda role: f"--brand-color-{role}")
     fonts = font_lines(guide, lambda role: f"--brand-font-{role}")
-    logo = web_address(guide.logo.primary.url) if guide.logo.primary else None
+    logo = logo_address(guide.logo.primary.url) if guide.logo.primary else None
 
     body: list[str] = []
     for title, lines in (

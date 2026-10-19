@@ -36,6 +36,7 @@ from app.export.common import (
     font_keyword,
     font_names,
     is_mock,
+    logo_address,
     made_by,
     no_colours_or_fonts,
     number,
@@ -80,7 +81,7 @@ def about(guide: BrandGuide) -> dict[str, Any]:
         "site": web_address(guide.brand.url),
         "generated_at": guide.generated_at.isoformat().replace("+00:00", "Z"),
     }
-    logo = web_address(guide.logo.primary.url) if guide.logo.primary else None
+    logo = logo_address(guide.logo.primary.url) if guide.logo.primary else None
     if logo:
         info["logo"] = logo
     if is_mock(guide):

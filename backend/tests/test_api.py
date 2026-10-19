@@ -1,5 +1,6 @@
 """The /api/v1 endpoints, called the way the guide page and other tools call them."""
 
+import base64
 import json
 import re
 import time
@@ -242,17 +243,38 @@ def test_export_a_real_guide(client: TestClient, wait_for_job: WaitForJob) -> No
     exported["logo"]["primary"]["url"] = logo_path
     assert exported == job["guide"]
 
-    # The other files give the copied logo in full too, and say which live site they came from.
+    # The other files hold the copied logo itself, so they keep working after the server forgets it,
+    # and say which live site they came from.
+    svg = client.get(logo_path).content
+    embedded = "data:image/svg+xml;base64," + base64.b64encode(svg).decode()
     css = client.get(f"/api/v1/guides/{job['id']}/export?format=css")
     assert css.headers["content-disposition"] == 'attachment; filename="larkspurtea-brand.css"'
-    assert f'--brand-logo: url("http://testserver{logo_path}");' in css.text
+    assert f'--brand-logo: url("{embedded}");' in css.text
+    assert "testserver" not in css.text
     assert f"Made by Swatchfin from the live site {job['guide']['brand']['url']} on " in css.text
     tokens = client.get(f"/api/v1/guides/{job['id']}/export?format=tokens").json()
-    assert tokens["$extensions"]["io.github.ankanhq.swatchfin"]["logo"] == f"http://testserver{logo_path}"
+    assert tokens["$extensions"]["io.github.ankanhq.swatchfin"]["logo"] == embedded
     # The tests have no language model key, so this guide has no tone of voice to write a prompt from.
     voice = client.get(f"/api/v1/guides/{job['id']}/export?format=voice")
     assert voice.status_code == 409
     assert voice.json()["error"]["title"] == "No tone of voice to export"
+
+
+def test_an_export_without_its_copied_logo_file_uses_the_brands_own(
+    client: TestClient, settings: Settings, wait_for_job: WaitForJob
+) -> None:
+    job = wait_for_job(client, start(client, "Larkspur Tea"))
+    # The server forgot the copy (a restart on Render): the brand's next logo file on its own site is used.
+    (settings.data_dir / "logos" / f"{job['id']}-1.svg").unlink()
+    brand_file = "https://www.larkspurtea.example/apple-touch-icon.png"
+    assert job["guide"]["logo"]["alternates"][0]["url"] == brand_file
+    css = client.get(f"/api/v1/guides/{job['id']}/export?format=css").text
+    assert f'--brand-logo: url("{brand_file}");' in css
+    tokens = client.get(f"/api/v1/guides/{job['id']}/export?format=tokens").json()
+    assert tokens["$extensions"]["io.github.ankanhq.swatchfin"]["logo"] == brand_file
+    # The JSON export is still exactly the guide, with Swatchfin's address for the copy.
+    exported = client.get(f"/api/v1/guides/{job['id']}/export?format=json").json()
+    assert exported["logo"]["primary"]["url"] == f"http://testserver/api/v1/guides/{job['id']}/logos/1.svg"
 
 
 def test_a_logo_copied_from_the_page_is_served_locked_down(client: TestClient, wait_for_job: WaitForJob) -> None:
@@ -309,6 +331,11 @@ def test_a_logo_drawn_with_css_is_served_as_the_browsers_photo(
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["content-disposition"] == 'inline; filename="larkspurtea-logo.png"'
     assert client.get(logo["url"].replace(".png", ".svg")).status_code == 404
+
+    # Exports hold the photo itself.
+    embedded = "data:image/png;base64," + base64.b64encode(TINY_PNG).decode()
+    css = client.get(f"/api/v1/guides/{job['id']}/export?format=css").text
+    assert f'--brand-logo: url("{embedded}");' in css
 
 
 def test_logo_addresses_that_dont_exist(client: TestClient, wait_for_job: WaitForJob) -> None:
