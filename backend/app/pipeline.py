@@ -370,7 +370,13 @@ async def _read_styles(
     retry = [skipped for skipped in pages.skipped if skipped.retry]
     try:
         return await read_visuals(
-            visit, homepage.url, retry, time_limit=min(time_left, STYLES_TIME_LIMIT), logos=homepage.logos
+            visit,
+            homepage.url,
+            retry,
+            time_limit=min(time_left, STYLES_TIME_LIMIT),
+            logos=homepage.logos,
+            # A picture labelled with just one of these is a logo too (x.com's mark is aria-label="X").
+            brand_names=[name for name in (homepage.site_name, main_label(homepage.host)) if name],
         )
     except (TinyFishError, BrowserUnavailable, TimeoutError) as error:
         log.warning("browser step failed for %s: %s", host, error)

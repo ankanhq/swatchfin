@@ -745,3 +745,17 @@ async def test_pages_that_redirect_to_other_websites_share_one_warning(settings:
     assert [warning for warning in job.guide.warnings if "redirected" in warning] == [
         "The Careers page (https://www.larkspurtea.example/careers) was skipped: it redirected to another website."
     ]
+
+
+async def test_the_browser_looks_for_pictures_labelled_with_the_brands_name(settings: Settings) -> None:
+    options: list[dict[str, Any]] = []
+
+    def answer(url: str, arg: Any) -> Any:
+        if isinstance(arg, dict) and "structureSelectors" in arg:
+            options.append(arg)
+        return browser_page(url, arg)
+
+    job = await run(settings, "Larkspur Tea", browser=FakeBrowserDriver(answer))
+    assert job.status == "complete"
+    # The site's own name, then the main part of its address (measure_page.js compares them ignoring case).
+    assert [option["brandNames"] for option in options] == [["Larkspurtea", "larkspurtea"]]

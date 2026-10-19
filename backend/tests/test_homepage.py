@@ -346,6 +346,54 @@ def test_a_detailed_logo_named_like_an_icon_is_kept() -> None:
     assert len(svg_logos(build(HEAD + f'<header><a href="/">{mark}</a></header>'))) == 1
 
 
+# x.com's mark, as its logged-out homepage draws it: in the page's body, labelled with just the brand's name.
+X_PATH = (
+    "M285.6 207.4 464.2 0h-42.3L266.8 180.1 142.9 0H0l187.3 272.5L0 490h42.3l163.8-190.4L337 490h142.9L285.6 207.4Z"
+    "m-58 67.4-19-27.1L57.6 31.9h65l121.9 174.3 19 27.1 158.4 226.6h-65L227.6 274.8Z"
+)
+
+
+def x_page(svg: str) -> Any:
+    return build(HEAD + f"<main><div>{svg}</div></main>", url="https://x.com/")
+
+
+def test_a_mark_labelled_with_just_the_brands_name_is_a_logo() -> None:
+    homepage = x_page(f'<svg aria-label="X" role="img" fill="none" viewBox="0 0 480 490"><path d="{X_PATH}"/></svg>')
+    marks = [logo for logo in homepage.logos if logo.method == "inline-svg"]
+    assert [(logo.label, logo.confidence) for logo in marks] == [("X", 0.6)]
+
+
+@pytest.mark.parametrize(
+    "svg",
+    [
+        # A checkmark or arrow labelled with the brand's name is still an interface icon.
+        f'<svg aria-label="X" viewBox="0 0 24 24">{CHECKMARK}</svg>',
+        f'<svg aria-label="X" viewBox="0 0 480 490" width="16" height="16"><path d="{X_PATH}"/></svg>',
+        # Not just the brand's name.
+        f'<svg aria-label="Share on X" viewBox="0 0 480 490"><path d="{X_PATH}"/></svg>',
+        f'<svg aria-label="Search" viewBox="0 0 480 490"><path d="{X_PATH}"/></svg>',
+        f'<svg viewBox="0 0 480 490"><path d="{X_PATH}"/></svg>',
+    ],
+)
+def test_icons_and_other_labels_are_not_named_logos(svg: str) -> None:
+    assert svg_logos(x_page(svg)) == []
+
+
+def test_an_image_with_the_brands_name_as_its_alt_text_is_a_logo() -> None:
+    # Google's wordmark sits in the middle of its homepage, with no "logo" in its label.
+    wordmark = '<img alt="Google" src="/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png" width="272">'
+    homepage = build(HEAD + f"<div class='k1zIA'>{wordmark}</div>", url="https://www.google.com/")
+    first = homepage.logos[0]
+    assert (first.method, first.url, first.confidence) == (
+        "header-img",
+        "https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png",
+        0.6,
+    )
+    # A picture of something the brand sells carries more than its name.
+    gift_card = '<img alt="Larkspur Tea gift card" src="/img/gift-card.png" width="300">'
+    assert not any(logo.url and "gift-card" in logo.url for logo in build(HEAD + f"<main>{gift_card}</main>").logos)
+
+
 # ---------------------------------------------------------------------------
 # Logos drawn with CSS, promotions and other companies' logos
 # ---------------------------------------------------------------------------

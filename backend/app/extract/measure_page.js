@@ -18,7 +18,9 @@
  *    images), for the "share of the visible area";
  * 4. lists the web fonts the page loaded;
  * 5. copies the <head>, header, nav, footer and logo parts of the page as
- *    HTML, the same parts Fetch reads, with a number on each image and SVG
+ *    HTML, the same parts Fetch reads, plus any image or SVG labelled with
+ *    just the brand's name (x.com's big X mark, aria-label="X", sits in no
+ *    header), with a number on each image and SVG
  *    so Python can find their size, visibility and colour on the page, and
  *    the colours each part of an SVG is drawn in written on the part. A
  *    logo drawn with a CSS background (one picture cut from a "sprite") is
@@ -38,6 +40,7 @@ async (options) => {
     maxTextChars, // how much text to copy, at most
     maxLinks, // how many links to copy, at most
     fontWaitMs, // how long to wait for web fonts
+    brandNames = [], // the brand's names ("X", "x"): a picture labelled with one of them is copied too
   } = options;
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -372,6 +375,18 @@ async (options) => {
     }
     for (const node of matches) {
       if (!parts.some((part) => part === node || part.contains(node))) parts.push(node);
+    }
+  }
+  // A picture whose whole label is the brand's name, wherever it is: homepage.py judges it like the others.
+  const names = new Set(brandNames.map((name) => String(name).trim().toLowerCase()).filter(Boolean));
+  if (names.size) {
+    let added = 0;
+    for (const node of document.querySelectorAll('svg[aria-label], img[alt], img[aria-label]')) {
+      if (added >= 20) break;
+      const label = (node.getAttribute('aria-label') || node.getAttribute('alt') || '').trim().toLowerCase();
+      if (!names.has(label) || parts.some((part) => part === node || part.contains(node))) continue;
+      parts.push(node);
+      added += 1;
     }
   }
 

@@ -385,7 +385,10 @@ def _logos_on_page(tree: LexborHTMLParser, base: str, homepage: Homepage) -> lis
     logo. Otherwise it must be labelled as a logo (in its alt text, class,
     id or label, or those of the elements around it) and sit in the header
     or nav, or carry the brand's name (more surely in the footer, where
-    sites repeat their own logo, than among the page's photos and cards).
+    sites repeat their own logo, than among the page's photos and cards),
+    or have the brand's name as its whole label (x.com's mark is
+    aria-label="X", Google's wordmark alt="Google"), unless it is an
+    interface icon.
     Logos of other companies (customer logos, partners) carry other names
     and sit elsewhere, so they don't qualify. An image found twice (in the
     page and in the footer) is one logo, scored by its best place.
@@ -422,6 +425,10 @@ def _logos_on_page(tree: LexborHTMLParser, base: str, homepage: Homepage) -> lis
             # card on Amazon's homepage labelled "Logo", in an element named "a-amazon-image", is another
             # company's logo or an advert. The footer is surer than the page's body: Zomato labels a photo
             # of food "Zomato logo", and puts its wordmark in the footer.
+            confidence = CONFIDENCE_FOOTER_LOGO if _in_footer(node) else CONFIDENCE_NAMED_LOGO
+        elif _named_exactly(node, homepage.host) and not (node.tag == "svg" and _ui_icon(node)):
+            # Its whole label is the brand's name, without the word "logo": x.com's mark (aria-label="X")
+            # sits in no header or link. A checkmark or arrow labelled so is still an icon, never the logo.
             confidence = CONFIDENCE_FOOTER_LOGO if _in_footer(node) else CONFIDENCE_NAMED_LOGO
         else:
             continue
@@ -603,6 +610,17 @@ def _promotion(node: LexborNode) -> bool:
     spaced = re.sub(r"([a-z])([A-Z])", r"\1 \2", _own_words(node))  # "FreeDelivery" -> "Free Delivery"
     words = {word.lower() for word in re.split(r"[^A-Za-z0-9]+", spaced) if word}
     return not PROMOTION_WORDS.isdisjoint(words)
+
+
+def _named_exactly(node: LexborNode, host: str) -> bool:
+    """True when an image's own alt text or label is the brand's name and nothing else: "X" on x.com,
+    "Google" (or "Google logo") on google.com. Not "Share on X", and not an empty label."""
+    label = next(
+        (value for value in (node.attributes.get("alt"), node.attributes.get("aria-label")) if value and value.strip()),
+        "",
+    )
+    name = _strip_filler(label)
+    return bool(name) and name_match(name, main_label(host)) == 1.0
 
 
 def _names_brand_itself(node: LexborNode, brand: str) -> bool:

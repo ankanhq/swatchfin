@@ -388,10 +388,12 @@ async def read_visuals(
     *,
     time_limit: float,
     logos: Sequence[LogoCandidate] = (),
+    brand_names: Sequence[str] = (),
 ) -> Visuals:
     """Measures the homepage in the browser, checks the logos, then reads the pages in `retry` while time allows.
 
-    `logos` are the candidates Fetch found (see confirm_logos and check_drawings).
+    `logos` are the candidates Fetch found (see confirm_logos and check_drawings). `brand_names` ("X", "x")
+    let measure_page.js also copy a picture labelled with just the brand's name.
     Raises TinyFishError, BrowserUnavailable or TimeoutError when the homepage can't be measured.
     """
     loop = asyncio.get_running_loop()
@@ -406,7 +408,7 @@ async def read_visuals(
     raw = await page.run(
         homepage_url,
         MEASURE_SCRIPT,
-        MEASURE_OPTIONS,
+        {**MEASURE_OPTIONS, "brandNames": [name for name in brand_names if name][:4]},
         time_limit=min(MEASURE_TIME_LIMIT, max(remaining(), 1)),
         wait_for_text=True,
     )
