@@ -303,7 +303,7 @@ The whole app runs as one free web service on Render, set up from [`render.yaml`
 
 ## Demo
 
-[docs/demo-script.md](docs/demo-script.md) is the script for the demo video: four brands (Notion, Stripe, Patagonia, and Duolingo by name), what to click and what to say, in about three minutes.
+The demo video (Notion, Stripe, Patagonia, and Duolingo from just its name) will be linked here.
 
 ## Credits
 

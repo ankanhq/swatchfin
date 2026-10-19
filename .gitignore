@@ -29,8 +29,10 @@ Thumbs.db
 .idea/
 .vscode/
 
-# Claude Code local config (launch.json, personal settings)
+# Local tool settings
 .claude/
 
-# Personal build notes (kept locally, not published)
+# Personal notes (kept on my computer, not published)
 BUILD_PROMPTS.md
+CLAUDE.md
+docs/demo-script.md
