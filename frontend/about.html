@@ -94,7 +94,7 @@
       <div class="sf-container">
         <p class="sf-eyebrow">About Swatchfin</p>
         <h1 class="sf-page-hero__title" id="about-title">How Swatchfin reads a brand</h1>
-        <p class="sf-page-hero__lead">Swatchfin turns a company name or a URL into a brand guide by reading the live website with three TinyFish APIs. This page explains what each one does, how the result is checked, and where the limits are.</p>
+        <p class="sf-page-hero__lead">I built Swatchfin to turn a company name or a URL into a brand guide. It reads the live website with three TinyFish APIs. This page explains what each one does, how the result is checked, and where the limits are.</p>
 
         <ul class="sf-about-facts">
           <li class="sf-about-facts__item">
@@ -127,7 +127,7 @@
         <div class="sf-section__header" data-reveal>
           <p class="sf-eyebrow">The pipeline</p>
           <h2 id="pipeline-title">Eight steps from a name to a guide</h2>
-          <p class="sf-section__lead">TinyFish does all of the reading. Swatchfin decides what to read, analyses it and checks it. A step that fails doesn’t stop the others: the guide shows what is missing instead.</p>
+          <p class="sf-section__lead">TinyFish does all of the reading. Swatchfin decides what to read, works out what it means and checks it. If one step fails, the others still run, and the guide shows what is missing.</p>
         </div>
 
         <div class="sf-flow">
@@ -215,9 +215,9 @@
             <div class="sf-api__text">
               <p class="sf-api__name"><span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#search"></use></svg></span> TinyFish Search</p>
               <h3 class="sf-api__title" id="api-search-title">Find the site and its pages</h3>
-              <p>When you type a company name, Swatchfin searches for it and picks the result whose address best matches the name, preferring the homepage of the main site. Wikipedia, social networks, app stores and news sites are left out, because they write about the brand rather than speak for it. If the chosen address doesn’t contain the name, the guide says so. When you paste a URL, there is nothing to find, so Swatchfin uses your address.</p>
-              <p>Search then looks inside the brand’s own site for pages its homepage may not link to: brand guidelines and press kits, and, when the homepage gives few links (as sites built with JavaScript do), its About, mission, careers and press pages.</p>
-              <p class="sf-api__usage"><strong>Per guide:</strong> one to three searches. One finds the site (none when you give a URL), one or two find pages.</p>
+              <p>When you type a company name, Swatchfin searches for it. It picks the result whose address best matches the name, and prefers the homepage of the main site. Wikipedia, social networks, app stores and news sites are left out, because they write about the brand instead of speaking for it. If the chosen address doesn’t contain the name, the guide says so. When you paste a URL, there is nothing to find, so Swatchfin uses your address.</p>
+              <p>Search also looks inside the brand’s own site for pages its homepage may not link to, like brand guidelines and press kits. When the homepage has few links, as many sites built with JavaScript do, it also looks for the About, mission, careers and press pages.</p>
+              <p class="sf-api__usage"><strong>Per guide:</strong> one to three searches. One finds the site (none when you give a URL), and one or two find pages.</p>
             </div>
             <figure class="sf-api__example">
               <pre class="sf-code"><code>GET https://api.search.tinyfish.ai?query=duolingo
@@ -237,8 +237,8 @@ GET https://api.search.tinyfish.ai
             <div class="sf-api__text">
               <p class="sf-api__name"><span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#file-text"></use></svg></span> TinyFish Fetch</p>
               <h3 class="sf-api__title" id="api-fetch-title">Read the live pages</h3>
-              <p>Fetch does the core reading, in three requests, each with <code>ttl</code> set to 0, which asks for a live copy rather than a cached one. Two read the homepage at once. The first asks, by CSS selector, for its head, header, navigation, footer and logo, word for word: Swatchfin parses that HTML for the logo (an image or inline SVG in the link back to the homepage, then the icons and the Open Graph image), the theme colour, the description and the site’s own links. The second reads its main text as markdown, with every link on the page.</p>
-              <p>The third reads up to nine more pages in one batch, as markdown: the page’s text without menus, scripts or styling. That text is what the tone of voice is drafted from, and what every quote is checked against. Fetch doesn’t return images, so the logo’s address comes from the HTML. A logo drawn with SVG code has no address: Swatchfin copies it, keeps only its shapes and colours, and serves the copy itself.</p>
+              <p>Fetch does the core reading. It makes three requests, each with <code>ttl</code> set to 0, which asks for a live copy instead of a cached one. Two of them read the homepage at the same time. The first asks for its head, header, navigation, footer and logo by CSS selector, word for word. Swatchfin looks through that HTML for the logo (an image or inline SVG in the link back to the homepage, then the icons and the Open Graph image), the theme colour, the description and the site’s own links. The second reads the main text as markdown, with every link on the page.</p>
+              <p>The third request reads up to nine more pages in one batch, as markdown, which is the page’s text without menus, scripts or styling. The tone of voice is drafted from that text, and every quote is checked against it. Fetch doesn’t return images, so the logo’s address comes from the HTML. A logo drawn with SVG code has no address, so Swatchfin makes a copy with only its shapes and colours and serves that copy itself.</p>
               <p class="sf-api__usage"><strong>Per guide:</strong> up to 11 URLs (the homepage counts twice).</p>
             </div>
             <figure class="sf-api__example">
@@ -266,10 +266,10 @@ POST https://api.fetch.tinyfish.ai
             <div class="sf-api__text">
               <p class="sf-api__name"><span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#app-window"></use></svg></span> TinyFish Browser</p>
               <h3 class="sf-api__title" id="api-browser-title">Measure the real styles</h3>
-              <p>A site’s stylesheet isn’t its palette: most rules never apply, and the final colours come from variables, themes and scripts. So Swatchfin opens the homepage in a TinyFish Browser session, a real browser in the cloud, and reads the <em>computed</em> style of what people actually see: body text, headings, links, navigation, header, footer and the main buttons.</p>
-              <p>Each colour is weighted by how important its element is and how much of the screen it covers, which decides its role: primary, background, text and so on. The fonts come from the ones the page really loaded. The same session confirms which image is the logo and how large it shows. A logo drawn with SVG code often takes its colours from the site’s own stylesheet, so Swatchfin copies it in the colours the browser really drew, then draws the copy in a blank tab: one that comes out blank or as a plain shape is left out, and the next best version is used. A logo drawn with a CSS background, like Amazon’s, is photographed instead, and image files are drawn the same way. The colour of a sale or deal badge is never taken as the brand’s main colour.</p>
-              <p>It also reads what Fetch can’t. A site built entirely with JavaScript, such as Duolingo, gives Fetch an empty page; the browser draws it, so the guide still gets its logo, description and text, and up to three pages Fetch couldn’t read.</p>
-              <p class="sf-api__usage"><strong>Per guide:</strong> one session of about 20 to 35 seconds, started while Fetch reads and closed as soon as the styles are read, even when something goes wrong.</p>
+              <p>A site’s stylesheet isn’t its palette. Most rules never apply, and the final colours come from variables, themes and scripts. So Swatchfin opens the homepage in a TinyFish Browser session, which is a real browser in the cloud, and reads the <em>computed</em> style of what people actually see: body text, headings, links, navigation, header, footer and the main buttons.</p>
+              <p>Each colour is weighted by how important its element is and how much of the screen it covers. That decides its role, like primary, background or text. The fonts are the ones the page really loaded. The same session checks which image is the logo and how big it shows. A logo drawn with SVG code often takes its colours from the site’s own stylesheet, so Swatchfin copies it in the colours the browser really drew. Then it draws the copy in a blank tab. If the copy comes out blank or as a plain shape, it is left out and the next best version is used. A logo drawn with a CSS background, like Amazon’s, is photographed instead, and image files are checked the same way. The colour of a sale or deal badge is never taken as the brand’s main colour.</p>
+              <p>It also reads what Fetch can’t. A site built entirely with JavaScript, such as Duolingo, gives Fetch an empty page. The browser draws it, so the guide still gets its logo, description and text, plus up to three pages Fetch couldn’t read.</p>
+              <p class="sf-api__usage"><strong>Per guide:</strong> one session of about 20 to 35 seconds. It starts while Fetch reads, and it is closed as soon as the styles are read, even when something goes wrong.</p>
             </div>
             <figure class="sf-api__example">
               <pre class="sf-code"><code>POST https://api.browser.tinyfish.ai
@@ -293,7 +293,7 @@ DELETE https://api.browser.tinyfish.ai/{session_id}</code></pre>
         <div class="sf-section__header" data-reveal>
           <p class="sf-eyebrow">Checks</p>
           <h2 id="checks-title">How a guide stays honest</h2>
-          <p class="sf-section__lead">A language model is good at describing a voice and bad at admitting what it doesn’t know. These checks keep its output tied to what the site really says.</p>
+          <p class="sf-section__lead">A language model is good at describing a voice, but bad at admitting what it doesn’t know. These checks keep what it writes tied to what the site really says.</p>
         </div>
 
         <div class="row g-3 g-lg-4">
@@ -301,21 +301,21 @@ DELETE https://api.browser.tinyfish.ai/{session_id}</code></pre>
             <article class="sf-card">
               <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#badge-check"></use></svg></span>
               <h3 class="sf-card__title">Every quote is found word for word</h3>
-              <p class="sf-card__text">Each tone trait, tagline, mission and value proposition comes with an exact quote and the page it’s from. Swatchfin then looks for that quote in the text it fetched, allowing only for differences in spacing, quote marks and a final full stop. A quote that isn’t there is dropped, and the guide says so. A page that turns out to be a robot check (“click the button below to continue shopping”, “are you a robot”) is never used as evidence.</p>
+              <p class="sf-card__text">Each tone trait, tagline, mission and value proposition comes with an exact quote and the page it’s from. Swatchfin then looks for that quote in the text it fetched. Only spacing, quote marks and a final full stop may differ. If the quote isn’t there, it is dropped, and the guide says so. A page that turns out to be a robot check (“click the button below to continue shopping”, “are you a robot”) is never used as evidence.</p>
             </article>
           </div>
           <div class="col-md-6" data-reveal>
             <article class="sf-card">
               <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#triangle-alert"></use></svg></span>
               <h3 class="sf-card__title">Gaps stay empty</h3>
-              <p class="sf-card__text">If a logo, colour, font or message can’t be found, its field is left empty and a warning explains why. A partial guide is labelled as partial. Swatchfin never fills a gap with a plausible guess.</p>
+              <p class="sf-card__text">If a logo, colour, font or message can’t be found, its field stays empty and a warning explains why. A partial guide is labelled as partial. Swatchfin never fills a gap with a guess that only sounds right.</p>
             </article>
           </div>
           <div class="col-md-6" data-reveal>
             <article class="sf-card">
               <span class="sf-icon-tile"><svg class="sf-icon" aria-hidden="true" focusable="false"><use href="assets/icons/icons.svg#contrast"></use></svg></span>
               <h3 class="sf-card__title">Measured, then scored</h3>
-              <p class="sf-card__text">Contrast is calculated with the WCAG 2.2 formula from the measured colours, and graded AA or AAA. Colours, fonts and the logo each get a confidence score that reflects how they were found.</p>
+              <p class="sf-card__text">Contrast is worked out with the WCAG 2.2 formula from the measured colours, and graded AA or AAA. Colours, fonts and the logo each get a confidence score based on how they were found.</p>
             </article>
           </div>
           <div class="col-md-6" data-reveal>
@@ -336,12 +336,12 @@ DELETE https://api.browser.tinyfish.ai/{session_id}</code></pre>
           <div class="col-lg-5" data-reveal>
             <p class="sf-eyebrow">Output</p>
             <h2 id="output-title">Structured for other tools, not only for reading</h2>
-            <p class="sf-section__lead">Every guide is a JSON document with a versioned schema, so design tools, code and AI agents can use it directly.</p>
+            <p class="sf-section__lead">Every guide is a JSON document in a versioned format, so design tools, code and AI agents can use it directly.</p>
             <ul class="sf-about-list">
               <li>Colours with their role, where they’re used, their share of the page and a confidence score.</li>
               <li>Fonts with their weights, sizes and a fallback stack.</li>
               <li>Tone traits and key messages, each with its quote, source page and a “verified” flag.</li>
-              <li>Exports as CSS custom properties, a Tailwind v4 theme, W3C Design Tokens and a ready-to-paste voice prompt. Each file names the site it was read from and the date, and holds only what was found there.</li>
+              <li>Exports as CSS custom properties, a Tailwind v4 theme, W3C Design Tokens and a ready-to-paste voice prompt. Each file names the site it was read from and the date, and has only what was found there.</li>
             </ul>
             <a class="sf-about-link" href="./#exports">
               See every export format
@@ -382,20 +382,20 @@ DELETE https://api.browser.tinyfish.ai/{session_id}</code></pre>
           <div class="col-lg-5" data-reveal>
             <p class="sf-eyebrow">Limitations</p>
             <h2 id="limitations-title">What Swatchfin can’t see</h2>
-            <p class="sf-section__lead">A guide is a careful reading of a public website on one day. These are the places where that reading falls short.</p>
+            <p class="sf-section__lead">A guide is a careful reading of a public website on one day. Here is where that reading falls short.</p>
           </div>
           <div class="col-lg-7" data-reveal>
             <ul class="sf-about-list">
-              <li>Some sites turn away automated visits. If the homepage can’t be read at all, there is no guide; if one page is blocked, it is skipped and named in the warnings.</li>
+              <li>Some sites turn away automated visits. If the homepage can’t be read at all, there is no guide. If one page is blocked, it is skipped and named in the warnings.</li>
               <li>Pages behind a login, a paywall or a cookie wall can’t be read.</li>
               <li>Colours and fonts are measured on the homepage only, at one screen size and in its default theme. The browser visits from the United States, so a site that changes by country shows its US version. Cookie banners and pop-ups are hidden before measuring, never accepted.</li>
               <li>Colours inside photos, videos, gradients and illustrations aren’t measured, only the colours of page elements.</li>
-              <li>A brand colour is listed when the homepage really uses it: often enough, or on a button, the logo or a large block on the first screen. A colour shown only in a heading or a badge, or not on the homepage at all, is left out, even when the brand is known for it.</li>
+              <li>A brand colour is listed when the homepage really uses it: often enough, or on a button, the logo or a big block on the first screen. A colour shown only in a heading or a badge, or not on the homepage at all, is left out, even when the brand is known for it.</li>
               <li>A homepage that is a web app, like Spotify’s player, can look different on every visit, and so can its colours.</li>
               <li>A short company name can belong to more than one official site: “Tata” finds tata.cars before tata.com. Type the fuller name (“Tata group”) or the web address.</li>
-              <li>A logo drawn with CSS is photographed when the page labels it as a logo or links it to the homepage. One the page doesn’t mark at all (Flipkart’s, two unlabelled images) can be missed. The guide then falls back to the site’s app icon, its favicon or its sharing image, and says so.</li>
+              <li>A logo drawn with CSS is photographed when the page labels it as a logo or links it to the homepage. A logo the page doesn’t mark at all can be missed (Flipkart’s is two unlabelled images). The guide then uses the site’s app icon, its favicon or its sharing image instead, and says so.</li>
               <li>Fonts are named as the site loads them, but a specimen can only show a font that Google Fonts offers. Other fonts are shown in a fallback font, and the guide says so.</li>
-              <li>The tone of voice is a language model’s reading of the text. Its quotes are verified; its judgement, such as the traits and the tone scales, is an interpretation.</li>
+              <li>The tone of voice is a language model’s reading of the text. Its quotes are checked, but its judgement (the traits and the tone scales) is still an interpretation.</li>
               <li>A guide is a snapshot. When the site changes, generate a new one.</li>
             </ul>
           </div>
@@ -415,7 +415,7 @@ DELETE https://api.browser.tinyfish.ai/{session_id}</code></pre>
           </div>
           <div class="col-lg-7" data-reveal>
             <ul class="sf-about-list">
-              <li>It makes up to 90 new guides a day for everyone together, a day that starts at midnight UTC, and up to 15 in any 24 hours for each visitor.</li>
+              <li>It makes up to 90 new guides a day for everyone together (the day starts at midnight UTC), and up to 15 in any 24 hours for each visitor.</li>
               <li>A site that already has a guide from the last 24 hours opens that guide straight away, with the date it was read. It doesn’t count toward either limit.</li>
               <li>The server sleeps after 15 quiet minutes, so the first visit after a pause can take about a minute to load.</li>
               <li>When the server sleeps or restarts, it forgets the guides it has made. An older guide link then shows “Guide not found”, with a button that makes the guide again from the live site.</li>
@@ -462,9 +462,9 @@ DELETE https://api.browser.tinyfish.ai/{session_id}</code></pre>
           </div>
           <div class="col-lg-7" data-reveal>
             <div class="sf-about-prose">
-              <p>Swatchfin is an independent project by Ankan Chowdhury, built for the TinyFish Student Bounty Drop 001, “Brand Guide Generator”. It is not an official TinyFish product.</p>
+              <p>I’m Ankan Chowdhury, and I built Swatchfin for the TinyFish Student Bounty Drop 001, “Brand Guide Generator”. It’s an independent project, not an official TinyFish product.</p>
               <p>The code is open source under the MIT licence on <a href="https://github.com/ankanhq/swatchfin">GitHub</a>. The TinyFish APIs are documented at <a href="https://docs.tinyfish.ai/">docs.tinyfish.ai</a>.</p>
-              <p>Icons are from <a href="https://lucide.dev">Lucide</a> (ISC licence). The interface uses Inter, Inter Tight and JetBrains Mono, and the example card on the start page three letters of Fraunces, all under the SIL Open Font Licence. The layout grid comes from <a href="https://getbootstrap.com">Bootstrap</a> (MIT licence). Each licence is kept next to its files in the source code.</p>
+              <p>Icons are from <a href="https://lucide.dev">Lucide</a> (ISC licence). The interface uses Inter, Inter Tight and JetBrains Mono, and the example card on the start page uses three letters of Fraunces. All four fonts are under the SIL Open Font Licence. The layout grid comes from <a href="https://getbootstrap.com">Bootstrap</a> (MIT licence). Each licence is kept next to its files in the source code.</p>
             </div>
           </div>
         </div>
