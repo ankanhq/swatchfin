@@ -15,6 +15,7 @@ from app.extract.resolve import (
     SiteNotFound,
     choose_official_site,
     find_official_site,
+    is_platform,
     main_label,
     name_match,
     named_site,
@@ -256,6 +257,12 @@ async def test_find_official_site_asks_search_to_leave_out_other_sites() -> None
 )
 def test_named_site(name: str, site: str | None) -> None:
     assert named_site(name) == site
+
+
+def test_platforms_are_whole_sites_full_of_other_peoples_pages() -> None:
+    assert all(is_platform(site) for site in ("x.com", "youtube.com", "linkedin.com", "wikipedia.org"))
+    # Never a part of a site, and never an ordinary brand.
+    assert not any(is_platform(site) for site in ("play.google.com", "google.com", "apple.com", "patagonia.com"))
 
 
 @pytest.mark.anyio

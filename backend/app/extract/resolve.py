@@ -269,6 +269,10 @@ NOT_OFFICIAL_SITES = (
     "nytimes.com",
     "finance.yahoo.com",
 )
+# The whole sites among them, never a part of one (play.google.com): platforms whose pages are mostly
+# other people's, or about other things. Searching for one by its own name ("X") finds it (named_site),
+# and on its main host only pages that say what they are in their address are read (discover.py).
+PLATFORMS = tuple(site for site in NOT_OFFICIAL_SITES if site_domain(site) == site)
 
 # Words in company names that are rarely part of their web address.
 COMPANY_WORDS = frozenset(
@@ -372,15 +376,17 @@ def choose_official_site(name: str, results: list[SearchResult]) -> OfficialSite
 
 
 def named_site(name: str) -> str | None:
-    """The site in NOT_OFFICIAL_SITES whose own name the name is: "X" -> "x.com", "YouTube" -> "youtube.com".
+    """The platform whose own name the name is: "X" -> "x.com", "YouTube" -> "youtube.com".
 
     Only whole sites count, never a part of one: "Google" is not play.google.com,
     "Apple" is not apps.apple.com and "Yahoo" is not finance.yahoo.com.
     """
-    for site in NOT_OFFICIAL_SITES:
-        if site_domain(site) == site and name_match(name, main_label(site)) == 1.0:
-            return site
-    return None
+    return next((site for site in PLATFORMS if name_match(name, main_label(site)) == 1.0), None)
+
+
+def is_platform(domain: str) -> bool:
+    """True when the brand's own site is one of the PLATFORMS: x.com, youtube.com, wikipedia.org."""
+    return domain in PLATFORMS
 
 
 def is_not_official(host: str) -> bool:

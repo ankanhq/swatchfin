@@ -2,6 +2,7 @@
 
 import json
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx2
 import pytest
@@ -383,6 +384,60 @@ async def test_a_redirect_to_another_of_the_brands_own_sites_is_followed() -> No
         f"{google}/journal": ("it redirected to another website", "blog.google.evil.example"),
         f"{google}/stories": ("it redirected to another website", "127.0.0.1"),
     }
+
+
+def platform_home(host: str) -> Homepage:
+    return Homepage(requested_url=f"https://{host}/", url=f"https://{host}/", host=host, language="en")
+
+
+def test_on_a_platform_other_peoples_pages_are_left_out() -> None:
+    # What a site-limited search for "X about us, mission, careers, press" really found (19 October 2026).
+    results = [
+        SearchResult(position=1, url="https://x.com/USUN", title="US Mission to the UN (@USUN) / X"),
+        SearchResult(position=2, url="https://x.com/US2EU", title="US Mission to the EU (@US2EU) / X"),
+        SearchResult(position=3, url="https://x.com/i/jf/stories/home", title="Stories / X"),
+        SearchResult(position=4, url="https://about.x.com/en", title="About X"),
+        SearchResult(position=5, url="https://x.com/en/about", title="About"),
+        SearchResult(position=6, url="https://x.com/careers", title="Careers at X"),
+    ]
+    # X's own pages: on its subdomain, and on x.com when the address says what they are.
+    assert sorted(chosen_urls(platform_home("x.com"), results)) == [
+        "https://about.x.com/en",
+        "https://x.com/careers",
+        "https://x.com/en/about",
+    ]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.youtube.com/@SomeCreator/about",  # a channel
+        "https://www.youtube.com/watch",
+        "https://www.linkedin.com/company/microsoft",  # another company's page
+        "https://medium.com/@someone/our-story-1a2b3c",
+        "https://www.youtube.com/howyoutubeworks/our-mission/",
+    ],
+)
+def test_on_a_platform_a_page_must_say_what_it_is_in_every_part_of_its_address(url: str) -> None:
+    host = urlsplit(url).hostname or ""
+    assert chosen_urls(platform_home(host), [SearchResult(position=1, url=url, title="About us")]) == []
+
+
+def test_on_a_platform_its_own_sections_are_read() -> None:
+    results = [
+        SearchResult(position=1, url="https://www.youtube.com/about/press/", title="Press"),
+        SearchResult(position=2, url="https://www.youtube.com/about/brand-resources/", title="Brand resources"),
+    ]
+    assert chosen_urls(platform_home("www.youtube.com"), results) == [
+        "https://www.youtube.com/about/brand-resources/",
+        "https://www.youtube.com/about/press/",
+    ]
+
+
+def test_an_ordinary_site_keeps_pages_its_title_names() -> None:
+    # On a brand's own site a title still gives a kind: "/USUN" there would be the brand's page.
+    results = [SearchResult(position=1, url=f"{SITE}/our-work", title="Our mission")]
+    assert chosen_urls(homepage(), results) == [f"{SITE}/our-work"]
 
 
 @pytest.mark.anyio

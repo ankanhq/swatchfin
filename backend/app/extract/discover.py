@@ -33,7 +33,7 @@ from typing import Literal
 from urllib.parse import urlsplit, urlunsplit
 
 from app.extract.homepage import Homepage, PageLink
-from app.extract.resolve import public_host, same_brand, same_site, site_domain
+from app.extract.resolve import is_platform, public_host, same_brand, same_site, site_domain
 from app.tinyfish.client import TinyFishClient, TinyFishError
 from app.tinyfish.search import SearchResult, search
 
@@ -289,12 +289,16 @@ def choose_pages(homepage: Homepage, search_results: list[SearchResult], limit: 
     Kept apart from discover_pages() so the tests can call it without a search.
     """
     candidates: dict[str, ChosenPage] = {}
+    # A brand that is a platform full of other people's pages (x.com, youtube.com): see _platforms_own_page.
+    platform = is_platform(homepage.domain)
 
     def consider(url: str, text: str, place: str, origin: Origin) -> None:
         classified = _from_link(PageLink(url=url, text=text))
         if classified is None or not _usable(classified[0], homepage):
             return
         address, kind_name = classified
+        if platform and not _platforms_own_page(address, homepage.domain):
+            return
         kind = KINDS_BY_NAME[kind_name]
         score = kind.value + _match_points(address, text, kind) + PLACE_POINTS.get(place, 0) - _depth_penalty(address)
         key = page_key(address)
@@ -318,6 +322,26 @@ def choose_pages(homepage: Homepage, search_results: list[SearchResult], limit: 
         if len(chosen) == limit:
             break
     return chosen
+
+
+def _platforms_own_page(address: str, domain: str) -> bool:
+    """On a platform's main host, True only for an address whose every part names a kind of page.
+
+    In plain English: on x.com most pages are people's accounts and posts, and
+    a title can make them look like the brand's own ("US Mission to the UN" at
+    x.com/USUN is not X's mission). So a page there must say what it is in
+    every part of its address, after a language part: "/about", "/en/about",
+    "/about/press". Not "/USUN", "/@creator", "/i/jf/stories/home" (an app
+    page) or "/company/microsoft" (another company's page). The platform's
+    own subdomains (about.x.com) are read as on any site.
+    """
+    parts = urlsplit(address)
+    if (parts.hostname or "").lower().removeprefix("www.") != domain:
+        return True
+    path = _path_parts(parts.path)
+    if path and LOCALE_PART.fullmatch(path[0]):
+        path = path[1:]
+    return bool(path) and all(any(kind.path.fullmatch(part) for kind in KINDS) for part in path)
 
 
 def kind_labels(pages: list[ChosenPage]) -> list[str]:
