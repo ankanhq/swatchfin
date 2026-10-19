@@ -6,8 +6,8 @@ loads the `app` object at the bottom of this file.
 In plain English: create_app() builds the app in four parts:
 1. the API endpoints under /api/v1 (create_router, below),
 2. the error handlers, so every API error is the same small JSON shape,
-3. the extras every answer goes through: gzip, Cache-Control and a size
-   limit on what a request may send,
+3. the extras every answer goes through: gzip, Cache-Control, security
+   headers (headers.py) and a size limit on what a request may send,
 4. the website files from /frontend, for every address that isn't an
    API endpoint.
 The tests call create_app() with their own settings (a temporary data
@@ -26,6 +26,7 @@ from urllib.parse import urljoin
 
 import httpx2
 from fastapi import APIRouter, Depends, FastAPI, Query, Request, Response
+from fastapi.responses import HTMLResponse
 from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 
@@ -33,6 +34,7 @@ from app.config import Settings, get_settings
 from app.errors import ApiError, DeclaredSizeLimit, add_error_handlers
 from app.export import FORMATS, NothingToExport, export_filename, logo_filename
 from app.extract.resolve import ParsedQuery, QueryError, parse_query
+from app.headers import DOCS_PATH, SecurityHeadersMiddleware, docs_page
 from app.jobs import GuideStore, JobManager, JobsBusy, LogoStore
 from app.llm import LLM, AnthropicLLM, FallbackLLM, GeminiLLM, GroqLLM, ProviderLLM
 from app.pipeline import brand_pipeline, sample_job_finder
@@ -447,16 +449,25 @@ def create_app(
             await llm.close()
         await http.aclose()
 
+    openapi_url = "/api/openapi.json"
     app = FastAPI(
         title="Swatchfin API",
         summary="Brand guides from any URL, powered by TinyFish.",
         lifespan=lifespan,
-        # The interactive API docs live under /api, next to the API itself.
-        docs_url="/api/docs",
+        # The interactive API docs live under /api, next to the API itself: DOCS_PATH, below.
+        docs_url=None,
         redoc_url=None,
-        openapi_url="/api/openapi.json",
+        openapi_url=openapi_url,
     )
     app.include_router(create_router(jobs, logos, settings, daily_limit))
+
+    # Our own docs page instead of FastAPI's, so it can have its own CSP (see headers.py).
+    docs_html, docs_csp = docs_page(openapi_url, f"{app.title} - Swagger UI")
+
+    @app.get(DOCS_PATH, include_in_schema=False)
+    async def api_docs() -> HTMLResponse:
+        return HTMLResponse(docs_html, headers={"Content-Security-Policy": docs_csp})
+
     add_error_handlers(app)
 
     # Every request and answer passes through these.
@@ -464,6 +475,8 @@ def create_app(
     app.add_middleware(DeclaredSizeLimit, max_body_size=MAX_BODY_BYTES)
     app.add_middleware(CacheControlMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=6)
+    # Added last, so it is the outermost: even an answer from the parts above gets the headers.
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # Any address that matches no endpoint above is a website file (or a 404).
     app.router.default = frontend_files(settings.frontend_dir)
