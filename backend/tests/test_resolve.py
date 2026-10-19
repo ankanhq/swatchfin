@@ -17,6 +17,7 @@ from app.extract.resolve import (
     find_official_site,
     main_label,
     name_match,
+    named_site,
     parse_query,
     public_host,
     same_site,
@@ -181,24 +182,81 @@ def test_nothing_usable_gives_none() -> None:
     assert choose_official_site("Acme", []) is None
 
 
-@pytest.mark.anyio
-async def test_find_official_site_asks_search_to_leave_out_other_sites() -> None:
-    seen: list[httpx2.Request] = []
+def search_client(answers: dict[str, list[str]], seen: list[httpx2.Request]) -> TinyFishClient:
+    """A TinyFish whose Search answers with these addresses: by "include_domains" when the search has one,
+    else by query."""
 
     def fake_search(request: httpx2.Request) -> httpx2.Response:
         seen.append(request)
-        if request.url.params["query"] == "Nobody Knows Co":
-            return httpx2.Response(200, json={"results": [{"position": 1, "url": "https://en.wikipedia.org/wiki/X"}]})
-        return httpx2.Response(200, json={"results": [{"position": 1, "url": "https://www.linkedin.com/"}]})
+        key = request.url.params.get("include_domains") or request.url.params["query"]
+        urls = answers.get(key, [])
+        return httpx2.Response(200, json={"results": [{"position": n, "url": url} for n, url in enumerate(urls, 1)]})
 
-    client = TinyFishClient(SecretStr("test-key"), httpx2.AsyncClient(transport=httpx2.MockTransport(fake_search)))
+    return TinyFishClient(SecretStr("test-key"), httpx2.AsyncClient(transport=httpx2.MockTransport(fake_search)))
 
-    site = await find_official_site(client, "LinkedIn")
-    assert site.url == "https://www.linkedin.com/"
+
+@pytest.mark.anyio
+async def test_find_official_site_asks_search_to_leave_out_other_sites() -> None:
+    seen: list[httpx2.Request] = []
+    client = search_client(
+        {"Patagonia": ["https://www.patagonia.com/home/"], "Nobody Knows Co": ["https://en.wikipedia.org/wiki/X"]},
+        seen,
+    )
+
+    site = await find_official_site(client, "Patagonia")
+    assert site.url == "https://www.patagonia.com/"
     excluded = seen[0].url.params["exclude_domains"].split(",")
-    assert "wikipedia.org" in excluded
-    assert "linkedin.com" not in excluded  # the site searched for isn't left out
-    assert "LinkedIn" in seen[0].url.params["purpose"]
+    assert {"wikipedia.org", "x.com", "linkedin.com"} <= set(excluded)
+    assert "include_domains" not in seen[0].url.params
+    assert "Patagonia" in seen[0].url.params["purpose"]
 
     with pytest.raises(SiteNotFound):
         await find_official_site(client, "Nobody Knows Co")
+
+
+@pytest.mark.parametrize(
+    ("name", "site"),
+    [
+        ("X", "x.com"),
+        ("x", "x.com"),
+        ("YouTube", "youtube.com"),
+        ("LinkedIn", "linkedin.com"),
+        ("Instagram", "instagram.com"),
+        ("Facebook", "facebook.com"),
+        ("Twitter", "twitter.com"),
+        # Never a part of a site: Google isn't Google Play, Apple isn't the App Store.
+        ("Google", None),
+        ("Apple", None),
+        ("Yahoo", None),
+        ("Patagonia", None),
+        ("X Corp", "x.com"),  # "Corp" is a company word
+        ("Xbox", None),
+    ],
+)
+def test_named_site(name: str, site: str | None) -> None:
+    assert named_site(name) == site
+
+
+@pytest.mark.anyio
+async def test_a_name_that_is_a_listed_sites_own_is_searched_for_on_that_site() -> None:
+    # Searched on the whole web, "X" finds the X.Org Foundation before X.
+    seen: list[httpx2.Request] = []
+    client = search_client(
+        {"X": ["https://x.org/", "https://x.com/"], "x.com": ["https://x.com/home", "https://x.com/XDevelopers"]}, seen
+    )
+    site = await find_official_site(client, "X")
+    assert (site.url, site.host, site.name_matches) == ("https://x.com/", "x.com", True)
+    assert site.result.url == "https://x.com/home"
+    assert len(seen) == 1
+    assert seen[0].url.params["include_domains"] == "x.com"
+    assert "x.com" in seen[0].url.params["purpose"]
+
+
+@pytest.mark.anyio
+async def test_with_nothing_on_that_site_the_whole_web_is_searched() -> None:
+    seen: list[httpx2.Request] = []
+    client = search_client({"YouTube": ["https://www.youtube.com/"]}, seen)
+    site = await find_official_site(client, "YouTube")
+    assert site.host == "www.youtube.com"
+    assert [request.url.params.get("include_domains") for request in seen] == ["youtube.com", None]
+    assert "youtube.com" not in seen[1].url.params["exclude_domains"].split(",")

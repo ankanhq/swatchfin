@@ -193,6 +193,9 @@ def test_links_keep_their_words_and_place() -> None:
         ("The Official Larkspur Store", "Larkspur"),
         ("Larkspur™", "Larkspur"),
         ("Official Tea Shop", "Official Tea Shop"),
+        # X's site calls itself "X (formerly Twitter)".
+        ("Larkspur (formerly Bluebell Tea)", "Larkspur"),
+        ("Bluebell (formerly Larkspur)", "Bluebell (formerly Larkspur)"),  # what's left isn't the address
     ],
 )
 def test_a_region_after_the_site_name_is_left_out(site_name: str, name: str) -> None:

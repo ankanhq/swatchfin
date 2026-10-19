@@ -120,6 +120,8 @@ REGION_SUFFIX = re.compile(
 )
 # Signs dropped from a brand's name: "LEGO®" is LEGO.
 TRADEMARKS = re.compile(r"[®™©℠]")
+# A note in brackets at the end of a site's name: "X (formerly Twitter)".
+BRACKETED_NOTE = re.compile(r"\s*\([^()]*\)$")
 # Shop words around a site's name: "Official LEGO Shop", "The Official Larkspur Store".
 SHOP_WORDS = re.compile(r"^(the )?official |( official)?( online)? (shop|store)$", re.IGNORECASE)
 # Words dropped when a logo's label is used as the brand name ("Stripe logo" -> "Stripe").
@@ -768,12 +770,17 @@ def _meta_site_name(meta: _Meta) -> str | None:
 def _plain_name(name: str | None, host: str) -> str | None:
     """A site's name as people say it, without trademark signs, a web address, shop words or a region.
 
-    "Nike.com" -> "Nike"; "Official LEGO® Shop" -> "LEGO"; "Patagonia United States" -> "Patagonia".
+    "Nike.com" -> "Nike"; "Official LEGO® Shop" -> "LEGO"; "Patagonia United States" -> "Patagonia";
+    "X (formerly Twitter)" -> "X".
     Each word is only dropped when what is left still matches the address.
     """
     if not name:
         return name
     name = re.sub(r"\s+", " ", TRADEMARKS.sub(" ", name)).strip() or name
+    # A note in brackets: "X (formerly Twitter)" -> "X".
+    bare = BRACKETED_NOTE.sub("", name)
+    if bare != name and _could_be_name(bare, host):
+        name = bare
     address = re.fullmatch(r"(?:www\.)?([^.\s]+)\.[a-z.]{2,12}", name, re.IGNORECASE)
     if address and name.lower().removeprefix("www.") == host.lower().removeprefix("www."):
         return address.group(1)

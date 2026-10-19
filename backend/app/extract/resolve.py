@@ -291,7 +291,24 @@ async def find_official_site(client: TinyFishClient, name: str) -> OfficialSite:
 
     Raises SiteNotFound when no result could be it, and TinyFishError when
     the search itself fails.
+
+    A name that is exactly one of the NOT_OFFICIAL_SITES' own name ("X" is
+    x.com, "YouTube" is youtube.com) is searched for on that site only, so a
+    namesake (x.org) can't win. If that finds nothing usable, the usual
+    search runs after all.
     """
+    site = named_site(name)
+    if site is not None:
+        results = await search(
+            client,
+            name,
+            include_domains=[site],
+            purpose=f"Find the homepage of {site}, the official website of “{name}”.",
+        )
+        if (choice := choose_official_site(name, results)) is not None:
+            return choice
+        log.info("no usable result on %s itself, searching the whole web", site)
+
     results = await search(
         client,
         name,
@@ -340,6 +357,18 @@ def choose_official_site(name: str, results: list[SearchResult]) -> OfficialSite
         if best is None or score > best[0]:
             best = (score, site)
     return best[1] if best else None
+
+
+def named_site(name: str) -> str | None:
+    """The site in NOT_OFFICIAL_SITES whose own name the name is: "X" -> "x.com", "YouTube" -> "youtube.com".
+
+    Only whole sites count, never a part of one: "Google" is not play.google.com,
+    "Apple" is not apps.apple.com and "Yahoo" is not finance.yahoo.com.
+    """
+    for site in NOT_OFFICIAL_SITES:
+        if site_domain(site) == site and name_match(name, main_label(site)) == 1.0:
+            return site
+    return None
 
 
 def is_not_official(host: str) -> bool:
