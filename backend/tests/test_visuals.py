@@ -248,11 +248,13 @@ def test_the_browsers_own_link_colours_are_never_in_the_palette() -> None:
     assert "secondary" not in roles(measurement)
 
 
-def test_a_logo_drawn_in_a_browser_link_colour_is_still_the_logos() -> None:
-    measurement = measure(text("#EE0000", 40, kind="link"), text("#111111", 200))
-    logo_red = next(color for color in palette(measurement, logo_colours=["#EE0000"]) if color.hex == "#EE0000")
-    # Only the logo's use is listed: the unstyled link isn't the brand's.
-    assert (logo_red.role, logo_red.usage) == ("primary", ["logo"])
+def test_a_browser_link_colour_in_the_logos_code_is_left_out_too() -> None:
+    # Swiggy's logo sits in a home link the site doesn't style, so an invisible 0px outline drawn in
+    # "currentColor" came out as the browser's link blue.
+    measurement = measure(*[text("#FF5200", 40 + n, kind="heading") for n in range(3)], text("#111111", 200))
+    colours = palette(measurement, logo_colours=["#FF5200", "#FFFFFF", "#0000ee"])
+    assert "#0000EE" not in {color.hex for color in colours}
+    assert roles(measurement)["primary"] == "#FF5200"
 
 
 def test_text_drawn_twice_in_the_same_place_counts_once() -> None:

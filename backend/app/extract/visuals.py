@@ -115,7 +115,9 @@ COLOURFUL = 20.0
 SAME_COLOUR = 3.0
 # The colours browsers give links a site doesn't style: a link, a visited link and a link being clicked.
 # They are the browser's, not the brand's, so they are left out of the palette (like the browser's
-# default white, which is only listed as the background and labelled as the default).
+# default white, which is only listed as the background and labelled as the default). That includes the
+# logo's colours: a logo inside an unstyled home link inherits them through "currentColor" (Swiggy's
+# invisible 0px outline came out #0000EE).
 BROWSER_LINK_COLOURS = frozenset({"#0000EE", "#551A8B", "#EE0000"})
 # Brand colours must differ by at least this much to be listed separately.
 DISTINCT_BRAND = 15.0
@@ -856,7 +858,7 @@ def palette(measurement: Measurement, *, logo_colours: Iterable[str] = ()) -> li
     - surface: the most used other neutral background (cards, sections);
     - border: the most used border colour not listed yet.
     The browser's own colours for unstyled links (BROWSER_LINK_COLOURS) are
-    left out first; a logo drawn in one of them still counts as the logo's.
+    left out first, from the page and from the logo.
     Each colour is listed once, under its first role (but for black-and-white
     brands' buttons, above); its "usage" says everything it is used for.
     Buttons narrower than 40 px are icons, and their colours count as icons.
@@ -887,7 +889,7 @@ def palette(measurement: Measurement, *, logo_colours: Iterable[str] = ()) -> li
     free = [use for use in uses.values() if use.hex not in taken]
     colourful = [use for use in free if chroma(use.hex) >= COLOURFUL]
     # The logo's colourful colours are marked; those used nowhere else on the page come back.
-    logo_only = _logo_uses(uses, logo_colours)
+    logo_only = _logo_uses(uses, (code for code in logo_colours if code.upper() not in BROWSER_LINK_COLOURS))
     not_promotion = [use for use in colourful if not use.promotional()]
     # Sale and deal badges never count as buttons (see _collect), so a colour on real buttons can lead.
     with_buttons = [use for use in colourful if use.button_weight() > 0]
