@@ -5,6 +5,7 @@ sometimes changed to fail in one particular way.
 """
 
 import asyncio
+import base64
 import json
 import re
 from typing import Any
@@ -32,7 +33,7 @@ from app.schemas import Job
 from app.tinyfish.browser import BrowserDriver, BrowserUnavailable, wait_for_endings
 from app.tinyfish.client import TinyFishClient
 from tests.fake_llm import FakeLLM, larkspur_draft
-from tests.fake_tinyfish import FakeBrowserDriver, FakeTinyFish, browser_page, drawn_logo
+from tests.fake_tinyfish import TINY_PNG, FakeBrowserDriver, FakeTinyFish, browser_page, drawn_logo
 
 pytestmark = pytest.mark.anyio
 
@@ -759,3 +760,25 @@ async def test_the_browser_looks_for_pictures_labelled_with_the_brands_name(sett
     assert job.status == "complete"
     # The site's own name, then the main part of its address (measure_page.js compares them ignoring case).
     assert [option["brandNames"] for option in options] == [["Larkspurtea", "larkspurtea"]]
+
+
+async def test_tab_icons_are_saved_as_swatchfins_own_copies(settings: Settings) -> None:
+    # The browser draws each tab icon from the site's own file, so the guide never depends on the site
+    # letting other sites show it.
+    def answer(url: str, arg: Any) -> Any:
+        if isinstance(arg, dict) and arg.get("items") == [{"here": True, "copy": True}]:
+            return [drawn_logo(png="data:image/png;base64," + base64.b64encode(TINY_PNG).decode())]
+        return browser_page(url, arg)
+
+    job = await run(settings, "Larkspur Tea", browser=FakeBrowserDriver(answer))
+    assert job.guide is not None
+    assets = [job.guide.logo.primary, *job.guide.logo.alternates]
+    icons = [asset for asset in assets if asset is not None and asset.method == "favicon"]
+    assert icons
+    for asset in icons:
+        assert re.fullmatch(rf"/api/v1/guides/{job.id}/logos/[2-5]\.png", asset.url), asset.url
+        assert asset.format == "png"
+        number = asset.url.rsplit("/", 1)[1].removesuffix(".png")
+        assert (settings.data_dir / "logos" / f"{job.id}-{number}.png").read_bytes() == TINY_PNG
+    # The site's own icon address is still the guide's favicon, for tools that want it.
+    assert job.guide.logo.favicon == "https://www.larkspurtea.example/favicon.svg"

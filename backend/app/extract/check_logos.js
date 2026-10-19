@@ -11,6 +11,10 @@
  *   on the website, the tab first opens that file itself, so the picture is
  *   from the page's own site and the browser lets this script read it.
  * - { here: true }: the picture the tab is showing (an image file it opened).
+ *   With copy: true, the answer also holds the picture as a PNG data address
+ *   (`png`), so Swatchfin can keep its own copy of a tab icon: the tab
+ *   opened the file itself, so the site's own rules for showing its images
+ *   on other sites don't apply.
  *
  * In plain English, for each picture it:
  * 1. loads it, the way the guide page will show it;
@@ -28,7 +32,7 @@
  * the colours the page's CSS gives it) is one colour that fills its whole
  * box, with no holes. A real logo has letters, holes or several colours.
  */
-async ({ items, size, maxSize }) => {
+async ({ items, size, maxSize, copyMax = 512 }) => {
   /** Loads a picture; rejects if it can't be shown. */
   function load(src) {
     return new Promise((resolve, reject) => {
@@ -76,6 +80,31 @@ async ({ items, size, maxSize }) => {
     return '#' + [0, 1, 2].map((c) => data[i + c].toString(16).padStart(2, '0')).join('').toUpperCase();
   }
 
+  /**
+   * A canvas, made the HTML way: when the tab has opened an SVG file, the page
+   * is an SVG document, where document.createElement('canvas') isn't a canvas.
+   */
+  function newCanvas() {
+    return document.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
+  }
+
+  /** The picture as a PNG data address at its own size (its longer side at most copyMax), or null. */
+  function copyOf(image) {
+    const naturalWidth = image.naturalWidth || 0;
+    const naturalHeight = image.naturalHeight || 0;
+    if (!naturalWidth || !naturalHeight) return null;
+    const scale = Math.min(1, copyMax / Math.max(naturalWidth, naturalHeight));
+    const canvas = newCanvas();
+    canvas.width = Math.max(1, Math.round(naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(naturalHeight * scale));
+    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+    try {
+      return canvas.toDataURL('image/png');
+    } catch {
+      return null; // the browser refused to share the pixels
+    }
+  }
+
   /** The numbers for one picture (see the top of this file). */
   async function inspect(item) {
     let src = item.here ? location.href : item.src;
@@ -94,7 +123,7 @@ async ({ items, size, maxSize }) => {
     const longest = Math.min(maxSize, Math.max(size, image.naturalWidth || 0, image.naturalHeight || 0));
     const width = Math.max(1, Math.round(ratio >= 1 ? longest : longest * ratio));
     const height = Math.max(1, Math.round(ratio >= 1 ? longest / ratio : longest));
-    const canvas = document.createElement('canvas');
+    const canvas = newCanvas();
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext('2d', { willReadFrequently: true });
@@ -133,7 +162,7 @@ async ({ items, size, maxSize }) => {
         }
       }
     }
-    const base = { loaded: true, width, height, paper: Boolean(paper) };
+    const base = { loaded: true, width, height, paper: Boolean(paper), png: item.copy ? copyOf(image) : null };
     if (ink === 0) return { ...base, ink: 0, fill: 0, main_colour: 0, holes: 0, colours: [] };
 
     // Holes: see-through pixels inside the box that can't be reached from its edge.

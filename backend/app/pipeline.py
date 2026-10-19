@@ -627,6 +627,9 @@ async def _logo(homepage: Homepage, job_id: str, logos: LogoStore, warnings: lis
     One that can't be cleaned into something safe and visible is left out.
     A logo drawn with a CSS background is saved as the PNG the browser
     photographed in step 5; without a photo (no browser), it is left out.
+    A tab icon is saved as the PNG the browser drew from the file in step 5,
+    because some sites don't let other sites show their files (x.com's
+    icons say "same-origin"); without a copy, its address is used.
     """
     host = _short_host(homepage.host)
     assets: list[LogoAsset] = []
@@ -634,11 +637,12 @@ async def _logo(homepage: Homepage, job_id: str, logos: LogoStore, warnings: lis
     for candidate in homepage.logos:
         if len(assets) == LogoStore.MAX_PER_GUIDE:
             break
-        if candidate.url is not None:
+        tab_icon_copy = candidate.method == "favicon" and candidate.image is not None
+        if candidate.url is not None and not tab_icon_copy:
             assets.append(_logo_asset(candidate, candidate.url, homepage.url))
             continue
         content: str | bytes | None
-        if candidate.method == "css-background":
+        if candidate.method in ("css-background", "favicon"):
             content = candidate.image
         else:
             content = clean_svg(candidate.svg or "", color=candidate.color)
@@ -653,9 +657,14 @@ async def _logo(homepage: Homepage, job_id: str, logos: LogoStore, warnings: lis
             await logos.save(job_id, copies + 1, content)
         except (OSError, ValueError):
             log.warning("couldn't save a logo copy for job %s", job_id, exc_info=True)
+            if candidate.url is not None:
+                assets.append(_logo_asset(candidate, candidate.url, homepage.url))
             continue
         copies += 1
-        assets.append(_logo_asset(candidate, logos.url(job_id, copies, LogoStore.extension(content)), homepage.url))
+        extension = LogoStore.extension(content)
+        asset = _logo_asset(candidate, logos.url(job_id, copies, extension), homepage.url)
+        # A tab icon's copy is a PNG, whatever the site's file was (.ico, .svg).
+        assets.append(asset.model_copy(update={"format": "png"}) if extension == "png" else asset)
         if isinstance(content, str) and not assets[1:] and uses_current_color(content) and candidate.color is None:
             warnings.append(
                 f"The logo on {host} takes its colour from the page around it, so Swatchfin’s copy is drawn in "

@@ -52,6 +52,7 @@ from app.extract.homepage import (
 )
 from app.extract.pages import MIN_TEXT_LENGTH, ReadPage, SkippedPage, landed_elsewhere
 from app.extract.svg import clean_svg, fingerprint, uses_current_color
+from app.jobs import LogoStore
 from app.schemas import Color, ColorRole, Font, FontRole
 from app.tinyfish.browser import BrowserPage, BrowserUnavailable, BrowserVisit
 from app.tinyfish.fetch import FetchedPage, FetchResponse
@@ -338,6 +339,8 @@ class Drawing(_Data):
     holes: float = 0
     # Its most used bright colours, exactly as drawn.
     colours: Annotated[list[Hex], Field(max_length=3)] = []
+    # When asked for (a tab icon): the picture as a PNG data address, for Swatchfin's own copy.
+    png: Annotated[str, Field(max_length=3_000_000)] | None = None
 
     def problem(self, *, file: bool = False) -> str | None:
         """Why this picture isn't a usable logo, or None when it is.
@@ -624,18 +627,44 @@ async def check_logos(
         if drawings:
             log.info("checked %d logo drawing(s) in a blank tab", len(pictures))
 
-    # Image files, each opened in the tab.
-    files = [index for index, candidate in enumerate(logos) if candidate.url][:MAX_FILES_CHECKED]
+    # Image files, each opened in the tab. The tab icon, the logo of last resort, is always among them,
+    # and the browser gives back a copy of it (see tab_icon_copy).
+    with_files = [index for index, candidate in enumerate(logos) if candidate.url]
+    files = with_files[:MAX_FILES_CHECKED]
+    files += [index for index in with_files[MAX_FILES_CHECKED:] if logos[index].method == "favicon"][:1]
     for index in files:
         if deadline - loop.time() < 1:
             break
         url = logos[index].url or ""
-        drawings = await _draw(page, url, [{"here": True}], min(FILE_CHECK_TIME, deadline - loop.time()))
+        icon = logos[index].method == "favicon"
+        item = {"here": True, "copy": icon}
+        drawings = await _draw(page, url, [item], min(FILE_CHECK_TIME, deadline - loop.time()))
         if drawings:
             _judge(logos, index, drawings[0], unusable, file=True)
+            if icon and index not in unusable:
+                logos[index].image = tab_icon_copy(drawings[0].png)
 
     kept = [candidate for index, candidate in enumerate(logos) if index not in unusable]
     return kept, len(unusable)
+
+
+def tab_icon_copy(copy: str | None) -> bytes | None:
+    """The PNG file in check_logos.js's copy of a tab icon, or None when it isn't a PNG of a sensible size.
+
+    In plain English: the copy comes back as "data:image/png;base64,…". Take
+    the part after the comma, turn it back into bytes, and keep it only if it
+    really starts like a PNG file and isn't too big to save (LogoStore's limit).
+    """
+    prefix = "data:image/png;base64,"
+    if not copy or not copy.startswith(prefix):
+        return None
+    try:
+        data = base64.b64decode(copy[len(prefix) :], validate=True)
+    except ValueError:
+        return None
+    if not data.startswith(LogoStore.PNG_SIGNATURE) or len(data) > LogoStore.MAX_PNG_BYTES:
+        return None
+    return data
 
 
 async def _draw(page: BrowserPage, url: str, items: list[dict[str, Any]], time_limit: float) -> list[Drawing] | None:

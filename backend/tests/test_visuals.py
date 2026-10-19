@@ -27,6 +27,7 @@ from app.extract.visuals import (
     logo_colours,
     palette,
     read_visuals,
+    tab_icon_copy,
     typography,
 )
 from app.tinyfish.browser import BrowserUnavailable
@@ -888,3 +889,53 @@ async def test_image_files_are_checked_too(drawing: dict[str, Any], kept: bool) 
     header = LogoCandidate("header-img", 0.8, url=f"{HOME}img/logo.jpg", format="jpg", element_id="2")
     logos, left_out = await check_logos(FileDrawer(drawing), [header], time_limit=5)
     assert (len(logos), left_out) == ((1, 0) if kept else (0, 1))
+
+
+PNG_ADDRESS = "data:image/png;base64," + base64.b64encode(TINY_PNG).decode()
+
+
+@pytest.mark.anyio
+async def test_a_tab_icon_comes_back_as_swatchfins_own_copy() -> None:
+    # x.com's icons say "same-origin": no other site may show them. The browser opens the file itself and draws it.
+    page = FileDrawer(drawn_logo(png=PNG_ADDRESS))
+    header = LogoCandidate("header-img", 0.8, url=f"{HOME}img/logo.jpg", format="jpg")
+    icon = LogoCandidate("favicon", 0.45, url=f"{HOME}apple-touch-icon.png", format="png")
+    logos, _left_out = await check_logos(page, [header, icon], time_limit=5)
+    # Only the tab icon is asked for a copy.
+    asked = [arg["items"] for _url, arg in page.sent]
+    assert asked == [[{"here": True, "copy": False}], [{"here": True, "copy": True}]]
+    assert (logos[0].image, logos[1].image) == (None, TINY_PNG)
+
+
+@pytest.mark.anyio
+async def test_the_tab_icon_is_opened_even_after_four_other_files() -> None:
+    files = [LogoCandidate("header-img", 0.8, url=f"{HOME}img/logo-{n}.png", format="png") for n in range(5)]
+    icon = LogoCandidate("favicon", 0.2, url=f"{HOME}favicon.ico", format="ico")
+    page = FileDrawer(drawn_logo(png=PNG_ADDRESS))
+    logos, _left_out = await check_logos(page, [*files, icon], time_limit=20)
+    assert [url for url, _arg in page.sent] == [f"{HOME}img/logo-{n}.png" for n in range(4)] + [f"{HOME}favicon.ico"]
+    assert logos[-1].image == TINY_PNG
+
+
+@pytest.mark.anyio
+async def test_a_tab_icon_left_out_keeps_no_copy() -> None:
+    page = FileDrawer(drawn_logo(ink=0.0, png=PNG_ADDRESS))  # blank
+    icon = LogoCandidate("favicon", 0.45, url=f"{HOME}apple-touch-icon.png", format="png")
+    assert await check_logos(page, [icon], time_limit=5) == ([], 1)
+    assert icon.image is None
+
+
+@pytest.mark.parametrize(
+    "png",
+    [
+        None,
+        "",
+        "data:image/jpeg;base64," + base64.b64encode(TINY_PNG).decode(),
+        "data:image/png;base64,not base64!",
+        "data:image/png;base64," + base64.b64encode(b"GIF89a, not a PNG").decode(),
+        "data:image/png;base64," + base64.b64encode(TINY_PNG[:8] + b"0" * 2_000_000).decode(),  # too big to keep
+    ],
+)
+def test_a_tab_icon_copy_that_isnt_a_png_of_a_sensible_size_is_refused(png: str | None) -> None:
+    assert tab_icon_copy(png) is None
+    assert tab_icon_copy(PNG_ADDRESS) == TINY_PNG

@@ -142,7 +142,8 @@ class LogoCandidate:
     url: str | None = None
     # Inline SVG markup as found on the page. Untrusted: cleaned by svg.py before use.
     svg: str | None = None
-    # A logo drawn with a CSS background ("css-background"), as the browser photographed it: PNG bytes.
+    # PNG bytes from the browser in step 5: a logo drawn with a CSS background ("css-background"), as it
+    # photographed it, or a tab icon ("favicon") as it drew the file, so the guide uses Swatchfin's copy.
     image: bytes | None = None
     # Its most used bright colours as the browser drew it (set in step 5 for logos drawn with CSS and
     # image files): the palette counts them as the logo's colours.
