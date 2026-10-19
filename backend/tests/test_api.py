@@ -39,7 +39,7 @@ def test_start_then_follow_a_guide_to_the_end(client: TestClient, wait_for_job: 
     assert job["status"] == "complete"
     assert job["query"] == "Larkspur Tea"
     assert job["error"] is None
-    # Steps 1–5 read the (fake) site; 6 needs a language model key (the tests have none); 7 grades the contrast.
+    # Steps 1 to 5 read the (fake) site; 6 needs a language model key (the tests have none); 7 grades the contrast.
     assert [step["status"] for step in job["steps"]] == ["done"] * 5 + ["skipped", "done"]
     assert job["guide"]["id"] == created["id"]
     assert job["guide"]["brand"]["domain"] == "larkspurtea.example"

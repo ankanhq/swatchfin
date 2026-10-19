@@ -86,7 +86,7 @@ async def read_site(
     browser: PlaywrightDriver,
     data_dir: Path,
 ) -> tuple[Job, dict[str, str], list[SourcePage]]:
-    """Runs steps 1–5 of the real pipeline for one site. Returns the job, step 6's request and step 7's pages."""
+    """Runs steps 1 to 5 of the real pipeline for one site. Returns the job, step 6's request and step 7's pages."""
     recorder = Recorder()
     found: list[list[SourcePage]] = []
     original = pipeline.source_pages

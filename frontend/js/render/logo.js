@@ -247,7 +247,7 @@ const VERSION_LABELS = {
 
 /**
  * Alternates and the favicon, without repeating the main logo or each other.
- * Guides made from Phase 6 on list the favicon among the alternates, with a
+ * Newer guides list the favicon among the alternates, with a
  * score. Older guides only have its address, so its card says "Not scored".
  * @param {Record<string, any>} guide
  * @param {string} primarySrc

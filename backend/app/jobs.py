@@ -1,6 +1,6 @@
 """Guide jobs: making a guide in the background while the guide page watches.
 
-A guide takes 30–90 seconds to make, which is too long for one request. So:
+A guide takes 30 to 90 seconds to make, which is too long for one request. So:
 
 1. POST /api/v1/guides calls JobManager.start(). It creates a job, starts
    the work in the background and answers straight away with the job's ID.
@@ -12,7 +12,7 @@ A guide takes 30–90 seconds to make, which is too long for one request. So:
 
 Limits that keep it safe:
 - At most `max_running_jobs` jobs work at once. The others wait as
-  "queued". (From Phase 6 each job opens a paid TinyFish Browser session.)
+  "queued". (Each job opens a paid TinyFish Browser session.)
 - When too many jobs are already waiting, new ones are refused as "busy".
 - Every job has a time limit. A job that runs over it fails with a message.
 - DELETE /api/v1/guides/{id} cancels a job that is still queued or running.
@@ -301,7 +301,7 @@ class LogoStore:
         self.folder = folder
 
     def _path(self, job_id: str, number: int, extension: str) -> Path:
-        # job_id has passed is_valid_id(), number is 1–5 and extension is svg or png, so the name can't
+        # job_id has passed is_valid_id(), number is 1 to 5 and extension is svg or png, so the name can't
         # reach another folder.
         return self.folder / f"{job_id}-{number}.{extension}"
 

@@ -34,11 +34,11 @@ Id = Annotated[str, Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")]
 Hex = Annotated[str, Field(pattern=r"^#[0-9A-Fa-f]{6}$")]
 # How sure Swatchfin is about a value, from 0 (a guess) to 1 (certain).
 Confidence = Annotated[float, Field(ge=0, le=1)]
-# One of the 0–100 tone-of-voice scales.
+# One of the 0 to 100 tone-of-voice scales.
 Scale = Annotated[int, Field(ge=0, le=100)]
 # A count that can't go below zero.
 Count = Annotated[int, Field(ge=0)]
-# A colour channel (0–255), used for RGB values.
+# A colour channel (0 to 255), used for RGB values.
 Channel = Annotated[int, Field(ge=0, le=255)]
 
 ColorRole = Literal["primary", "secondary", "accent", "background", "surface", "text", "text-muted", "link", "border"]
@@ -159,7 +159,7 @@ class Trait(Model):
 
 
 class Spectrum(Model):
-    """Four 0–100 tone scales. 0 is the first word, 100 the second."""
+    """Four tone scales from 0 to 100. 0 is the first word, 100 the second."""
 
     formal_casual: Scale
     serious_playful: Scale

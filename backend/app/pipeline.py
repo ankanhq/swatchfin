@@ -1,6 +1,6 @@
 """The seven steps that make a guide.
 
-Steps 1–5 read the live website with TinyFish; steps 6–7 describe and check it:
+Steps 1 to 5 read the live website with TinyFish. Steps 6 and 7 describe and check it:
 1. resolving          Search finds the official website (names only).
 2. reading_homepage   Fetch reads the homepage: name, logo, icons, links, text.
 3. discovering_pages  The homepage links and Search choose up to 9 more pages.
@@ -19,7 +19,7 @@ hours isn't read again: the job stops after step 1 and reuses that guide
 (see reuse.py).
 
 The guide's one Browser session is asked for as soon as the website is
-known, so TinyFish starts it while Fetch reads (steps 2–4). It is ended
+known, so TinyFish starts it while Fetch reads (steps 2 to 4). It is ended
 straight after step 5, in a `finally` block, so it is ended however the
 guide goes: finished, failed, cancelled or out of time.
 
@@ -593,7 +593,7 @@ async def _reuse(job: JobRun, earlier_id: str, earlier: BrandGuide, query: Parse
     """The earlier guide for the same site, as this job's guide (see reuse.py).
 
     It keeps its own date and sources, so it says when the site was really
-    read. Steps 2–7 are skipped, and say so. Swatchfin's own copies of
+    read. Steps 2 to 7 are skipped, and say so. Swatchfin's own copies of
     logos (SVG and PNG) are copied to this job's ID too, so this guide
     doesn't depend on the earlier guide's files.
     """

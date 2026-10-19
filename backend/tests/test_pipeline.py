@@ -490,7 +490,7 @@ async def _finish(settings: Settings, pipeline: Pipeline, query: str, *, timeout
 
 
 # ---------------------------------------------------------------------------
-# Steps 6–7: tone of voice from a language model, checked against the pages
+# Steps 6 and 7: tone of voice from a language model, checked against the pages
 # ---------------------------------------------------------------------------
 
 HOME = "https://www.larkspurtea.example/"

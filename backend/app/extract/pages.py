@@ -2,7 +2,7 @@
 
 One Fetch call reads all the pages chosen in step 3 (up to 9) as clean
 markdown, live rather than from a cache. Their text is kept in memory for
-the tone-of-voice step (Phase 7) and is not part of the guide itself; the
+the tone-of-voice step (step 6) and is not part of the guide itself; the
 guide lists each page under its sources.
 
 A page that can't be read (blocked, gone, too slow) is left out with a

@@ -1,6 +1,6 @@
 """Serving the website (the files in /frontend) from the same app as the API.
 
-The rules are the ones tools/serve.py used in Phases 1–3:
+The rules are the ones tools/serve.py used before there was a backend:
 
 - Every page and file is sent with `Cache-Control: no-cache`. Without it,
   the browser guesses how long it may reuse each file without asking. After

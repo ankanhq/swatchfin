@@ -25,7 +25,7 @@ def rgb(hex_code: str) -> tuple[int, int, int]:
 
 
 def _linear(channel: int) -> float:
-    """A 0–255 sRGB channel as linear light (0–1), as both WCAG and CIELAB need."""
+    """A 0 to 255 sRGB channel as linear light (0 to 1), as both WCAG and CIELAB need."""
     c = channel / 255
     return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
 

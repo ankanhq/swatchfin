@@ -22,8 +22,8 @@ MONTHS = (
     "July", "August", "September", "October", "November", "December",
 )  # fmt: skip
 
-# Characters that change the direction text runs in (U+202A–U+202E and
-# U+2066–U+2069). A website could use them to make a file read differently
+# Characters that change the direction text runs in (U+202A to U+202E and
+# U+2066 to U+2069). A website could use them to make a file read differently
 # on screen from what it really says, so they are removed.
 DIRECTION_CONTROLS = re.compile("[\u202a-\u202e\u2066-\u2069]")
 

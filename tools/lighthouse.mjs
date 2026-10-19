@@ -65,7 +65,7 @@ function runLighthouse(args) {
 }
 
 /**
- * Audits one page on one device and returns its scores (0–100).
+ * Audits one page on one device and returns its scores (0 to 100).
  * @param {string} name
  * @param {string} address
  * @param {string} device

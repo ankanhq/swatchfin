@@ -9,7 +9,7 @@ Fetch can't read (see extract/visuals.py).
     DELETE https://api.browser.tinyfish.ai/{session_id}   -> 204: the session has ended
     GET    https://api.browser.tinyfish.ai/usage          -> the account's sessions, newest first
 
-Starting a session takes TinyFish 10–30 seconds. So the pipeline asks for
+Starting a session takes TinyFish 10 to 30 seconds. So the pipeline asks for
 one as soon as it knows the website (BrowserVisit.start), while Fetch reads
 the homepage; by step 5 the browser is ready, with the homepage loaded.
 
@@ -44,7 +44,7 @@ from app.tinyfish.client import TinyFishClient, TinyFishError
 log = logging.getLogger("swatchfin.browser")
 
 BROWSER_URL = "https://api.browser.tinyfish.ai"
-# The docs: creating a session takes 10–30 s, so wait at least 60 s. Tried twice at most.
+# The docs say creating a session takes 10 to 30 s, so wait at least 60 s. Tried twice at most.
 CREATE_TIME_LIMIT = 60.0
 CREATE_RETRIES = 1
 END_TIME_LIMIT = 15.0

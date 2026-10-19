@@ -85,7 +85,7 @@ class Settings(BaseSettings):
     use_browser: bool = True
 
     # Limits that protect the TinyFish allowance and the language model credit. See ratelimit.py.
-    # New guides a day for everyone together (UTC days), DAILY_GUIDE_LIMIT. A guide reads 7–8 pages
+    # New guides a day for everyone together (UTC days), DAILY_GUIDE_LIMIT. A guide reads 7 or 8 pages
     # with Fetch on average and at most 11, so the live site's 90 stay within Fetch's free 1,000 a day.
     daily_guide_limit: int = Field(50, ge=1)
     # New guides per visitor (IP address) in any 24 hours, VISITOR_DAILY_LIMIT. Its old name,

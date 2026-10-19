@@ -108,7 +108,7 @@ def tone_lines(spectrum: Spectrum | None) -> list[str]:
 
 
 def lean(value: int, left: str, right: str) -> str:
-    """The same bands as the guide page: 0–15 strongly, 16–35 leans, 36–64 balanced…"""
+    """The same bands as the guide page: 0 to 15 strongly, 16 to 35 leans, 36 to 64 balanced…"""
     if value <= 15:
         return f"strongly {left}"
     if value <= 35:

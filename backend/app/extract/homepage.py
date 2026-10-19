@@ -9,7 +9,7 @@ TinyFish Fetch reads the homepage twice, at the same time:
    by CSS selector. From them we get the brand's name, logo candidates,
    icons, theme colour and the main links with their text.
 2. The "content" read: the page's main text as clean markdown (for the tone
-   of voice in Phase 7), with every link and image address on the page.
+   of voice in step 6), with every link and image address on the page.
 
 A site that builds itself with JavaScript (Duolingo, for one) gives Fetch
 almost nothing to read. That is not an error: in step 5 TinyFish Browser
@@ -188,10 +188,10 @@ class Homepage:
     # Best first.
     logos: list[LogoCandidate] = field(default_factory=list)
     favicon: str | None = None
-    # <meta name="theme-color"> values as written ("#FF5A1F", "white"). Used from Phase 6.
+    # <meta name="theme-color"> values as written ("#FF5A1F", "white").
     theme_colors: list[str] = field(default_factory=list)
     links: list[PageLink] = field(default_factory=list)
-    # The main text as markdown. Used from Phase 7.
+    # The main text as markdown, which step 6 reads for the tone of voice.
     text: str = ""
     # What Fetch couldn't read: the structure read, the content read, or both.
     failures: list[FetchFailure] = field(default_factory=list)

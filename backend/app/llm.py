@@ -71,7 +71,7 @@ PRICES: dict[str, tuple[float, float]] = {
 EFFORT = "low"
 
 # FallbackLLM: each model but the last gets at most this long, so a slow one leaves time for the next.
-# Measured answers took 8–9 s (Claude), 3–4 s (Groq) and 9–18 s (Gemini); out of step 6's 75 s, two
+# Measured answers took 8 to 9 s (Claude), 3 to 4 s (Groq) and 9 to 18 s (Gemini); out of step 6's 75 s, two
 # slow failures still leave 15 s for the third model.
 ATTEMPT_TIME_LIMIT = 30.0
 # A model isn't asked with less time than this left.

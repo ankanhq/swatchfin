@@ -152,8 +152,8 @@ function scaleRow({ left, right }, raw) {
 }
 
 /**
- * 0–15 "Strongly formal", 16–35 "Leans formal", 36–64 "Balanced",
- * 65–84 "Leans casual", 85–100 "Strongly casual".
+ * 0 to 15 "Strongly formal", 16 to 35 "Leans formal", 36 to 64 "Balanced",
+ * 65 to 84 "Leans casual", 85 to 100 "Strongly casual".
  * @param {number} value
  * @param {string} left
  * @param {string} right

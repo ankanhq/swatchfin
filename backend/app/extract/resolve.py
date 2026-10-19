@@ -1,6 +1,6 @@
 """Step 1 of the pipeline, "resolving": turning what someone typed into something to read.
 
-Phase 4 has the first half: checking the query. It follows the same rules
+The first half checks the query. It follows the same rules
 as parseQuery() in frontend/js/utils.js, so the start page and the API agree
 on what is a company name, what is a web address and what is refused. The
 server checks again because anyone can call the API without the start page.

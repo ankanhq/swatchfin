@@ -1,7 +1,7 @@
 /**
  * Where the guide page gets its data: guide jobs from the Swatchfin backend.
  *
- * A guide takes 30–90 seconds to make, so the backend makes it as a
+ * A guide takes 30 to 90 seconds to make, so the backend makes it as a
  * background job:
  *   startGuide(query)   POST   /api/v1/guides       -> { id }
  *   watchGuide(id, …)   GET    /api/v1/guides/{id}  every 1.5 s, until the
