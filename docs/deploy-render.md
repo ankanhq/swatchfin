@@ -68,15 +68,21 @@ The address is at the top of the service page: `https://swatchfin.onrender.com` 
 - Open it and try one of the example chips on the start page.
 - `https://<your address>/api/v1/health` should answer `{"status":"ok"}`.
 
-Send the address to Claude Code: it goes into the README, the About page's social preview tags and the demo script.
+If the address isn't `swatchfin.onrender.com`, put yours in the README and in the About page's social preview tags.
 
 ## 6. Check the visitor address
 
-Behind Render, every request reaches Swatchfin through Render's proxies. They write the visitor's real address in a header called `X-Forwarded-For`, but they also keep any address a visitor makes up and sends in the same header. Swatchfin therefore reads the entry the proxies add for the visitor, counting from the end of the list. `PROXY_HOPS` says how many entries from the end to go.
+Behind Render, every request reaches Swatchfin through Render's proxies. They write the visitor's real address in a header called `X-Forwarded-For`, but they also keep any address a visitor makes up and sends in the same header. So Swatchfin reads the entry the proxies add for the visitor, counting from the end of the list. `PROXY_HOPS` says how many entries from the end to go.
 
 **Checked on 12 October 2026:** an ordinary request (one that sent no header of its own) arrived with 3 entries, so Render's proxies add 3 and the visitor is the first of them. `render.yaml` sets `PROXY_HOPS` to `3`. (With the first setting, `1`, Swatchfin read the last proxy's address instead, so every visitor shared one limit of 5 guides a day.)
 
-To check it again after a deploy, open the site once, then have Claude Code send one request with a made-up first entry. In **Logs**, find the lines that start with `X-Forwarded-For had`:
+To check it again after a deploy, open the site once. Then send one request with a made-up first entry, for example:
+
+```bash
+curl -H "X-Forwarded-For: 203.0.113.7" https://swatchfin.onrender.com/api/v1/health
+```
+
+In **Logs**, find the lines that start with `X-Forwarded-For had`:
 
 ```
 INFO swatchfin.ratelimit: X-Forwarded-For had 3 entries; the visitor is entry 1 (PROXY_HOPS=3)
@@ -118,7 +124,7 @@ Under the service's **Settings**, **Suspend Service** stops it (the address then
 
 ## If something goes wrong
 
-- **The build fails.** Open the failed deploy's log. Every package is pinned and has a ready-made Linux build for Python 3.13 (checked in Phase 10), so a failure usually means a typo in a changed `render.yaml`.
+- **The build fails.** Open the failed deploy's log. Every package is pinned and has a ready-made Linux build for Python 3.13, so a failure usually means a typo in a changed `render.yaml`.
 - **Every guide stops with "Swatchfin can't read websites right now".** The TinyFish key is missing or wrong. Fix it under **Environment**.
 - **Guides have no tone of voice**, and their warning gives each model's reason: no language model key worked. Check the three keys, and the Anthropic spend limit.
 - **"Swatchfin has reached today's limit".** 90 new guides were made today (UTC; `DAILY_GUIDE_LIMIT`). Sites with a guide from the last 24 hours still open; new ones work again after midnight UTC.
