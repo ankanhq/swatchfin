@@ -561,6 +561,26 @@ async def test_pages_fetch_couldnt_read_are_read_in_the_browser() -> None:
 
 
 @pytest.mark.anyio
+async def test_the_browser_follows_a_redirect_to_another_of_the_brands_own_sites() -> None:
+    def answer(url: str, arg: Any) -> dict[str, Any]:
+        if arg is not None:
+            return browser_measurement(url)
+        if url.endswith("/about"):
+            return {"url": "https://about.larkspurtea/", "title": "About", "text": "Larkspur Tea, since 2014. " * 20}
+        return {"url": "https://www.elsewhere.example/press", "text": "x" * 500}
+
+    retry = [
+        SkippedPage(f"{HOME}about", "the page took too long to load", kind="about", retry=True),
+        SkippedPage(f"{HOME}press", "the site blocked automated reading", kind="press", retry=True),
+    ]
+    visuals = await _visuals(answer, retry)
+    assert [(page.url, page.kind) for page in visuals.pages] == [("https://about.larkspurtea/", "about")]
+    assert [(skipped.url, skipped.reason, skipped.elsewhere) for skipped in visuals.still_skipped] == [
+        (f"{HOME}press", "it redirected to another website", "elsewhere.example")
+    ]
+
+
+@pytest.mark.anyio
 async def test_no_more_than_three_pages_are_read_in_the_browser() -> None:
     def answer(url: str, arg: Any) -> dict[str, Any]:
         return browser_measurement(url) if arg is not None else {"url": url, "text": "Words. " * 100}

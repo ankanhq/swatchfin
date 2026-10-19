@@ -7,7 +7,7 @@ import httpx2
 import pytest
 from pydantic import SecretStr
 
-from app.extract.discover import MAX_PAGES, choose_pages, discover_pages, kind_labels
+from app.extract.discover import MAX_PAGES, ChosenPage, choose_pages, discover_pages, kind_labels
 from app.extract.homepage import Homepage, PageLink
 from app.extract.pages import read_pages
 from app.tinyfish.client import TinyFishClient
@@ -344,6 +344,44 @@ async def test_read_pages_keeps_good_pages_and_says_why_others_were_skipped() ->
         f"{SITE}/blog": ("blog", False),
         f"{SITE}/mission": ("mission", True),
         f"{SITE}/press": ("press", True),
+    }
+
+
+@pytest.mark.anyio
+async def test_a_redirect_to_another_of_the_brands_own_sites_is_followed() -> None:
+    long_text = "Our mission is to organize the world’s information and make it universally accessible. " * 5
+    google = "https://www.google.com"
+    redirects = {
+        "/about": "https://about.google/",  # the brand's own domain ending
+        "/careers": "https://www.google.co.in/about/careers/",  # the same name in another country
+        "/press": "https://blog.google/press/",
+        "/mission": "https://about.google/signin?continue=mission",  # a sign-in page: not read
+        "/journal": "https://blog.google.evil.example/journal",  # not the brand
+        "/stories": "http://127.0.0.1/stories",  # not a public address
+    }
+
+    def answer(_request: httpx2.Request) -> dict[str, Any]:
+        return {
+            "results": [
+                {"url": f"{google}{path}", "final_url": final, "title": path[1:].title(), "text": long_text}
+                for path, final in redirects.items()
+            ]
+        }
+
+    client, _seen = fake_tinyfish(answer)
+    home = Homepage(requested_url=f"{google}/", url=f"{google}/", host="www.google.com", language="en")
+    chosen = [ChosenPage(f"{google}{path}", "about", path[1:], "link", 1.0) for path in redirects]
+    result = await read_pages(client, home, chosen)
+
+    assert [page.url for page in result.pages] == [
+        "https://about.google/",
+        "https://www.google.co.in/about/careers/",
+        "https://blog.google/press/",
+    ]
+    assert {skipped.url: (skipped.reason, skipped.elsewhere) for skipped in result.skipped} == {
+        f"{google}/mission": ("it redirected to a page Swatchfin doesn’t read, such as a sign-in or legal page", None),
+        f"{google}/journal": ("it redirected to another website", "blog.google.evil.example"),
+        f"{google}/stories": ("it redirected to another website", "127.0.0.1"),
     }
 
 

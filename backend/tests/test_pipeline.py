@@ -711,3 +711,37 @@ async def test_without_colours_or_a_tone_of_voice_there_is_nothing_to_check(sett
     job = await run(settings, "larkspur.example", browser=FakeBrowserDriver(_unavailable))
     assert (job.steps[6].status, job.steps[6].detail) == ("skipped", "No quotes or colours to check")
     assert job.guide is not None and job.guide.contrast == []
+
+
+class RedirectingTinyFish(FakeTinyFish):
+    """A fake TinyFish whose pages at these paths redirect to a job board on another website."""
+
+    def __init__(self, *paths: str) -> None:
+        super().__init__()
+        self.paths = paths
+
+    def fetch(self, body: dict[str, Any]) -> dict[str, Any]:
+        answer = super().fetch(body)
+        for page in answer["results"]:
+            path = urlsplit(page["url"]).path
+            if path in self.paths:
+                page["final_url"] = f"https://jobs.board.example{path}"
+        return answer
+
+
+async def test_pages_that_redirect_to_other_websites_share_one_warning(settings: Settings) -> None:
+    job = await run(settings, "Larkspur Tea", RedirectingTinyFish("/about", "/careers"))
+    assert job.guide is not None
+    redirected = [warning for warning in job.guide.warnings if "redirected" in warning]
+    assert redirected == [
+        "2 pages were skipped because they redirected to other websites: "
+        "https://www.larkspurtea.example/about (to jobs.board.example) and "
+        "https://www.larkspurtea.example/careers (to jobs.board.example)."
+    ]
+
+    # One page keeps its own line.
+    job = await run(settings, "Larkspur Tea", RedirectingTinyFish("/careers"))
+    assert job.guide is not None
+    assert [warning for warning in job.guide.warnings if "redirected" in warning] == [
+        "The Careers page (https://www.larkspurtea.example/careers) was skipped: it redirected to another website."
+    ]

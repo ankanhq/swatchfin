@@ -8,7 +8,9 @@ guide lists each page under its sources.
 A page that can't be read (blocked, gone, too slow) is left out with a
 reason, and the guide carries on with the rest. So is a page that turned
 out to be empty, or that redirected to another website or back to the
-homepage. Pages that were blocked, too slow or empty without JavaScript
+homepage. A redirect to another of the brand's own sites (google.com/about
+to about.google) is followed, if the page there passes the same checks as
+a link to it would (see landed_elsewhere). Pages that were blocked, too slow or empty without JavaScript
 are marked `retry`: in step 5, TinyFish Browser tries up to 3 of them
 (see visuals.py).
 """
@@ -17,9 +19,9 @@ from dataclasses import dataclass, field
 from typing import Literal
 from urllib.parse import urlsplit
 
-from app.extract.discover import ChosenPage, PageKind, page_key
+from app.extract.discover import ChosenPage, PageKind, page_key, usable_redirect
 from app.extract.homepage import Homepage
-from app.extract.resolve import same_site
+from app.extract.resolve import same_brand, same_site
 from app.tinyfish.client import TinyFishClient
 from app.tinyfish.fetch import fetch
 
@@ -28,6 +30,9 @@ PAGE_TIMEOUT_MS = 30_000
 MIN_TEXT_LENGTH = 200
 # Fetch failures a real browser may get past: a page built with JavaScript, a bot check, a slow page.
 BROWSER_MAY_READ = frozenset({"empty_content", "bot_blocked", "timeout"})
+# Why a page that ended up somewhere else is left out.
+ANOTHER_WEBSITE = "it redirected to another website"
+NOT_READ_THERE = "it redirected to a page Swatchfin doesn’t read, such as a sign-in or legal page"
 
 
 @dataclass
@@ -52,6 +57,8 @@ class SkippedPage:
     kind: PageKind | None = None
     # True when a real browser may read it where Fetch couldn't.
     retry: bool = False
+    # The other website it redirected to ("example.org"). These are listed together in one warning.
+    elsewhere: str | None = None
 
 
 @dataclass
@@ -78,12 +85,11 @@ async def read_pages(client: TinyFishClient, homepage: Homepage, chosen: list[Ch
     seen = {page_key(homepage.url), page_key(homepage.requested_url)}
     for page in response.results:
         address = page.address
-        host = urlsplit(address).hostname or ""
         kind = kinds.get(page_key(page.url))
         if kind is None:
             continue  # not a page we asked for
-        if not same_site(host, homepage.domain):
-            result.skipped.append(SkippedPage(page.url, "it redirected to another website", kind=kind))
+        if (elsewhere := landed_elsewhere(page.url, address, homepage, kind)) is not None:
+            result.skipped.append(elsewhere)
         elif page_key(address) in seen:
             result.skipped.append(SkippedPage(page.url, "it led to a page that was already read", kind=kind))
         elif len(page.text_str.strip()) < MIN_TEXT_LENGTH:
@@ -96,3 +102,20 @@ async def read_pages(client: TinyFishClient, homepage: Homepage, chosen: list[Ch
         retry = failure.error in BROWSER_MAY_READ
         result.skipped.append(SkippedPage(failure.url, failure.reason, kind=kind, retry=retry))
     return result
+
+
+def landed_elsewhere(url: str, address: str, homepage: Homepage, kind: PageKind | None) -> SkippedPage | None:
+    """None when the page asked for (url) ended up (address) on the brand's own site; else why it is left out.
+
+    In plain English: the brand's own site is fine. Another of the brand's own
+    sites (about.google for google.com) is fine too, when the page there
+    passes the same checks as a link to it would: a public address, and not a
+    sign-in, legal, forum or other-language page, a file, or the homepage.
+    Anywhere else is another website.
+    """
+    host = (urlsplit(address).hostname or "").lower()
+    if same_site(host, homepage.domain):
+        return None
+    if same_brand(host, homepage.domain):
+        return None if usable_redirect(address, homepage) else SkippedPage(url, NOT_READ_THERE, kind=kind)
+    return SkippedPage(url, ANOTHER_WEBSITE, kind=kind, elsewhere=host.removeprefix("www."))

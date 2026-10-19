@@ -33,7 +33,7 @@ from typing import Literal
 from urllib.parse import urlsplit, urlunsplit
 
 from app.extract.homepage import Homepage, PageLink
-from app.extract.resolve import same_site
+from app.extract.resolve import public_host, same_brand, same_site, site_domain
 from app.tinyfish.client import TinyFishClient, TinyFishError
 from app.tinyfish.search import SearchResult, search
 
@@ -392,14 +392,25 @@ def _depth_penalty(address: str) -> float:
     return DEPTH_PENALTY * max(0, len(_path_parts(urlsplit(address).path)) - 1)
 
 
-def _usable(address: str, homepage: Homepage) -> bool:
-    """False for other sites, the homepage itself, logins and legal pages, files and other-language copies."""
+def usable_redirect(address: str, homepage: Homepage) -> bool:
+    """True for a page on another of the brand's own sites that a chosen page redirected to (google.com/about ->
+    about.google), when it is a public address that passes the same checks as a link to it would."""
+    host = public_host(address)
+    return host is not None and same_brand(host, homepage.domain) and _usable(address, homepage, site_domain(host))
+
+
+def _usable(address: str, homepage: Homepage, domain: str | None = None) -> bool:
+    """False for other sites, the homepage itself, logins and legal pages, files and other-language copies.
+
+    `domain` is the site the page must be on: the homepage's, unless said otherwise.
+    """
+    domain = domain or homepage.domain
     parts = urlsplit(address)
     host = (parts.hostname or "").lower()
-    if not same_site(host, homepage.domain):
+    if not same_site(host, domain):
         return False
     # Every part of the subdomain counts: "techcommunity." and "en.community." are both forums.
-    subdomains = host.removesuffix("." + homepage.domain).split(".") if host != homepage.domain else []
+    subdomains = host.removesuffix("." + domain).split(".") if host != domain else []
     if any(part in SKIP_SUBDOMAINS or FORUM_SUBDOMAIN.search(part) for part in subdomains):
         return False
     if page_key(address) in (page_key(homepage.url), page_key(homepage.requested_url)):

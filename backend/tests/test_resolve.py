@@ -20,6 +20,7 @@ from app.extract.resolve import (
     named_site,
     parse_query,
     public_host,
+    same_brand,
     same_site,
     site_domain,
 )
@@ -112,6 +113,26 @@ def test_same_site() -> None:
     assert same_site("blog.stripe.com", "stripe.com")
     assert not same_site("notstripe.com", "stripe.com")
     assert not same_site("max.com", "x.com")
+
+
+@pytest.mark.parametrize(
+    ("host", "domain", "expected"),
+    [
+        ("about.google", "google.com", True),  # the brand's own domain ending
+        ("blog.google", "google.com", True),
+        ("about.youtube", "youtube.com", True),
+        ("www.google.co.in", "google.com", True),  # the same main name in another country
+        ("careers.google.com", "google.com", True),
+        ("www.google.com", "google.com", True),
+        ("google.evil.com", "google.com", False),
+        ("evil-google.com", "google.com", False),
+        ("about.youtube", "google.com", False),
+        ("jobs.example", "google.com", False),
+        ("about.google", "x.com", False),
+    ],
+)
+def test_same_brand(host: str, domain: str, expected: bool) -> None:
+    assert same_brand(host, domain) is expected
 
 
 def test_public_host() -> None:

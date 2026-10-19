@@ -208,6 +208,18 @@ def same_site(host: str, domain: str) -> bool:
     return host == domain or host.endswith("." + domain)
 
 
+def same_brand(host: str, domain: str) -> bool:
+    """True when host is the brand's own, even on another of its addresses.
+
+    On google.com: "about.google" and "blog.google" (the brand's own domain
+    ending), "www.google.co.in" (the same main name in another country), and
+    every subdomain of google.com itself. Not "google.evil.com".
+    """
+    host = host.lower().removesuffix(".")
+    brand = main_label(domain)
+    return same_site(host, domain) or main_label(host) == brand or host.rsplit(".", 1)[-1] == brand
+
+
 def public_host(url: str) -> str | None:
     """The host name of a public http(s) address, or None (using the same rules as parse_query)."""
     try:

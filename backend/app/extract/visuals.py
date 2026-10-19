@@ -37,7 +37,6 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Any, Literal
-from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
@@ -51,8 +50,7 @@ from app.extract.homepage import (
     LogoCandidate,
     build_homepage,
 )
-from app.extract.pages import MIN_TEXT_LENGTH, ReadPage, SkippedPage
-from app.extract.resolve import same_site
+from app.extract.pages import MIN_TEXT_LENGTH, ReadPage, SkippedPage, landed_elsewhere
 from app.extract.svg import clean_svg, fingerprint, uses_current_color
 from app.schemas import Color, ColorRole, Font, FontRole
 from app.tinyfish.browser import BrowserPage, BrowserUnavailable, BrowserVisit
@@ -449,10 +447,9 @@ async def _read_page_text(
     except (BrowserUnavailable, ValidationError) as error:
         log.info("browser couldn't read %s: %s", skipped.url, error)
         return SkippedPage(skipped.url, f"{skipped.reason}, and a browser couldn’t open it either", kind=kind)
-    host = urlsplit(read.url).hostname or ""
     text = read.text.strip()
-    if not same_site(host, homepage.domain):
-        return SkippedPage(skipped.url, "it redirected to another website", kind=kind)
+    if (elsewhere := landed_elsewhere(skipped.url, read.url, homepage, kind)) is not None:
+        return elsewhere
     if len(text) < MIN_TEXT_LENGTH:
         return SkippedPage(skipped.url, f"{skipped.reason}, and it had almost no text in a browser either", kind=kind)
     return ReadPage(url=read.url, kind=kind, title=read.title or None, text=text, api="browser")

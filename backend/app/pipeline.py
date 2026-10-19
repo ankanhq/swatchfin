@@ -488,12 +488,21 @@ def _homepage_warnings(homepage: Homepage, filled: list[str]) -> list[str]:
 
 
 def _skipped_warnings(pages: PagesRead, discovery: Discovery) -> list[str]:
-    """One warning for each chosen page that couldn't be read, by Fetch or (when it tried) Browser."""
+    """One warning for each chosen page that couldn't be read, by Fetch or (when it tried) Browser.
+
+    Pages that redirected to other websites share one warning when there are several.
+    """
     labels = {page_key(page.url): kind_labels([page])[0] for page in discovery.pages}
+    elsewhere = [skipped for skipped in pages.skipped if skipped.elsewhere]
     warnings: list[str] = []
     for skipped in pages.skipped:
+        if skipped.elsewhere and len(elsewhere) > 1:
+            continue
         label = KINDS_BY_NAME[skipped.kind].label if skipped.kind else labels.get(page_key(skipped.url), "A")
         warnings.append(f"The {label} page ({skipped.url}) was skipped: {skipped.reason}.")
+    if len(elsewhere) > 1:
+        listed = _join([f"{skipped.url} (to {skipped.elsewhere})" for skipped in elsewhere])
+        warnings.append(f"{len(elsewhere)} pages were skipped because they redirected to other websites: {listed}.")
     return warnings
 
 
