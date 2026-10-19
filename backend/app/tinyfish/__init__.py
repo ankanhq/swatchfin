@@ -1,5 +1,5 @@
-"""Clients for the TinyFish web APIs (CLAUDE.md, section 4).
+"""Clients for the TinyFish web APIs (see docs/how-tinyfish-is-used.md).
 
 client.py holds the shared connection (key, time limits, retries, errors);
-search.py and fetch.py are one API each. browser.py arrives in Phase 6.
+search.py, fetch.py and browser.py are one API each.
 """

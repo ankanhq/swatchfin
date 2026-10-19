@@ -1,4 +1,4 @@
-"""Exports: a guide as files other tools can use (CLAUDE.md, section 7).
+"""Exports: a guide as files other tools can use (see the README, "Exports").
 
 FORMATS below lists every format the export endpoint (main.py) offers:
 the end of its file name, its media type and the function that writes it.
@@ -31,7 +31,7 @@ class ExportFormat:
 
 
 def json_export(guide: BrandGuide) -> str:
-    """The whole guide, exactly as the API sends it (the versioned schema in CLAUDE.md, section 6)."""
+    """The whole guide, exactly as the API sends it (the versioned format in docs/api.md)."""
     return guide.model_dump_json(indent=2) + "\n"
 
 

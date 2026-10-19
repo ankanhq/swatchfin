@@ -1,4 +1,4 @@
-"""The shapes of the data the API sends and accepts (CLAUDE.md, sections 6 and 7).
+"""The shapes of the data the API sends and accepts (described for people in docs/api.md).
 
 In plain English: each class below describes one JSON object: its fields,
 their types and the values they may hold. Pydantic checks real data against
@@ -62,7 +62,7 @@ StepName = Literal[
 ]
 StepState = Literal["pending", "running", "done", "skipped", "failed"]
 
-# The seven steps, in the order they run (CLAUDE.md, section 7).
+# The seven steps, in the order they run.
 STEP_NAMES: tuple[StepName, ...] = (
     "resolving",
     "reading_homepage",
@@ -81,7 +81,7 @@ class Model(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# The brand guide (CLAUDE.md, section 6)
+# The brand guide
 # ---------------------------------------------------------------------------
 
 
@@ -245,7 +245,7 @@ class BrandGuide(Model):
 
 
 # ---------------------------------------------------------------------------
-# Jobs (CLAUDE.md, section 7)
+# Jobs
 # ---------------------------------------------------------------------------
 
 

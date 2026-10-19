@@ -137,7 +137,7 @@ A guide takes 30–90 seconds, so it is made as a background job. Start one, the
 | `GET` | `/api/v1/guides/{id}/logos/{n}.svg` or `.png` | Swatchfin's copy of a logo the site draws in its page: a cleaned SVG (only shapes, colours and text), or a PNG photo of a logo drawn with CSS. Served so that it can't load or run anything |
 | `GET` | `/api/v1/health` | `{ "status": "ok" }` |
 
-Every error has the same shape, written for people: `{ "error": { "title": "Guide not found", "message": "There is no guide with this ID…" } }`. The exact shapes are in `CLAUDE.md` (sections 6 and 7), in `backend/app/schemas.py`, and at `/api/docs`.
+Every error has the same shape, written for people: `{ "error": { "title": "Guide not found", "message": "There is no guide with this ID…" } }`. The exact shapes are in [docs/api.md](docs/api.md), in `backend/app/schemas.py`, and at `/api/docs`.
 
 On the live site, each visitor (IP address) can start 15 new guides in any 24 hours (`VISITOR_DAILY_LIMIT`) and make 300 API requests a minute, and Swatchfin makes at most 90 new guides a day (UTC) for everyone together (`DAILY_GUIDE_LIMIT`), which keeps it within TinyFish Fetch's free 1,000 pages a day. Without those settings, a local copy allows 5 and 50. A search for a site that already has a complete guide from the last 24 hours gets that guide straight away, and counts toward neither limit. At most two guides are made at once; the others wait their turn. Finished guides are saved in `backend/data/guides/` and their copied logos in `backend/data/logos/` (both git-ignored), and kept for 30 days. All of these can be changed in `.env` (see `.env.example`).
 
@@ -159,7 +159,7 @@ Steps 1–5 read the live site with TinyFish: finding the site (for a name), rea
 
 Click **Cancel** while a guide is being made to go back to the start page with your search still in the box; the job is stopped on the server too.
 
-The sample guides follow the exact BrandGuide and job status shapes in `CLAUDE.md` (the tests check this), and every part of them is labelled as mock. They are for building the guide page, Lighthouse runs and tests, so the server serves them only when `SAMPLE_GUIDES=true` is in `.env`. It is off by default and in production, where no guide marked MOCK is ever served, not even one left in the guides folder. Real guides never use them.
+The sample guides follow the exact guide and job status shapes in [docs/api.md](docs/api.md) (the tests check this), and every part of them is labelled as mock. They are for building the guide page, Lighthouse runs and tests, so the server serves them only when `SAMPLE_GUIDES=true` is in `.env`. It is off by default and in production, where no guide marked MOCK is ever served, not even one left in the guides folder. Real guides never use them.
 
 The other pages: [`about.html`](http://localhost:8000/about.html) explains how Swatchfin uses TinyFish Search, Fetch and Browser (with a pipeline diagram, limitations and a privacy note), and any missing address shows the 404 page ([localhost:8000/anything](http://localhost:8000/anything)).
 
@@ -235,7 +235,7 @@ Export on a guide page (or `GET /api/v1/guides/{id}/export?format=…`) download
 
 | Format | File | What's in it |
 |---|---|---|
-| `json` | `stripe-brand-guide.json` | The whole guide, in the versioned schema (`CLAUDE.md`, section 6) |
+| `json` | `stripe-brand-guide.json` | The whole guide, in the versioned format described in [docs/api.md](docs/api.md) |
 | `css` | `stripe-brand.css` | `--brand-color-<role>`, `--brand-font-<role>` and `--brand-logo` custom properties in `:root`, each with a note on where the site uses it |
 | `tailwind` | `stripe-tailwind.css` | A Tailwind CSS v4 `@theme`: classes such as `bg-brand-primary`, `text-brand-text-muted` and `font-heading` |
 | `tokens` | `stripe-brand.tokens.json` | [W3C Design Tokens, format 2025.10](https://www.designtokens.org/TR/2025.10/format/): sRGB colours, and a family, weights and sizes for each font role. Usage and confidence go under `$extensions` |

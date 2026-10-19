@@ -8,7 +8,7 @@
  *                       job is complete (with the guide) or failed
  *   cancelGuide(id)     DELETE /api/v1/guides/{id}  stops a job still being made
  *   getExport(id, fmt)  GET    /api/v1/guides/{id}/export?format=…  a file to save
- * The job's shape is "Job status" in CLAUDE.md, section 7. Every error the
+ * The job's shape is "Job status" in docs/api.md. Every error the
  * API sends is { "error": { "title", "message" } }, written for people, so
  * the page shows it as it is.
  */
@@ -28,7 +28,7 @@ const MAX_FAILED_CHECKS = 3;
 /** Most guides take about a minute. After 3 minutes the page stops waiting and says so. */
 const WATCH_LIMIT_MS = 3 * 60 * 1000;
 
-/** This page understands schema 1.x (see CLAUDE.md, section 6). */
+/** This page understands schema 1.x (see docs/api.md). */
 const SUPPORTED_MAJOR_VERSION = '1';
 
 const JOB_STATUSES = ['queued', 'running', 'complete', 'failed'];

@@ -69,7 +69,7 @@ def test_a_guide_with_a_tone_of_voice(settings: Settings, wait_for_job: WaitForJ
 
 
 def test_job_status_has_the_documented_shape(make_client: Callable[..., TestClient]) -> None:
-    """The exact fields the progress view on guide.html is built against (CLAUDE.md, section 7)."""
+    """The exact fields the progress view on guide.html is built against (docs/api.md, "Job status")."""
     client = make_client(tinyfish=FakeTinyFish(delay=0.5))
     job = client.get(f"/api/v1/guides/{start(client, 'larkspur.example')}").json()
     assert set(job) == {"id", "status", "query", "started_at", "steps", "tinyfish_usage", "error", "guide"}

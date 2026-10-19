@@ -1,4 +1,4 @@
-"""The seven steps that make a guide (CLAUDE.md, section 5).
+"""The seven steps that make a guide.
 
 Steps 1–5 read the live website with TinyFish; steps 6–7 describe and check it:
 1. resolving          Search finds the official website (names only).
