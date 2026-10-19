@@ -8,11 +8,11 @@ import { safeUrl } from '../utils.js';
 import { el, createIcon, confidenceBadge, emptyState, fact, letterTile, list, lookup, siteHost, sourceLink, subsection, text } from './dom.js';
 import { brandName } from './brand.js';
 
-/** How the logo was found -> words for people. */
+/** How the logo was found -> words for people. (A logo can be in the header, the footer or the page itself.) */
 const METHOD_LABELS = {
-  'header-img': 'Image in the page header',
-  'inline-svg': 'Inline SVG in the page header',
-  'css-background': 'CSS image in the page header, photographed in a browser',
+  'header-img': 'Image on the homepage',
+  'inline-svg': 'Inline SVG on the homepage',
+  'css-background': 'CSS image on the homepage, photographed in a browser',
   'og-image': 'Open Graph image',
   favicon: 'Favicon',
 };
@@ -238,7 +238,7 @@ function ratio(a, b) {
 
 /** How each other version is labelled: shorter than METHOD_LABELS, as the card is small. */
 const VERSION_LABELS = {
-  'header-img': 'Header image',
+  'header-img': 'Image',
   'inline-svg': 'Inline SVG',
   'css-background': 'CSS image',
   'og-image': 'Open Graph image',
@@ -265,8 +265,11 @@ function otherVersions(guide, primarySrc, name) {
     items.push(versionItem(src, lookup(VERSION_LABELS, alternate.method) ?? 'Alternate', text(alternate.format).toUpperCase(), alternate.confidence, name));
   }
 
+  // The site's own tab icon address, for older guides that don't list it among the alternates. Newer ones
+  // do, often as Swatchfin's own copy (at another address), so it isn't listed twice.
+  const listed = [guide.logo?.primary, ...list(guide.logo?.alternates)].some((asset) => asset?.method === 'favicon');
   const favicon = safeUrl(guide.logo?.favicon);
-  if (favicon && !seen.has(favicon)) items.push(versionItem(favicon, 'Favicon', '', null, name));
+  if (favicon && !listed && !seen.has(favicon)) items.push(versionItem(favicon, 'Favicon', '', null, name));
 
   if (items.length === 0) return null;
   return subsection('Other versions', [el('ul', { className: 'sf-logo-versions' }, items)]);
