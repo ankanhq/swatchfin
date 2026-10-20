@@ -64,8 +64,12 @@ async def open_guide(
 
 
 # For pictures of one part of a page: the header and the guide's toolbar scroll away instead of
-# staying on top of it (only in this browser, not on the site).
-NOT_STICKY = ".sf-header, .sf-guidebar { position: static !important; }"
+# staying on top of it (only in this browser, not on the site). The site's Content Security
+# Policy blocks an added <style> tag, but not a script setting an element's style.
+NOT_STICKY = (
+    "document.querySelectorAll('.sf-header, .sf-guidebar')"
+    ".forEach((el) => el.style.setProperty('position', 'static', 'important'))"
+)
 
 
 # Room left around a part of the page, in pixels, so its picture doesn't end at the text.
@@ -74,7 +78,7 @@ MARGIN = 24
 
 async def section(page: Page, selector: str, path: Path) -> None:
     """A picture of one part of the page, with a little of the page around it."""
-    await page.add_style_tag(content=NOT_STICKY)
+    await page.evaluate(NOT_STICKY)
     box = await page.locator(selector).evaluate(
         "(el) => { const r = el.getBoundingClientRect();"
         " return { x: r.left + scrollX, y: r.top + scrollY, width: r.width, height: r.height }; }"
